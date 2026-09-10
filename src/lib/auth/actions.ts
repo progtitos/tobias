@@ -1,0 +1,141 @@
+"use server";
+
+import { eq } from "drizzle-orm";
+import { randomBytes } from "crypto";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db/client";
+import { users, verificationTokens } from "@/lib/db/schema";
+import { hashPassword, verifyPassword } from "./password";
+import { createSession, destroySession } from "./session";
+import { signupSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/validations/auth";
+import { trackEvent } from "@/services/analytics";
+
+export type AuthActionState = { error?: string; success?: string } | undefined;
+
+const TRIAL_DAYS = Number(process.env.APP_TRIAL_DAYS ?? "15");
+
+export async function signupAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const parsed = signupSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  }
+  const { name, email, password } = parsed.data;
+
+  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  if (existing.length > 0) {
+    return { error: "Já existe uma conta com esse e-mail. Faça login." };
+  }
+
+  await trackEvent(null, "signup_started", { email });
+
+  const passwordHash = await hashPassword(password);
+  const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+
+  const [user] = await db
+    .insert(users)
+    .values({ name, email, passwordHash, trialEndsAt })
+    .returning({ id: users.id });
+
+  await createSession(user.id);
+  await trackEvent(user.id, "signup_completed", { email });
+  await trackEvent(user.id, "trial_started", { days: TRIAL_DAYS });
+
+  redirect("/onboarding");
+}
+
+export async function loginAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const parsed = loginSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  }
+  const { email, password } = parsed.data;
+
+  const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const user = rows[0];
+  if (!user || !user.passwordHash || user.deletedAt) {
+    return { error: "E-mail ou senha incorretos." };
+  }
+
+  const valid = await verifyPassword(password, user.passwordHash);
+  if (!valid) {
+    return { error: "E-mail ou senha incorretos." };
+  }
+
+  await createSession(user.id);
+  await trackEvent(user.id, "login");
+
+  redirect(user.onboardingCompleted ? "/dashboard" : "/onboarding");
+}
+
+export async function logoutAction() {
+  const { getCurrentUser } = await import("./session");
+  const user = await getCurrentUser();
+  if (user) await trackEvent(user.id, "logout");
+  await destroySession();
+  redirect("/login");
+}
+
+export async function requestPasswordResetAction(
+  _prev: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const parsed = forgotPasswordSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  }
+  const { email } = parsed.data;
+
+  const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  if (rows.length === 0) {
+    // Don't reveal whether the email exists.
+    return { success: "Se esse e-mail estiver cadastrado, você verá o link de redefinição abaixo." };
+  }
+
+  const token = randomBytes(24).toString("hex");
+  const expires = new Date(Date.now() + 60 * 60 * 1000);
+  await db.insert(verificationTokens).values({ identifier: email, token, expires });
+
+  // NOTE: no email provider is wired up yet (see ARCHITECTURE.md) — rather
+  // than pretend an email was sent, the reset link is returned directly so
+  // the flow is genuinely usable end-to-end today. Swap this for a real
+  // email send (Resend/SendGrid) without changing the token logic above.
+  const resetUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/reset-password?token=${token}`;
+  return { success: `link:${resetUrl}` };
+}
+
+export async function resetPasswordAction(
+  _prev: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const parsed = resetPasswordSchema.safeParse({
+    token: formData.get("token"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  }
+  const { token, password } = parsed.data;
+
+  const rows = await db
+    .select()
+    .from(verificationTokens)
+    .where(eq(verificationTokens.token, token))
+    .limit(1);
+  const record = rows[0];
+  if (!record || record.expires.getTime() < Date.now()) {
+    return { error: "Esse link expirou. Solicite uma nova redefinição de senha." };
+  }
+
+  const passwordHash = await hashPassword(password);
+  await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.email, record.identifier));
+  await db.delete(verificationTokens).where(eq(verificationTokens.token, token));
+
+  redirect("/login");
+}

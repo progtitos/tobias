@@ -1,0 +1,155 @@
+import "server-only";
+import { and, eq, gte, lte, sql, desc } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import {
+  transactions,
+  investments,
+  assets,
+  debts,
+  bankAccounts,
+  goals,
+  categories,
+} from "@/lib/db/schema";
+
+export function monthRange(date = new Date()) {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1);
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  return { start, end };
+}
+
+/** Sum of all EXPENSE transactions for a user in a date range, in cents-free reais. */
+export async function sumExpenses(userId: string, start: Date, end: Date): Promise<number> {
+  const rows = await db
+    .select({ total: sql<string>`coalesce(sum(${transactions.amount}), 0)` })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(transactions.type, "EXPENSE"),
+        gte(transactions.date, start),
+        lte(transactions.date, end)
+      )
+    );
+  return Number(rows[0]?.total ?? 0);
+}
+
+export async function sumIncome(userId: string, start: Date, end: Date): Promise<number> {
+  const rows = await db
+    .select({ total: sql<string>`coalesce(sum(${transactions.amount}), 0)` })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(transactions.type, "INCOME"),
+        gte(transactions.date, start),
+        lte(transactions.date, end)
+      )
+    );
+  return Number(rows[0]?.total ?? 0);
+}
+
+export async function sumInvestmentContributions(userId: string, start: Date, end: Date): Promise<number> {
+  const rows = await db
+    .select({ total: sql<string>`coalesce(sum(${transactions.amount}), 0)` })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(transactions.type, "INVESTMENT_CONTRIBUTION"),
+        gte(transactions.date, start),
+        lte(transactions.date, end)
+      )
+    );
+  return Number(rows[0]?.total ?? 0);
+}
+
+/** Expense total per category for a date range — powers the dashboard breakdown and budget comparison. */
+export async function expensesByCategory(userId: string, start: Date, end: Date) {
+  const rows = await db
+    .select({
+      categoryId: transactions.categoryId,
+      categoryName: categories.name,
+      total: sql<string>`coalesce(sum(${transactions.amount}), 0)`,
+    })
+    .from(transactions)
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(transactions.type, "EXPENSE"),
+        gte(transactions.date, start),
+        lte(transactions.date, end)
+      )
+    )
+    .groupBy(transactions.categoryId, categories.name)
+    .orderBy(desc(sql`sum(${transactions.amount})`));
+
+  return rows.map((r) => ({
+    categoryId: r.categoryId,
+    categoryName: r.categoryName ?? "Sem categoria",
+    total: Number(r.total),
+  }));
+}
+
+/** Net worth = bank balances + investments (current value) + assets - debts (remaining). */
+export async function computeNetWorth(userId: string) {
+  const [accountsSum, investmentsSum, assetsSum, debtsSum] = await Promise.all([
+    db
+      .select({ total: sql<string>`coalesce(sum(${bankAccounts.balance}), 0)` })
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.userId, userId), eq(bankAccounts.isActive, true))),
+    db
+      .select({ total: sql<string>`coalesce(sum(${investments.currentAmount}), 0)` })
+      .from(investments)
+      .where(eq(investments.userId, userId)),
+    db
+      .select({ total: sql<string>`coalesce(sum(${assets.estimatedValue}), 0)` })
+      .from(assets)
+      .where(eq(assets.userId, userId)),
+    db
+      .select({ total: sql<string>`coalesce(sum(${debts.remainingAmount}), 0)` })
+      .from(debts)
+      .where(and(eq(debts.userId, userId), eq(debts.isActive, true))),
+  ]);
+
+  const liquidAssets = Number(accountsSum[0]?.total ?? 0);
+  const investedAssets = Number(investmentsSum[0]?.total ?? 0);
+  const otherAssets = Number(assetsSum[0]?.total ?? 0);
+  const totalDebt = Number(debtsSum[0]?.total ?? 0);
+
+  return {
+    liquidAssets,
+    investedAssets,
+    otherAssets,
+    totalDebt,
+    netWorth: liquidAssets + investedAssets + otherAssets - totalDebt,
+  };
+}
+
+/** Emergency reserve = liquid + highly-liquid investments (fixed income tagged as reserve-like). For the MVP we treat bank balances + investments with liquidity containing "D+0"/"D+1" as the reserve. */
+export async function computeEmergencyReserve(userId: string) {
+  const accs = await db
+    .select({ total: sql<string>`coalesce(sum(${bankAccounts.balance}), 0)` })
+    .from(bankAccounts)
+    .where(and(eq(bankAccounts.userId, userId), eq(bankAccounts.isActive, true)));
+
+  const liquidInvestments = await db
+    .select({ total: sql<string>`coalesce(sum(${investments.currentAmount}), 0)` })
+    .from(investments)
+    .where(
+      and(
+        eq(investments.userId, userId),
+        sql`(${investments.liquidity} ilike '%d+0%' or ${investments.liquidity} ilike '%d+1%' or ${investments.liquidity} ilike '%diária%')`
+      )
+    );
+
+  return Number(accs[0]?.total ?? 0) + Number(liquidInvestments[0]?.total ?? 0);
+}
+
+export async function activeGoals(userId: string) {
+  return db
+    .select()
+    .from(goals)
+    .where(and(eq(goals.userId, userId), eq(goals.status, "ACTIVE")))
+    .orderBy(goals.priority);
+}

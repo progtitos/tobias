@@ -1,26 +1,113 @@
 @import "tailwindcss";
 
+/*
+  TOBIAS brand tokens.
+  Deep green + off-white + discreet gold, per the brand brief: elegant,
+  confiável, humano — "financeiro sem parecer banco". No external font
+  files are loaded (see ARCHITECTURE.md) — the serif/sans system stacks
+  below were chosen to read as editorial and calm rather than "bank app".
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-serif: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --color-brand-950: #0a2a20;
+  --color-brand-900: #0f3d2e;
+  --color-brand-800: #14503c;
+  --color-brand-700: #1a6349;
+  --color-brand-600: #237857;
+  --color-brand-500: #2e8f68;
+  --color-brand-100: #e3ede7;
+  --color-brand-50: #f1f6f3;
+
+  --color-gold-700: #8a6a24;
+  --color-gold-600: #a5822f;
+  --color-gold-500: #bd9a44;
+  --color-gold-400: #d1b567;
+  --color-gold-100: #f3ead0;
+
+  --color-cream-50: #fbf9f4;
+  --color-cream-100: #f5f1e7;
+  --color-cream-200: #ece5d3;
+
+  --color-ink-900: #1b1d1a;
+  --color-ink-700: #3a3d38;
+  --color-ink-500: #6b6f66;
+  --color-ink-300: #a3a89c;
+
+  --color-danger-600: #b3453a;
+  --color-danger-100: #f6e3e0;
+  --color-warn-600: #b07a1f;
+  --color-warn-100: #f6ecd6;
+  --color-ok-600: #2e7a52;
+  --color-ok-100: #e3f0e8;
+
+  --background: var(--color-cream-50);
+  --foreground: var(--color-ink-900);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-950: var(--color-brand-950);
+  --color-brand-900: var(--color-brand-900);
+  --color-brand-800: var(--color-brand-800);
+  --color-brand-700: var(--color-brand-700);
+  --color-brand-600: var(--color-brand-600);
+  --color-brand-500: var(--color-brand-500);
+  --color-brand-100: var(--color-brand-100);
+  --color-brand-50: var(--color-brand-50);
+
+  --color-gold-700: var(--color-gold-700);
+  --color-gold-600: var(--color-gold-600);
+  --color-gold-500: var(--color-gold-500);
+  --color-gold-400: var(--color-gold-400);
+  --color-gold-100: var(--color-gold-100);
+
+  --color-cream-50: var(--color-cream-50);
+  --color-cream-100: var(--color-cream-100);
+  --color-cream-200: var(--color-cream-200);
+
+  --color-ink-900: var(--color-ink-900);
+  --color-ink-700: var(--color-ink-700);
+  --color-ink-500: var(--color-ink-500);
+  --color-ink-300: var(--color-ink-300);
+
+  --color-danger-600: var(--color-danger-600);
+  --color-danger-100: var(--color-danger-100);
+  --color-warn-600: var(--color-warn-600);
+  --color-warn-100: var(--color-warn-100);
+  --color-ok-600: var(--color-ok-600);
+  --color-ok-100: var(--color-ok-100);
+
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+* {
+  border-color: var(--color-cream-200);
+}
+
+::selection {
+  background: var(--color-gold-100);
+}
+
+/* Minimal, calm scrollbars — the product should feel quiet, not busy. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-brand-100);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
