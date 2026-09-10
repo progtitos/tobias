@@ -35,7 +35,7 @@ export function CompassDial({
         style={{
           width: size,
           height: size,
-          background: `conic-gradient(var(--color-gold-400) 0deg, var(--color-gold-400) ${angle}deg, rgba(251,249,244,0.09) 0deg)`,
+          background: `conic-gradient(var(--color-gold-400) 0deg ${angle}deg, rgba(251,249,244,0.09) ${angle}deg 360deg)`,
         }}
       >
         <div className="absolute rounded-full bg-brand-800" style={{ inset: ringWidth }} />
