@@ -19,8 +19,8 @@ export default function ForgotPasswordPage() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <h1 className="font-serif text-2xl text-brand-950 mb-1">Redefinir senha</h1>
-        <p className="text-sm text-ink-500 mb-6">
+        <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Redefinir senha</h1>
+        <p className="text-sm text-cream-50/55 mb-6">
           Digite seu e-mail cadastrado para receber o link de redefinição.
         </p>
 
@@ -31,26 +31,26 @@ export default function ForgotPasswordPage() {
               <Input id="email" name="email" type="email" autoComplete="email" required />
             </div>
             <FieldError>{state?.error}</FieldError>
-            <Button type="submit" className="w-full" loading={pending}>
+            <Button type="submit" className="w-full" loading={pending} variant="secondary">
               Enviar link
             </Button>
           </form>
         )}
 
         {resetUrl && (
-          <div className="rounded-xl bg-gold-100 border border-gold-400/40 p-4 text-sm text-ink-700">
+          <div className="rounded-xl bg-brand-900 border border-gold-400/30 p-4 text-sm text-cream-50/80">
             <p className="mb-2">
               Ainda não temos um servidor de e-mail configurado nesta versão, então aqui está seu link
               de redefinição (válido por 1 hora):
             </p>
-            <Link href={resetUrl} className="break-all text-brand-800 underline font-medium">
+            <Link href={resetUrl} className="break-all text-gold-400 underline font-medium">
               {resetUrl}
             </Link>
           </div>
         )}
 
-        <p className="mt-5 text-center text-sm text-ink-500">
-          <Link href="/login" className="text-brand-800 font-medium hover:underline">
+        <p className="mt-5 text-center text-sm text-cream-50/55">
+          <Link href="/login" className="text-gold-400 font-medium hover:underline">
             Voltar para o login
           </Link>
         </p>

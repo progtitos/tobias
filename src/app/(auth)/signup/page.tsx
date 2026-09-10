@@ -13,8 +13,8 @@ export default function SignupPage() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <h1 className="font-serif text-2xl text-brand-950 mb-1">Criar sua conta</h1>
-        <p className="text-sm text-ink-500 mb-6">15 dias grátis, sem cartão de crédito.</p>
+        <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Criar sua conta</h1>
+        <p className="text-sm text-cream-50/55 mb-6">15 dias grátis, sem cartão de crédito.</p>
 
         <form action={formAction} className="space-y-4">
           <div>
@@ -38,26 +38,26 @@ export default function SignupPage() {
             />
           </div>
           <FieldError>{state?.error}</FieldError>
-          <Button type="submit" className="w-full" loading={pending}>
+          <Button type="submit" className="w-full" loading={pending} variant="secondary">
             Criar conta e começar
           </Button>
         </form>
 
-        <p className="mt-5 text-center text-xs text-ink-400">
+        <p className="mt-5 text-center text-xs text-cream-50/40">
           Ao criar sua conta, você concorda com os{" "}
-          <Link href="/legal/termos" className="underline hover:text-ink-600">
+          <Link href="/legal/termos" className="underline hover:text-cream-50/70">
             Termos de Uso
           </Link>{" "}
           e a{" "}
-          <Link href="/legal/privacidade" className="underline hover:text-ink-600">
+          <Link href="/legal/privacidade" className="underline hover:text-cream-50/70">
             Política de Privacidade
           </Link>{" "}
           do Tobias.
         </p>
 
-        <p className="mt-4 text-center text-sm text-ink-500">
+        <p className="mt-4 text-center text-sm text-cream-50/55">
           Já tem conta?{" "}
-          <Link href="/login" className="text-brand-800 font-medium hover:underline">
+          <Link href="/login" className="text-gold-400 font-medium hover:underline">
             Entrar
           </Link>
         </p>

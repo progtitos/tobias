@@ -88,7 +88,7 @@ export function ChatWindow({
             <div
               className={cn(
                 "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap",
-                m.role === "USER" ? "bg-gold-500 text-brand-950 rounded-br-sm" : "bg-brand-800 border border-black/20 text-cream-50 rounded-bl-sm"
+                m.role === "USER" ? "bg-gold-500 text-brand-950 rounded-br-sm" : "bg-brand-800 text-cream-50 rounded-bl-sm"
               )}
             >
               {m.content}
@@ -111,7 +111,7 @@ export function ChatWindow({
         {pending && (
           <div className="flex items-end gap-2 justify-start">
             <TobiasAvatar />
-            <div className="rounded-2xl rounded-bl-sm bg-brand-800 border border-black/20 px-4 py-2.5">
+            <div className="rounded-2xl rounded-bl-sm bg-brand-800 px-4 py-2.5">
               <Loader2 className="h-4 w-4 animate-spin text-cream-50/60" />
             </div>
           </div>

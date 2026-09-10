@@ -13,8 +13,8 @@ export default function LoginPage() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <h1 className="font-serif text-2xl text-brand-950 mb-1">Bem-vindo de volta</h1>
-        <p className="text-sm text-ink-500 mb-6">Entre para continuar seu plano.</p>
+        <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Bem-vindo de volta</h1>
+        <p className="text-sm text-cream-50/55 mb-6">Entre para continuar seu plano.</p>
 
         <form action={formAction} className="space-y-4">
           <div>
@@ -24,21 +24,21 @@ export default function LoginPage() {
           <div>
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Senha</Label>
-              <Link href="/forgot-password" className="text-xs text-brand-800 hover:underline mb-1.5">
+              <Link href="/forgot-password" className="text-xs text-gold-400 hover:underline mb-1.5">
                 Esqueci minha senha
               </Link>
             </div>
             <Input id="password" name="password" type="password" autoComplete="current-password" required />
           </div>
           <FieldError>{state?.error}</FieldError>
-          <Button type="submit" className="w-full" loading={pending}>
+          <Button type="submit" className="w-full" loading={pending} variant="secondary">
             Entrar
           </Button>
         </form>
 
-        <p className="mt-5 text-center text-sm text-ink-500">
+        <p className="mt-5 text-center text-sm text-cream-50/55">
           Ainda não tem conta?{" "}
-          <Link href="/signup" className="text-brand-800 font-medium hover:underline">
+          <Link href="/signup" className="text-gold-400 font-medium hover:underline">
             Criar conta
           </Link>
         </p>

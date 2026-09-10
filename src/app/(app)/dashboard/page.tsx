@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { formatBRL } from "@/lib/utils/money";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 
-const DARK_CARD = "bg-brand-800 border-black/20 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]";
+const DARK_CARD = "bg-brand-800 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)]";
 const TRACK = "bg-black/25";
 
 export default async function DashboardPage() {

@@ -6,8 +6,8 @@ export default function ResetPasswordPage() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <h1 className="font-serif text-2xl text-brand-950 mb-1">Nova senha</h1>
-        <p className="text-sm text-ink-500 mb-6">Escolha uma nova senha para sua conta.</p>
+        <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Nova senha</h1>
+        <p className="text-sm text-cream-50/55 mb-6">Escolha uma nova senha para sua conta.</p>
         <Suspense fallback={null}>
           <ResetPasswordForm />
         </Suspense>

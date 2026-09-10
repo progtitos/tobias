@@ -17,9 +17,9 @@ export function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <p className="text-sm text-ink-500">
+      <p className="text-sm text-cream-50/55">
         Link inválido.{" "}
-        <Link href="/forgot-password" className="text-brand-800 underline">
+        <Link href="/forgot-password" className="text-gold-400 underline">
           Solicite um novo
         </Link>
         .
@@ -35,7 +35,7 @@ export function ResetPasswordForm() {
         <Input id="password" name="password" type="password" autoComplete="new-password" required minLength={8} />
       </div>
       <FieldError>{state?.error}</FieldError>
-      <Button type="submit" className="w-full" loading={pending}>
+      <Button type="submit" className="w-full" loading={pending} variant="secondary">
         Redefinir senha
       </Button>
     </form>
