@@ -50,7 +50,7 @@ export function CompassClient({ dimensions, overallScore }: { dimensions: Dimens
 
       <div className="flex items-baseline gap-2 my-6">
         <span className={`font-serif text-5xl ${scoreColor(overallScore)}`}>{overallScore}</span>
-        <span className="text-ink-500 text-sm">/ 100 — pontuação geral</span>
+        <span className="text-ink-500 text-sm">/ 100 (pontuação geral)</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

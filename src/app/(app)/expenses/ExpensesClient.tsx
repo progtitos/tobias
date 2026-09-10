@@ -158,7 +158,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
                 </Badge>
               )}
               {lowConfidence && (
-                <Badge tone="warn" title="Categoria sugerida com baixa confiança — confira">
+                <Badge tone="warn" title="Categoria sugerida com baixa confiança, confira">
                   <Sparkles className="h-3 w-3" /> confirmar
                 </Badge>
               )}

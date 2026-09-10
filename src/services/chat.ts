@@ -26,7 +26,7 @@ export async function getOrCreateMainConversation(userId: string) {
   await db.insert(conversationMessages).values({
     conversationId: conversation.id,
     role: "ASSISTANT",
-    content: "Oi! Sobre o que você quer conversar hoje — seus gastos, um objetivo, ou alguma dúvida?",
+    content: "Oi! Sobre o que você quer conversar hoje: seus gastos, um objetivo, ou alguma dúvida?",
   });
 
   return conversation;

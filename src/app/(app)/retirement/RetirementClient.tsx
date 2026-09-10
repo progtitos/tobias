@@ -52,7 +52,7 @@ export function RetirementClient({
         <div>
           <h1 className="font-serif text-2xl text-brand-950">Curva de aposentadoria</h1>
           <p className="text-sm text-ink-500 mt-1">
-            Simule cenários conservador, base e agressivo — os números usam seu patrimônio real de hoje ({formatBRL(currentNetWorth)}).
+            Simule cenários conservador, base e agressivo. Os números usam seu patrimônio real de hoje ({formatBRL(currentNetWorth)}).
           </p>
         </div>
         <Button size="sm" loading={pending} onClick={save}>

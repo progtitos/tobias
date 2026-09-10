@@ -27,7 +27,7 @@ export async function processReceiptUpload(userId: string, images: UploadedImage
         userId,
         imageUrls,
         status: "FAILED",
-        errorMessage: "IA não configurada — não é possível ler a nota automaticamente.",
+        errorMessage: "IA não configurada. Não é possível ler a nota automaticamente.",
         confidence: 0,
       })
       .returning();

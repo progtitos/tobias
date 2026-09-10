@@ -138,7 +138,7 @@ function GoalCard({ goal }: { goal: Goal }) {
                 {goal.targetDate ? ` · até ${new Date(goal.targetDate).toLocaleDateString("pt-BR")}` : ""}
               </p>
             ) : (
-              <p className="text-sm text-ink-500 mt-0.5">Ainda não quantificado — conte mais detalhes ao Tobias.</p>
+              <p className="text-sm text-ink-500 mt-0.5">Ainda não quantificado. Conte mais detalhes ao Tobias.</p>
             )}
           </div>
           <button

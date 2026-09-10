@@ -12,6 +12,20 @@ export type ChatMessage = {
   actions?: { label: string; action: string }[] | null;
 };
 
+function TobiasAvatar() {
+  return (
+    // Plain <img>, not next/image: this renders inside a scrolling message
+    // list where a fixed small size and zero layout-shift risk matter more
+    // than next/image's optimization pipeline.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/logo-transparent.png"
+      alt=""
+      className="h-7 w-7 shrink-0 rounded-full bg-brand-950 p-1 object-contain"
+    />
+  );
+}
+
 export function ChatWindow({
   initialMessages,
   onSend,
@@ -55,7 +69,7 @@ export function ChatWindow({
             id: `local-${Date.now()}-err`,
             role: "ASSISTANT",
             content:
-              "Não consegui pensar nessa agora — o provedor de IA não respondeu. Pode tentar de novo em instantes?",
+              "Não consegui pensar nessa agora. O provedor de IA não respondeu. Pode tentar de novo em instantes?",
           },
         ]);
       }
@@ -66,7 +80,11 @@ export function ChatWindow({
     <div className={cn("flex flex-col flex-1 min-h-0", className)}>
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-2xl w-full mx-auto">
         {messages.map((m) => (
-          <div key={m.id} className={cn("flex", m.role === "USER" ? "justify-end" : "justify-start")}>
+          <div
+            key={m.id}
+            className={cn("flex items-end gap-2", m.role === "USER" ? "justify-end" : "justify-start")}
+          >
+            {m.role === "ASSISTANT" && <TobiasAvatar />}
             <div
               className={cn(
                 "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap",
@@ -91,7 +109,8 @@ export function ChatWindow({
           </div>
         ))}
         {pending && (
-          <div className="flex justify-start">
+          <div className="flex items-end gap-2 justify-start">
+            <TobiasAvatar />
             <div className="rounded-2xl rounded-bl-sm bg-white border border-ink-300/25 px-4 py-2.5">
               <Loader2 className="h-4 w-4 animate-spin text-ink-500" />
             </div>

@@ -36,7 +36,7 @@ export function ReceiptUploadClient() {
     <div className="flex-1 px-5 py-6 max-w-lg mx-auto w-full">
       <h1 className="font-serif text-2xl text-brand-950 mb-1">Fotografar nota</h1>
       <p className="text-sm text-ink-500 mb-6">
-        Tire uma foto da nota fiscal ou comprovante. Para notas grandes, envie até 5 fotos — o Tobias
+        Tire uma foto da nota fiscal ou comprovante. Para notas grandes, envie até 5 fotos: o Tobias
         consolida tudo como uma única compra.
       </p>
 

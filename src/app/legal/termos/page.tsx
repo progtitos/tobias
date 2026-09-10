@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-export const metadata = { title: "Termos de Uso — Tobias" };
+export const metadata = { title: "Termos de Uso: Tobias" };
 
 export default function TermsPage() {
   return (
@@ -13,7 +13,7 @@ export default function TermsPage() {
 
         <h1 className="font-serif text-2xl text-brand-950 mb-1">Termos de Uso</h1>
         <p className="text-xs text-ink-400 mb-6">
-          Versão de rascunho do MVP — ainda não revisada por um advogado. Deve ser substituída por uma versão
+          Versão de rascunho do MVP, ainda não revisada por um advogado. Deve ser substituída por uma versão
           revisada antes do lançamento público.
         </p>
 
@@ -22,7 +22,7 @@ export default function TermsPage() {
             <h2 className="font-medium text-ink-900 mb-1.5">O que é o Tobias</h2>
             <p>
               O Tobias é um assistente de planejamento financeiro pessoal apoiado por inteligência artificial. Ele
-              organiza os dados que você registra, calcula projeções e sugere ações — mas as decisões financeiras
+              organiza os dados que você registra, calcula projeções e sugere ações, mas as decisões financeiras
               finais são sempre suas.
             </p>
           </section>
@@ -32,7 +32,7 @@ export default function TermsPage() {
             <p>
               As projeções, diagnósticos e recomendações do Tobias (incluindo a Bússola Financeira, a Curva de
               Aposentadoria e o assistente &quot;Posso comprar?&quot;) são estimativas baseadas em fórmulas e nos
-              dados que você forneceu — não são aconselhamento financeiro, contábil, jurídico ou de investimento
+              dados que você forneceu. Não são aconselhamento financeiro, contábil, jurídico ou de investimento
               profissional. Decisões importantes devem ser validadas com um profissional qualificado.
             </p>
           </section>

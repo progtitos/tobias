@@ -94,7 +94,7 @@ export async function computeCompass(userId: string): Promise<CompassDimensionRe
     nextAction:
       reserveMonths < reserveTargetMonths
         ? `Guardar mais ${formatBRL(Math.max(0, essentialExpenses * reserveTargetMonths - reserve))} completaria sua reserva ideal.`
-        : "Sua reserva está no nível recomendado — considere direcionar o excedente para investimentos.",
+        : "Sua reserva está no nível recomendado. Considere direcionar o excedente para investimentos.",
   });
 
   // 2. Controle de gastos
@@ -113,7 +113,7 @@ export async function computeCompass(userId: string): Promise<CompassDimensionRe
           ? `Você está ${(((spendingRatio - 1) * 100)).toFixed(0)}% acima do orçamento planejado este mês.`
           : `Você está dentro do orçamento planejado este mês (${(spendingRatio * 100).toFixed(0)}% utilizado).`
         : "Ainda não há um orçamento definido para comparar.",
-    nextAction: spendingRatio > 1 ? "Veja quais categorias estouraram o orçamento e ajuste o que for possível." : "Continue acompanhando — está funcionando.",
+    nextAction: spendingRatio > 1 ? "Veja quais categorias estouraram o orçamento e ajuste o que for possível." : "Continue acompanhando, está funcionando.",
   });
 
   // 3. Dívidas
@@ -177,10 +177,10 @@ export async function computeCompass(userId: string): Promise<CompassDimensionRe
     retirementScore = clamp((sim.base.finalValueAtTargetAge / sim.requiredNetWorth) * 100);
     retirementDiagnosis = sim.base.onTrack
       ? `No cenário base, você atinge o patrimônio necessário para se aposentar aos ${retirementPlan.targetRetirementAge} anos.`
-      : `No ritmo atual, sua projeção fica em ${formatBRL(sim.base.finalValueAtTargetAge)} aos ${retirementPlan.targetRetirementAge} anos — o necessário é ${formatBRL(sim.requiredNetWorth)}.`;
+      : `No ritmo atual, sua projeção fica em ${formatBRL(sim.base.finalValueAtTargetAge)} aos ${retirementPlan.targetRetirementAge} anos. O necessário é ${formatBRL(sim.requiredNetWorth)}.`;
     retirementAction = sim.base.onTrack
       ? "Continue com esse ritmo de aportes."
-      : "Aumentar o aporte mensal ou revisar a idade-alvo pode fechar essa diferença — quer simular?";
+      : "Aumentar o aporte mensal ou revisar a idade-alvo pode fechar essa diferença. Quer simular?";
   }
   results.push({
     dimension: "RETIREMENT",

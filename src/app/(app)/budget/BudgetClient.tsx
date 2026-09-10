@@ -39,7 +39,7 @@ export function BudgetClient({
         <div>
           <h1 className="font-serif text-2xl text-brand-950">Seu orçamento</h1>
           <p className="text-sm text-ink-500 mt-1">
-            Um guia dinâmico com base na sua renda e seus objetivos — ajuste qualquer limite quando quiser.
+            Um guia dinâmico com base na sua renda e seus objetivos. Ajuste qualquer limite quando quiser.
           </p>
         </div>
         <Button

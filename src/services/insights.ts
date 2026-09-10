@@ -101,7 +101,7 @@ async function checkInstallmentsEnding(userId: string) {
       userId,
       "INSTALLMENT_ENDING",
       "INFO",
-      `A parcela ${t.installmentNumber}/${t.installmentTotal} de "${t.description}" é a penúltima — no mês que vem sua última parcela libera ${formatBRL(t.amount)}/mês do orçamento.`,
+      `A parcela ${t.installmentNumber}/${t.installmentTotal} de "${t.description}" é a penúltima. No mês que vem sua última parcela libera ${formatBRL(t.amount)}/mês do orçamento.`,
       `installment:${t.installmentGroupId}`,
       35
     );
@@ -159,7 +159,7 @@ async function checkReserveNearTarget(userId: string) {
     userId,
     "RESERVE_NEAR_TARGET",
     "INFO",
-    `Sua reserva de emergência está quase completa — faltam ${formatBRL(Math.max(0, targetAmount - reserve))} para atingir ${targetMonths} meses de gastos.`,
+    `Sua reserva de emergência está quase completa. Faltam ${formatBRL(Math.max(0, targetAmount - reserve))} para atingir ${targetMonths} meses de gastos.`,
     `reserve:${monthKey()}`,
     25
   );

@@ -4,6 +4,30 @@ import { withGemini, TEXT_MODEL, VISION_MODEL, AIUnavailableError } from "./clie
 
 export type ChatTurn = { role: "user" | "model"; text: string };
 
+/**
+ * The persona prompt instructs Gemini to never use em-dashes, but a prompt
+ * rule is a preference, not a guarantee — this is the actual guardrail.
+ * " — " (spaced, the common case) becomes ", " to keep the sentence
+ * grammatical; a bare "—" (no surrounding spaces, e.g. a number range like
+ * "10—15") becomes "-" instead, since a comma there would be wrong.
+ */
+function stripEmDash(text: string): string {
+  return text.replace(/\s+—\s+/g, ", ").replace(/—/g, "-");
+}
+
+/** Same guardrail as stripEmDash, applied to every string field inside a
+ * structured (JSON) model response — e.g. a chat reply's "reply" field. */
+function deepStripEmDash<T>(value: T): T {
+  if (typeof value === "string") return stripEmDash(value) as T;
+  if (Array.isArray(value)) return value.map(deepStripEmDash) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, deepStripEmDash(v)])
+    ) as T;
+  }
+  return value;
+}
+
 type TextParams = {
   system: string;
   history?: ChatTurn[];
@@ -40,7 +64,7 @@ export async function generateText(params: TextParams): Promise<string> {
   });
 
   if (!text) throw new AIUnavailableError("O Tobias não retornou uma resposta.");
-  return text.trim();
+  return stripEmDash(text.trim());
 }
 
 type JSONParams<T> = {
@@ -88,7 +112,7 @@ export async function generateJSON<T>(params: JSONParams<T>): Promise<T> {
     }
     try {
       const parsed = JSON.parse(raw);
-      return zodSchema.parse(parsed);
+      return zodSchema.parse(deepStripEmDash(parsed));
     } catch (err) {
       if (i === 1) {
         console.error("[ai] structured output failed validation", err, raw);
@@ -134,7 +158,7 @@ export async function generateVisionJSON<T>(params: VisionJSONParams<T>): Promis
     try {
       if (!raw) throw new Error("empty response");
       const parsed = JSON.parse(raw);
-      return zodSchema.parse(parsed);
+      return zodSchema.parse(deepStripEmDash(parsed));
     } catch (err) {
       if (i === 1) {
         console.error("[ai] vision structured output failed", err, raw);

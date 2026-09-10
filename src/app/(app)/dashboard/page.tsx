@@ -120,7 +120,7 @@ export default async function DashboardPage() {
                     <div key={g.id}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-ink-700">{g.title}</span>
-                        <span className="font-medium text-ink-900">{g.targetAmount ? `${pct}%` : "—"}</span>
+                        <span className="font-medium text-ink-900">{g.targetAmount ? `${pct}%` : "-"}</span>
                       </div>
                       <ProgressBar value={pct} />
                     </div>

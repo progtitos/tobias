@@ -3,13 +3,16 @@
 /*
   TOBIAS brand tokens.
   Deep green + off-white + discreet gold, per the brand brief: elegant,
-  confiável, humano — "financeiro sem parecer banco". No external font
-  files are loaded (see ARCHITECTURE.md) — the serif/sans system stacks
-  below were chosen to read as editorial and calm rather than "bank app".
+  confiável, humano — "financeiro sem parecer banco". Fraunces (serif) and
+  Plus Jakarta Sans (sans) are loaded via a <link> tag in the root layout
+  (see layout.tsx) rather than next/font, so the fonts load at runtime in
+  the browser without requiring outbound network access at build time.
+  Both fall back to the previous system stacks if the stylesheet fails to
+  load, so the app never blocks on it.
 */
 :root {
-  --font-serif: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: "Fraunces", ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   --color-brand-950: #0a2a20;
   --color-brand-900: #0f3d2e;

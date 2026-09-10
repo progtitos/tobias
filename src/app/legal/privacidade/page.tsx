@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-export const metadata = { title: "Política de Privacidade — Tobias" };
+export const metadata = { title: "Política de Privacidade: Tobias" };
 
 export default function PrivacyPage() {
   return (
@@ -13,7 +13,7 @@ export default function PrivacyPage() {
 
         <h1 className="font-serif text-2xl text-brand-950 mb-1">Política de Privacidade</h1>
         <p className="text-xs text-ink-400 mb-6">
-          Versão de rascunho do MVP — ainda não revisada por um advogado. Deve ser substituída por uma versão
+          Versão de rascunho do MVP, ainda não revisada por um advogado. Deve ser substituída por uma versão
           revisada antes do lançamento público.
         </p>
 
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
               Coletamos os dados que você nos conta diretamente (nome, e-mail, e as informações financeiras que você
               compartilha no onboarding e no chat com o Tobias) e os dados que você registra no app: gastos,
               receitas, objetivos, notas fiscais fotografadas e conversas. Não coletamos dados bancários reais nesta
-              versão — tudo é inserido manualmente ou por foto de recibo.
+              versão. Tudo é inserido manualmente ou por foto de recibo.
             </p>
           </section>
 
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
             <h2 className="font-medium text-ink-900 mb-1.5">Como usamos seus dados</h2>
             <p>
               Seus dados financeiros são usados exclusivamente para gerar o seu próprio plano, dashboard, orçamento e
-              recomendações — nunca são vendidos ou compartilhados com terceiros para fins de publicidade. Parte do
+              recomendações. Nunca são vendidos ou compartilhados com terceiros para fins de publicidade. Parte do
               processamento (leitura de notas fiscais, geração de respostas do chat, análises de compra) é feita por
               um modelo de inteligência artificial (Google Gemini), para o qual enviamos o contexto financeiro
               necessário para responder à sua pergunta.
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
             <h2 className="font-medium text-ink-900 mb-1.5">Onde seus dados ficam armazenados</h2>
             <p>
               Seus dados ficam em um banco de dados Postgres hospedado (Supabase), protegido por senha com hash e
-              isolado por conta — cada consulta ao banco é sempre filtrada pelo seu usuário.
+              isolado por conta: cada consulta ao banco é sempre filtrada pelo seu usuário.
             </p>
           </section>
 
@@ -52,7 +52,7 @@ export default function PrivacyPage() {
             <p>
               Você pode excluir permanentemente sua conta e todos os seus dados a qualquer momento, em
               Configurações → Zona de risco. A exclusão remove seu perfil, transações, objetivos, conversas e
-              qualquer outro dado financeiro associado à sua conta — não fica nenhuma cópia guardada além dos
+              qualquer outro dado financeiro associado à sua conta. Não fica nenhuma cópia guardada além dos
               registros mínimos exigidos por lei (quando aplicável).
             </p>
           </section>

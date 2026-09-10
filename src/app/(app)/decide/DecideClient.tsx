@@ -74,7 +74,7 @@ function ResultCard({
       <CardContent className="py-5 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <p className="text-sm text-ink-500">
-            {description} — {amount !== undefined ? formatBRL(amount) : ""}
+            {description}: {amount !== undefined ? formatBRL(amount) : ""}
           </p>
           <Badge tone={meta.tone}>
             <Icon className="h-3.5 w-3.5" /> {meta.label}
