@@ -51,6 +51,21 @@ export function RetirementChart({
 }) {
   const data = buildDataset(simulation, targetAge);
 
+  // Normally 0 already sits at the bottom of the axis (it's the domain's
+  // minimum whenever there's any positive net worth in the series). But for
+  // a scenario that's negative the whole way through, 0 becomes the domain's
+  // MAXIMUM instead — which recharts places at the top by default, leaving
+  // "0k" stranded above a big block of negative numbers. Flipping the axis
+  // (reversed) only in that specific case keeps 0 anchored to the bottom
+  // like every other chart, while a normal (partly-positive) scenario keeps
+  // its usual orientation.
+  const allValues = data.flatMap((d) => [d.conservador, d.base, d.agressivo]).filter((v): v is number => v !== null);
+  const rawMax = allValues.length > 0 ? Math.max(...allValues) : 0;
+  const rawMin = allValues.length > 0 ? Math.min(...allValues) : 0;
+  const yDomainMax = Math.max(0, rawMax);
+  const yDomainMin = Math.min(0, rawMin);
+  const yReversed = yDomainMax === 0;
+
   const palette = dark
     ? {
         grid: "rgba(247,244,236,0.1)",
@@ -102,7 +117,8 @@ export function RetirementChart({
           width={46}
           axisLine={false}
           tickLine={false}
-          domain={([dataMin, dataMax]: readonly [number, number]) => [Math.min(0, dataMin), Math.max(0, dataMax)]}
+          domain={[yDomainMin, yDomainMax]}
+          reversed={yReversed}
         />
         <Tooltip
           formatter={(value, name) => [typeof value === "number" ? formatBRL(value) : value, name]}
