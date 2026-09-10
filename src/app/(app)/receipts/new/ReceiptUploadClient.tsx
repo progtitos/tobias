@@ -6,16 +6,26 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { FieldError } from "@/components/ui/Input";
 import { uploadReceiptAction, type ReceiptUploadState } from "../actions";
+import { compressImageFile } from "@/lib/utils/image";
 
 export function ReceiptUploadClient() {
   const [state, formAction, pending] = useActionState<ReceiptUploadState, FormData>(uploadReceiptAction, undefined);
   const [previews, setPreviews] = useState<{ url: string; file: File }[]>([]);
+  const [compressing, setCompressing] = useState(false);
 
-  function handleFiles(fileList: FileList | null) {
+  async function handleFiles(fileList: FileList | null) {
     if (!fileList) return;
     const files = Array.from(fileList).slice(0, 5 - previews.length);
-    const next = files.map((file) => ({ url: URL.createObjectURL(file), file }));
-    setPreviews((prev) => [...prev, ...next].slice(0, 5));
+    setCompressing(true);
+    try {
+      // Compressed in parallel, then added together — avoids a half-updated
+      // grid while the user is mid-selection.
+      const compressed = await Promise.all(files.map((file) => compressImageFile(file)));
+      const next = compressed.map((file) => ({ url: URL.createObjectURL(file), file }));
+      setPreviews((prev) => [...prev, ...next].slice(0, 5));
+    } finally {
+      setCompressing(false);
+    }
   }
 
   function removePreview(index: number) {
@@ -78,10 +88,14 @@ export function ReceiptUploadClient() {
         <FieldError>{state?.error}</FieldError>
 
         {previews.length > 0 && (
-          <Button type="submit" className="w-full mt-5" loading={pending} disabled={pending}>
+          <Button type="submit" className="w-full mt-5" loading={pending} disabled={pending || compressing}>
             {pending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" /> Lendo nota com IA...
+              </>
+            ) : compressing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Preparando foto...
               </>
             ) : (
               "Continuar"
