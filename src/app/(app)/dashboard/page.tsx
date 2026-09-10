@@ -138,7 +138,7 @@ export default async function DashboardPage() {
                   <>
                     <RetirementChart
                       simulation={data.retirementPreview}
-                      targetAge={data.retirementPreview.base.series.at(-1)?.age ?? 65}
+                      targetAge={data.retirementTargetAge ?? data.retirementPreview.base.series.at(-1)?.age ?? 65}
                       height={190}
                       dark
                     />

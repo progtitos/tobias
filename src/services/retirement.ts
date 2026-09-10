@@ -55,7 +55,8 @@ function projectScenario(
   currentNetWorth: number,
   monthlyContribution: number,
   annualReal: number,
-  requiredNetWorth: number
+  requiredNetWorth: number,
+  desiredMonthlyIncome: number
 ): ScenarioResult {
   const monthlyRate = Math.pow(1 + annualReal, 1 / 12) - 1;
   const monthsToTarget = Math.max(0, Math.round((targetAge - currentAge) * 12));
@@ -64,24 +65,30 @@ function projectScenario(
   let value = currentNetWorth;
   let yearsToTarget: number | null = null;
 
+  // Two phases: before the target age, contributions accumulate; from the
+  // target age on, the person has (notionally) stopped working and is
+  // drawing the desired income out of the balance instead. This is what
+  // makes the curve rise then fall around retirement, rather than climbing
+  // (or sinking) forever — a nest egg that's short of `requiredNetWorth` at
+  // retirement visibly runs down over time, which is the whole point of
+  // showing "Requer ajuste".
   const maxMonths = MAX_PROJECTION_YEARS * 12;
   for (let m = 1; m <= maxMonths; m++) {
-    value = value * (1 + monthlyRate) + monthlyContribution;
+    value = m <= monthsToTarget ? value * (1 + monthlyRate) + monthlyContribution : value * (1 + monthlyRate) - desiredMonthlyIncome;
     if (m % 12 === 0) {
       series.push({ age: currentAge + m / 12, value });
     }
-    if (yearsToTarget === null && value >= requiredNetWorth) {
+    if (yearsToTarget === null && m <= monthsToTarget && value >= requiredNetWorth) {
       yearsToTarget = Math.round((m / 12) * 10) / 10;
     }
-    if (m === monthsToTarget) {
+    if (m === monthsToTarget && monthsToTarget % 12 !== 0) {
       // capture the exact target-age value even if it doesn't land on a whole year
-      if (monthsToTarget % 12 !== 0) series.push({ age: targetAge, value });
+      series.push({ age: targetAge, value });
     }
-    if (m > monthsToTarget && yearsToTarget !== null) break; // enough data to answer both questions
   }
 
   const finalValueAtTargetAge =
-    series.find((p) => Math.abs(p.age - targetAge) < 0.01)?.value ?? series[series.length - 1].value;
+    series.find((p) => Math.abs(p.age - targetAge) < 0.01)?.value ?? currentNetWorth;
 
   return {
     label,
@@ -110,7 +117,8 @@ export function simulateRetirementCurve(inputs: RetirementInputs): RetirementSim
       inputs.currentNetWorth,
       inputs.monthlyContribution,
       annualReal,
-      requiredNetWorth
+      requiredNetWorth,
+      inputs.desiredMonthlyIncome
     )
   );
 
@@ -152,7 +160,8 @@ export function estimateTargetAge(
     inputs.currentNetWorth,
     inputs.monthlyContribution,
     annualReal,
-    requiredNetWorth
+    requiredNetWorth,
+    inputs.desiredMonthlyIncome
   );
 
   if (projection.yearsToTarget !== null) {

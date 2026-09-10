@@ -68,6 +68,7 @@ export async function getDashboardData(userId: string) {
     goals,
     alerts: activeAlerts,
     retirementPreview,
+    retirementTargetAge: retirementPlan?.targetRetirementAge ?? null,
     tobiasMessage,
     tobiasFocusLabel,
   };

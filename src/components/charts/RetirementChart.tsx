@@ -25,7 +25,9 @@ function buildDataset(sim: RetirementSimulation, targetAge: number) {
   const agg = byAge(sim.aggressive.series);
 
   const minAge = Math.round(sim.conservative.series[0]?.age ?? 0);
-  const ages = Array.from({ length: targetAge - minAge + 1 }, (_, i) => minAge + i);
+  const lastAge = (series: RetirementSimulation["base"]["series"]) => Math.round(series.at(-1)?.age ?? minAge);
+  const maxAge = Math.max(targetAge, lastAge(sim.conservative.series), lastAge(sim.base.series), lastAge(sim.aggressive.series));
+  const ages = Array.from({ length: maxAge - minAge + 1 }, (_, i) => minAge + i);
 
   return ages.map((age) => ({
     age,
@@ -119,9 +121,16 @@ export function RetirementChart({
           stroke={palette.reference}
           label={{ value: "Necessário", fontSize: 11, fill: palette.referenceLabel, position: "insideTopLeft" }}
         />
+        <ReferenceLine
+          x={targetAge}
+          stroke={palette.tick}
+          strokeOpacity={0.5}
+          label={{ value: "Aposentadoria", fontSize: 11, fill: palette.tick, position: "insideTop" }}
+        />
         <Area
           type="monotone"
           dataKey="base"
+          baseValue="dataMin"
           stroke="none"
           fill={`url(#${gradientId})`}
           isAnimationActive={false}
