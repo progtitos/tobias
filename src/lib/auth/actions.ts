@@ -12,7 +12,15 @@ import { trackEvent } from "@/services/analytics";
 
 export type AuthActionState = { error?: string; success?: string } | undefined;
 
-const TRIAL_DAYS = Number(process.env.APP_TRIAL_DAYS ?? "15");
+// Guards against a malformed env var (e.g. accidentally including quote
+// characters in the value) silently producing NaN, which would otherwise
+// flow into `new Date(NaN)` below and crash signup with "Invalid time value".
+function readTrialDays(): number {
+  const parsed = Number(process.env.APP_TRIAL_DAYS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+}
+
+const TRIAL_DAYS = readTrialDays();
 
 export async function signupAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const parsed = signupSchema.safeParse({
