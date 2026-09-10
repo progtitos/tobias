@@ -26,17 +26,17 @@ export function UserMenu({ user, compact }: { user: SessionUser; compact?: boole
       <button
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex items-center gap-2 rounded-xl hover:bg-cream-100 transition-colors text-left",
+          "flex items-center gap-2 rounded-xl hover:bg-white/5 transition-colors text-left",
           compact ? "p-1" : "w-full p-2"
         )}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-900 text-cream-50 text-sm font-medium">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-400 text-brand-950 text-sm font-semibold">
           {initial}
         </span>
         {!compact && (
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-ink-900 truncate">{user.name}</span>
-            <span className="block text-xs text-ink-500 truncate">{user.email}</span>
+            <span className="block text-sm font-medium text-cream-50 truncate">{user.name}</span>
+            <span className="block text-xs text-cream-50/55 truncate">{user.email}</span>
           </span>
         )}
       </button>

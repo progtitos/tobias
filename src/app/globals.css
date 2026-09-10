@@ -4,15 +4,17 @@
   TOBIAS brand tokens.
   Deep green + off-white + discreet gold, per the brand brief: elegant,
   confiável, humano — "financeiro sem parecer banco". Fraunces (serif) and
-  Plus Jakarta Sans (sans) are loaded via a <link> tag in the root layout
-  (see layout.tsx) rather than next/font, so the fonts load at runtime in
-  the browser without requiring outbound network access at build time.
-  Both fall back to the previous system stacks if the stylesheet fails to
-  load, so the app never blocks on it.
+  Plus Jakarta Sans (sans) are loaded via next/font/google in layout.tsx,
+  which self-hosts the font files from our own domain at build time — the
+  browser never fetches fonts.googleapis.com/fonts.gstatic.com directly, so
+  privacy browsers and ad-blockers that block those hosts can't silently
+  fall back to a system font. --font-fraunces / --font-plus-jakarta below
+  are the CSS variables next/font generates; the system stacks after them
+  are the fallback while the font loads (display: swap), not the primary.
 */
 :root {
-  --font-serif: "Fraunces", ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   --color-brand-950: #0a2a20;
   --color-brand-900: #0f3d2e;
@@ -39,10 +41,12 @@
   --color-ink-300: #a3a89c;
 
   --color-danger-600: #b3453a;
+  --color-danger-300: #e08a72;
   --color-danger-100: #f6e3e0;
   --color-warn-600: #b07a1f;
   --color-warn-100: #f6ecd6;
   --color-ok-600: #2e7a52;
+  --color-ok-400: #7fc79a;
   --color-ok-100: #e3f0e8;
 
   --background: var(--color-cream-50);
@@ -78,10 +82,12 @@
   --color-ink-300: var(--color-ink-300);
 
   --color-danger-600: var(--color-danger-600);
+  --color-danger-300: var(--color-danger-300);
   --color-danger-100: var(--color-danger-100);
   --color-warn-600: var(--color-warn-600);
   --color-warn-100: var(--color-warn-100);
   --color-ok-600: var(--color-ok-600);
+  --color-ok-400: var(--color-ok-400);
   --color-ok-100: var(--color-ok-100);
 
   --font-sans: var(--font-sans);
