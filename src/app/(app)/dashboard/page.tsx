@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { formatBRL } from "@/lib/utils/money";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 
-const DARK_CARD = "bg-brand-800 border-white/10 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]";
+const DARK_CARD = "bg-brand-800 border-black/20 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]";
 const TRACK = "bg-black/25";
 
 export default async function DashboardPage() {
@@ -176,7 +176,7 @@ export default async function DashboardPage() {
 
 function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <Card className={accent ? "bg-brand-800 border-gold-500/50 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]" : DARK_CARD}>
+    <Card className={accent ? "bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]" : DARK_CARD}>
       <CardContent className="py-5">
         <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-1.5">{label}</p>
         <p className="font-sans font-extrabold text-[21px] tracking-tight tabular-nums text-cream-50">{value}</p>
@@ -190,7 +190,7 @@ function MiniStat({ label, value, tone }: { label: string; value: number; tone: 
   return (
     <div>
       <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-0.5">{label}</p>
-      <p className={`font-medium tabular-nums ${toneClass}`}>{formatBRL(value)}</p>
+      <p className={`font-normal tabular-nums ${toneClass}`}>{formatBRL(value)}</p>
     </div>
   );
 }
