@@ -36,7 +36,7 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
   return (
     <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-cream-50">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-60 md:flex-col bg-brand-950 border-r border-brand-800 px-4 py-6">
+      <aside className="hidden md:flex md:w-60 md:flex-col bg-brand-950 px-4 py-6">
         <Link href="/dashboard" className="flex items-center gap-2.5 px-2 mb-8">
           <Image src="/logo-transparent.png" alt="Tobias" width={28} height={28} />
           <span className="font-serif text-lg text-cream-50">Tobias</span>
@@ -78,7 +78,7 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
       <main className="flex-1 flex flex-col pb-16 md:pb-0 min-w-0">{children}</main>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-10 flex items-stretch justify-between bg-brand-950 border-t border-brand-800">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-10 flex items-stretch justify-between bg-brand-950 shadow-[0_-8px_20px_-10px_rgba(0,0,0,0.5)]">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href);
           return (

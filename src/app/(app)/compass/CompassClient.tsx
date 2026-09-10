@@ -50,7 +50,7 @@ export function CompassClient({ dimensions, overallScore }: { dimensions: Dimens
       </div>
 
       <div className="flex items-baseline gap-2 my-6">
-        <span className={`font-sans font-extrabold text-5xl tabular-nums ${scoreColor(overallScore)}`}>{overallScore}</span>
+        <span className={`font-sans font-semibold text-5xl tabular-nums ${scoreColor(overallScore)}`}>{overallScore}</span>
         <span className="text-cream-50/55 text-sm">/ 100 (pontuação geral)</span>
       </div>
 
@@ -63,7 +63,7 @@ export function CompassClient({ dimensions, overallScore }: { dimensions: Dimens
                 <Badge tone={STATUS_TONE[d.status]}>{d.status}</Badge>
               </div>
               <div className="flex items-center gap-3 mb-3">
-                <span className={`font-sans font-bold text-2xl tabular-nums ${scoreColor(d.score)}`}>{d.score}</span>
+                <span className={`font-sans font-medium text-2xl tabular-nums ${scoreColor(d.score)}`}>{d.score}</span>
                 <ProgressBar value={d.score} className="flex-1" />
               </div>
               <p className="text-sm text-cream-50/70">{d.diagnosis}</p>

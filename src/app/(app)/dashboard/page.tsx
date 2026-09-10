@@ -179,7 +179,7 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
     <Card className={accent ? "bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]" : DARK_CARD}>
       <CardContent className="py-5">
         <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-1.5">{label}</p>
-        <p className="font-sans font-extrabold text-[21px] tracking-tight tabular-nums text-cream-50">{value}</p>
+        <p className="font-sans font-medium text-[22px] tracking-tight tabular-nums text-cream-50">{value}</p>
       </CardContent>
     </Card>
   );
