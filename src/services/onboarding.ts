@@ -20,6 +20,7 @@ import { seedGlobalCategoriesIfNeeded } from "@/lib/db/seedCategories";
 import { trackEvent } from "./analytics";
 import type { ChatTurn as GeminiChatTurn } from "@/lib/ai/generate";
 import { computeNetWorth } from "./aggregations";
+import { estimateTargetAge } from "./retirement";
 
 const FIRST_MESSAGE = `Olá, eu sou o Tobias.
 
@@ -83,6 +84,8 @@ async function applyExtractedData(userId: string, extracted: NonNullable<Awaited
     }
   }
 
+  const [existingFp] = await db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).limit(1);
+
   const fpUpdates: Partial<typeof financialProfiles.$inferInsert> = {};
   if (extracted.currentAge !== undefined) fpUpdates.currentAge = extracted.currentAge;
   if (extracted.monthlyIncome !== undefined) fpUpdates.statedMonthlyIncome = extracted.monthlyIncome;
@@ -90,13 +93,22 @@ async function applyExtractedData(userId: string, extracted: NonNullable<Awaited
   if (extracted.netWorth !== undefined) fpUpdates.statedNetWorth = extracted.netWorth;
   if (extracted.totalDebt !== undefined) fpUpdates.statedTotalDebt = extracted.totalDebt;
   if (extracted.savingsCapacityPerMonth !== undefined) fpUpdates.savingsCapacityPerMonth = extracted.savingsCapacityPerMonth;
-  if (extracted.desiredRetirementAge !== undefined) fpUpdates.desiredRetirementAge = extracted.desiredRetirementAge;
+  if (extracted.desiredRetirementAge !== undefined) {
+    // Guard against an implausible age (e.g. the model free-associating a
+    // round FIRE-movement number like 40 for a goal like "independência
+    // financeira", which has no inherent target age). If it isn't clearly
+    // after the person's current age, drop it — finalizeOnboarding computes
+    // a real one from the numbers instead.
+    const effectiveCurrentAge = extracted.currentAge ?? existingFp?.currentAge ?? undefined;
+    if (effectiveCurrentAge === undefined || extracted.desiredRetirementAge > effectiveCurrentAge) {
+      fpUpdates.desiredRetirementAge = extracted.desiredRetirementAge;
+    }
+  }
   if (extracted.desiredRetirementIncome !== undefined) fpUpdates.desiredRetirementIncome = extracted.desiredRetirementIncome;
   if (extracted.focus) fpUpdates.primaryFocus = extracted.focus;
 
   if (Object.keys(fpUpdates).length > 0) {
-    const [existing] = await db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).limit(1);
-    if (existing) {
+    if (existingFp) {
       await db.update(financialProfiles).set({ ...fpUpdates, updatedAt: new Date() }).where(eq(financialProfiles.userId, userId));
     } else {
       await db.insert(financialProfiles).values({ userId, ...fpUpdates });
@@ -144,13 +156,31 @@ async function finalizeOnboarding(userId: string) {
 
   const [existingPlan] = await db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).limit(1);
   if (!existingPlan && fp?.currentAge) {
+    const currentNetWorth = fp.statedNetWorth ?? netWorth.netWorth;
+    const monthlyContribution = fp.savingsCapacityPerMonth ?? 0;
+    const desiredMonthlyIncome = fp.desiredRetirementIncome ?? (fp.statedMonthlyIncome ?? 3000) * 0.7;
+
+    // A stated age only counts if it's actually after the person's current
+    // age — otherwise (including goals like "independência financeira" that
+    // never had a target age to begin with) compute one from the real
+    // numbers instead of guessing.
+    const targetRetirementAge =
+      fp.desiredRetirementAge && fp.desiredRetirementAge > fp.currentAge
+        ? fp.desiredRetirementAge
+        : estimateTargetAge({
+            currentAge: fp.currentAge,
+            currentNetWorth,
+            monthlyContribution,
+            desiredMonthlyIncome,
+          });
+
     await db.insert(retirementPlans).values({
       userId,
       currentAge: fp.currentAge,
-      targetRetirementAge: fp.desiredRetirementAge ?? fp.currentAge + 25,
-      desiredMonthlyIncome: fp.desiredRetirementIncome ?? (fp.statedMonthlyIncome ?? 3000) * 0.7,
-      currentNetWorth: fp.statedNetWorth ?? netWorth.netWorth,
-      monthlyContribution: fp.savingsCapacityPerMonth ?? 0,
+      targetRetirementAge,
+      desiredMonthlyIncome,
+      currentNetWorth,
+      monthlyContribution,
     });
   }
 

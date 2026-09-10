@@ -117,6 +117,50 @@ export function simulateRetirementCurve(inputs: RetirementInputs): RetirementSim
   return { requiredNetWorth, conservative, base, aggressive };
 }
 
+/**
+ * Estimates a target retirement/financial-independence age from the real
+ * numbers, instead of relying on a stated or AI-guessed age. This is what
+ * onboarding uses for a goal like "independência financeira" (which has no
+ * inherent target age, unlike a literal "quero me aposentar aos 60") or
+ * whenever a stated age turns out to be implausible (e.g. not after the
+ * person's current age).
+ *
+ * It's the age at which the base-scenario projection first covers the
+ * required nest egg (desiredMonthlyIncome at the 4% safe withdrawal rate),
+ * given the person's current net worth and monthly contribution. Falls back
+ * to currentAge + 25 only if the projection never gets there within
+ * MAX_PROJECTION_YEARS (e.g. zero savings capacity) — same conservative
+ * default used elsewhere, kept only as a last resort.
+ */
+export function estimateTargetAge(
+  inputs: Pick<
+    RetirementInputs,
+    "currentAge" | "currentNetWorth" | "monthlyContribution" | "desiredMonthlyIncome"
+  > &
+    Partial<Pick<RetirementInputs, "expectedReturnBase" | "expectedInflation">>
+): number {
+  const expectedReturnBase = inputs.expectedReturnBase ?? 0.06;
+  const expectedInflation = inputs.expectedInflation ?? 0.04;
+  const horizonAge = inputs.currentAge + MAX_PROJECTION_YEARS;
+  const requiredNetWorth = (inputs.desiredMonthlyIncome * 12) / SAFE_WITHDRAWAL_RATE;
+  const annualReal = realReturn(expectedReturnBase, expectedInflation);
+
+  const projection = projectScenario(
+    "base",
+    inputs.currentAge,
+    horizonAge,
+    inputs.currentNetWorth,
+    inputs.monthlyContribution,
+    annualReal,
+    requiredNetWorth
+  );
+
+  if (projection.yearsToTarget !== null) {
+    return Math.min(horizonAge, Math.ceil(inputs.currentAge + projection.yearsToTarget));
+  }
+  return inputs.currentAge + 25;
+}
+
 /** How much the monthly contribution would need to change to reach the goal at the target age, holding everything else constant (binary search). */
 export function requiredMonthlyContribution(inputs: RetirementInputs, scenario: "conservative" | "base" | "aggressive" = "base"): number {
   const rate =
