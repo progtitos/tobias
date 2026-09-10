@@ -6,7 +6,6 @@ import { getDashboardData } from "@/services/dashboard";
 import { runBehaviorChecks } from "@/services/insights";
 import type { CompassDimensionResult } from "@/services/compass";
 import { Card, CardContent } from "@/components/ui/Card";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { formatBRL } from "@/lib/utils/money";
@@ -14,7 +13,6 @@ import { RetirementChart } from "@/components/charts/RetirementChart";
 import { CompassDial } from "@/components/dashboard/CompassDial";
 
 const DARK_CARD = "bg-brand-800 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)]";
-const TRACK = "bg-black/25";
 const CHIP_DOT_TONE: Record<CompassDimensionResult["status"], string> = {
   Excelente: "bg-ok-400",
   Saudável: "bg-ok-400",
@@ -60,7 +58,17 @@ export default async function DashboardPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard label="Seu patrimônio" value={formatBRL(data.netWorth.netWorth)} />
-          <StatCard label="Sua capacidade mensal" value={formatBRL(data.monthlyCapacity)} />
+          <Card className={DARK_CARD}>
+            <CardContent className="py-5">
+              <h2 className="font-serif italic font-medium text-base text-cream-50 mb-3">Seu mês</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <MiniStat label="Receitas" value={data.month.income} tone="ok" />
+                <MiniStat label="Despesas" value={data.month.expenses} tone="danger" />
+                <MiniStat label="Investimentos" value={data.month.investments} tone="brand" />
+                <MiniStat label="Saldo" value={data.month.balance} tone={data.month.balance >= 0 ? "ok" : "danger"} />
+              </div>
+            </CardContent>
+          </Card>
           <StatCard label="Saúde financeira" value={`${data.healthScore}/100`} accent />
         </div>
 
@@ -170,55 +178,6 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className={DARK_CARD}>
-            <CardContent className="py-5">
-              <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-4">Seu mês</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <MiniStat label="Receitas" value={data.month.income} tone="ok" />
-                <MiniStat label="Despesas" value={data.month.expenses} tone="danger" />
-                <MiniStat label="Investimentos" value={data.month.investments} tone="brand" />
-                <MiniStat label="Saldo" value={data.month.balance} tone={data.month.balance >= 0 ? "ok" : "danger"} />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className={DARK_CARD}>
-            <CardContent className="py-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-serif italic font-medium text-lg text-cream-50">Seus sonhos</h2>
-                <Link href="/goals" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
-                  Ver todos <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-              {data.goals.length === 0 ? (
-                <p className="text-sm text-cream-50/60">
-                  Você ainda não tem sonhos ou objetivos cadastrados.{" "}
-                  <Link href="/chat" className="text-gold-400 underline">
-                    Conte um pro Tobias
-                  </Link>
-                  .
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {data.goals.slice(0, 4).map((g) => {
-                    const pct = g.targetAmount ? Math.round((g.currentAmount / g.targetAmount) * 100) : 0;
-                    return (
-                      <div key={g.id}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-cream-50/70">{g.title}</span>
-                          <span className="font-medium text-cream-50">{g.targetAmount ? `${pct}%` : "-"}</span>
-                        </div>
-                        <ProgressBar value={pct} className={TRACK} barClassName="bg-gold-400" />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
