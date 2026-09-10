@@ -50,10 +50,10 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                  active ? "bg-white/10 text-cream-50" : "text-cream-50/65 hover:bg-white/5 hover:text-cream-50"
+                  active ? "bg-white/10 text-gold-400" : "text-cream-50/45 hover:bg-white/5 hover:text-cream-50/80"
                 )}
               >
-                <item.icon className="h-[18px] w-[18px]" />
+                <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                 {item.label}
               </Link>
             );
@@ -87,10 +87,10 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
               href={item.href}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[11px]",
-                active ? "text-gold-400" : "text-cream-50/55"
+                active ? "text-gold-400" : "text-cream-50/45"
               )}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className="h-5 w-5" strokeWidth={1.75} />
               {item.label}
             </Link>
           );

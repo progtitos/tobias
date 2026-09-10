@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/Button";
 import { formatBRL } from "@/lib/utils/money";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 
-const DARK_CARD = "bg-brand-900 border-brand-800";
+const DARK_CARD = "bg-brand-800 border-white/10 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]";
+const TRACK = "bg-black/25";
 
 export default async function DashboardPage() {
   const user = await requireOnboardedUser();
@@ -62,7 +63,7 @@ export default async function DashboardPage() {
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-serif text-lg text-cream-50">Sua Bússola</h2>
+                <h2 className="font-serif italic font-medium text-lg text-cream-50">Sua Bússola</h2>
                 <Link href="/compass" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                   Ver tudo <ArrowRight className="h-3 w-3" />
                 </Link>
@@ -77,7 +78,7 @@ export default async function DashboardPage() {
                         <span className="text-cream-50/70">{c.label}</span>
                         <span className="font-medium text-cream-50">{c.score}</span>
                       </div>
-                      <ProgressBar value={c.score} className="bg-brand-800" barClassName="bg-gold-400" />
+                      <ProgressBar value={c.score} className={TRACK} barClassName="bg-gold-400" />
                     </div>
                   ))}
                 </div>
@@ -87,7 +88,7 @@ export default async function DashboardPage() {
 
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
-              <h2 className="font-serif text-lg text-cream-50 mb-4">Seu mês</h2>
+              <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-4">Seu mês</h2>
               <div className="grid grid-cols-2 gap-4">
                 <MiniStat label="Receitas" value={data.month.income} tone="ok" />
                 <MiniStat label="Despesas" value={data.month.expenses} tone="danger" />
@@ -102,7 +103,7 @@ export default async function DashboardPage() {
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-serif text-lg text-cream-50">Seus sonhos</h2>
+                <h2 className="font-serif italic font-medium text-lg text-cream-50">Seus sonhos</h2>
                 <Link href="/goals" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                   Ver todos <ArrowRight className="h-3 w-3" />
                 </Link>
@@ -125,7 +126,7 @@ export default async function DashboardPage() {
                           <span className="text-cream-50/70">{g.title}</span>
                           <span className="font-medium text-cream-50">{g.targetAmount ? `${pct}%` : "-"}</span>
                         </div>
-                        <ProgressBar value={pct} className="bg-brand-800" barClassName="bg-gold-400" />
+                        <ProgressBar value={pct} className={TRACK} barClassName="bg-gold-400" />
                       </div>
                     );
                   })}
@@ -137,7 +138,7 @@ export default async function DashboardPage() {
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="font-serif text-lg text-cream-50">Curva de aposentadoria</h2>
+                <h2 className="font-serif italic font-medium text-lg text-cream-50">Curva de aposentadoria</h2>
                 <Link href="/retirement" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                   Simular <ArrowRight className="h-3 w-3" />
                 </Link>
@@ -175,7 +176,7 @@ export default async function DashboardPage() {
 
 function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <Card className={accent ? "bg-brand-900 border-gold-500/40" : DARK_CARD}>
+    <Card className={accent ? "bg-brand-800 border-gold-500/50 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]" : DARK_CARD}>
       <CardContent className="py-5">
         <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-1.5">{label}</p>
         <p className="font-sans font-extrabold text-[21px] tracking-tight tabular-nums text-cream-50">{value}</p>
