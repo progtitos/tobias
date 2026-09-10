@@ -1,23 +1,43 @@
+import Image from "next/image";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Camera, MessageCircle } from "lucide-react";
 import { requireOnboardedUser } from "@/lib/auth/guards";
 import { getDashboardData } from "@/services/dashboard";
 import { runBehaviorChecks } from "@/services/insights";
+import type { CompassDimensionResult } from "@/services/compass";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { formatBRL } from "@/lib/utils/money";
 import { RetirementChart } from "@/components/charts/RetirementChart";
+import { CompassDial } from "@/components/dashboard/CompassDial";
 
 const DARK_CARD = "bg-brand-800 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)]";
 const TRACK = "bg-black/25";
+const CHIP_DOT_TONE: Record<CompassDimensionResult["status"], string> = {
+  Excelente: "bg-ok-400",
+  Saudável: "bg-ok-400",
+  "Em construção": "bg-gold-400",
+  Atenção: "bg-danger-300",
+};
 
 export default async function DashboardPage() {
   const user = await requireOnboardedUser();
   await runBehaviorChecks(user.id);
   const data = await getDashboardData(user.id);
   const firstName = user.name.split(" ")[0];
+
+  // Highlight the strongest dimension plus the two that most need attention,
+  // instead of the full 9-dimension list — the full breakdown still lives on
+  // /compass, this is just the "de cara" snapshot.
+  const sortedCompass = [...data.compass].sort((a, b) => b.score - a.score);
+  const heroChips =
+    sortedCompass.length > 0
+      ? [sortedCompass[0], ...sortedCompass.slice(-2)].filter(
+          (dim, i, arr) => arr.findIndex((d) => d.dimension === dim.dimension) === i
+        )
+      : [];
 
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6 space-y-6">
@@ -59,33 +79,100 @@ export default async function DashboardPage() {
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Hero: Bússola + curva de aposentadoria + o Tobias, unificados e logo de cara. */}
+        <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-4">
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-1">
                 <h2 className="font-serif italic font-medium text-lg text-cream-50">Sua Bússola</h2>
                 <Link href="/compass" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                   Ver tudo <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
               {data.compass.length === 0 ? (
-                <p className="text-sm text-cream-50/60">Sua Bússola aparece assim que terminarmos a primeira conversa.</p>
+                <p className="text-sm text-cream-50/60 mt-3">
+                  Sua Bússola aparece assim que terminarmos a primeira conversa.
+                </p>
               ) : (
-                <div className="space-y-3">
-                  {data.compass.map((c) => (
-                    <div key={c.dimension}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-cream-50/70">{c.label}</span>
-                        <span className="font-medium text-cream-50">{c.score}</span>
-                      </div>
-                      <ProgressBar value={c.score} className={TRACK} barClassName="bg-gold-400" />
+                <>
+                  <p className="text-xs text-cream-50/50 mb-2">Pontuação geral, 9 dimensões</p>
+                  <div className="flex justify-center">
+                    <CompassDial score={data.healthScore} status={data.healthStatus} />
+                  </div>
+                  {heroChips.length > 0 && (
+                    <div className="flex flex-wrap gap-2 justify-center mt-4">
+                      {heroChips.map((c) => (
+                        <span
+                          key={c.dimension}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-cream-50/75"
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${CHIP_DOT_TONE[c.status]}`} />
+                          {c.label} {c.score}
+                        </span>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
 
+          <div className="space-y-4">
+            <Card className={DARK_CARD}>
+              <CardContent className="py-5">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="font-serif italic font-medium text-lg text-cream-50">Curva de aposentadoria</h2>
+                  <Link href="/retirement" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
+                    Simular <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+                {data.retirementPreview ? (
+                  <>
+                    <RetirementChart
+                      simulation={data.retirementPreview}
+                      targetAge={data.retirementPreview.base.series.at(-1)?.age ?? 65}
+                      height={190}
+                      dark
+                    />
+                    <div className="flex gap-1.5 mt-2">
+                      <Badge tone={data.retirementPreview.base.onTrack ? "ok" : "warn"}>
+                        {data.retirementPreview.base.onTrack ? "No alvo" : "Requer ajuste"}
+                      </Badge>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-cream-50/60 mt-3">
+                    Ainda não montamos seu plano de aposentadoria.{" "}
+                    <Link href="/chat" className="text-gold-400 underline">
+                      Vamos conversar sobre isso
+                    </Link>
+                    .
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className={DARK_CARD}>
+              <CardContent className="py-5">
+                <div className="flex gap-3 items-start">
+                  <Image
+                    src="/logo-transparent.png"
+                    alt="Tobias"
+                    width={38}
+                    height={38}
+                    className="rounded-xl bg-brand-950 p-0.5 shrink-0"
+                  />
+                  <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400 mb-1">Tobias</p>
+                    <p className="text-sm leading-relaxed text-cream-50">{data.tobiasMessage}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-4">Seu mês</h2>
@@ -97,9 +184,7 @@ export default async function DashboardPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <div className="flex items-center justify-between mb-4">
@@ -131,40 +216,6 @@ export default async function DashboardPage() {
                     );
                   })}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className={DARK_CARD}>
-            <CardContent className="py-5">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="font-serif italic font-medium text-lg text-cream-50">Curva de aposentadoria</h2>
-                <Link href="/retirement" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
-                  Simular <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-              {data.retirementPreview ? (
-                <>
-                  <RetirementChart
-                    simulation={data.retirementPreview}
-                    targetAge={data.retirementPreview.base.series.at(-1)?.age ?? 65}
-                    height={200}
-                    dark
-                  />
-                  <div className="flex gap-1.5 mt-2">
-                    <Badge tone={data.retirementPreview.base.onTrack ? "ok" : "warn"}>
-                      {data.retirementPreview.base.onTrack ? "No caminho certo" : "Requer ajuste"}
-                    </Badge>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-cream-50/60 mt-3">
-                  Ainda não montamos seu plano de aposentadoria.{" "}
-                  <Link href="/chat" className="text-gold-400 underline">
-                    Vamos conversar sobre isso
-                  </Link>
-                  .
-                </p>
               )}
             </CardContent>
           </Card>

@@ -36,7 +36,7 @@ function clamp(n: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, n));
 }
 
-function statusForScore(score: number): CompassDimensionResult["status"] {
+export function statusForScore(score: number): CompassDimensionResult["status"] {
   if (score >= 85) return "Excelente";
   if (score >= 65) return "Saudável";
   if (score >= 40) return "Em construção";

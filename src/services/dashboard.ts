@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { alerts, retirementPlans, financialProfiles } from "@/lib/db/schema";
 import { computeNetWorth, monthRange, sumIncome, sumExpenses, sumInvestmentContributions, activeGoals } from "./aggregations";
-import { getLatestCompass } from "./compass";
+import { getLatestCompass, statusForScore } from "./compass";
 import { simulateRetirementCurve } from "./retirement";
 
 export async function getDashboardData(userId: string) {
@@ -29,6 +29,17 @@ export async function getDashboardData(userId: string) {
 
   const healthScore =
     compass.length > 0 ? Math.round(compass.reduce((s, c) => s + c.score, 0) / compass.length) : 0;
+  const healthStatus = statusForScore(healthScore);
+
+  // A proactive nudge for the dashboard's "Tobias" card. Deliberately rule-based
+  // like the rest of the Bússola: it's just the weakest dimension's own
+  // `nextAction`, framed as something Tobias is telling you, not a separate
+  // AI-generated message.
+  const weakestDimension = compass.length > 0 ? [...compass].sort((a, b) => a.score - b.score)[0] : null;
+  const tobiasMessage =
+    weakestDimension?.nextAction ??
+    "Ainda estou aprendendo sobre suas finanças. Vamos conversar mais para eu te dar recomendações mais precisas?";
+  const tobiasFocusLabel = weakestDimension?.label ?? null;
 
   const monthlyCapacity =
     financialProfile?.savingsCapacityPerMonth ?? Math.max(0, income - expenses);
@@ -50,11 +61,14 @@ export async function getDashboardData(userId: string) {
   return {
     netWorth,
     healthScore,
+    healthStatus,
     monthlyCapacity,
     month: { income, expenses, investments: investmentContributions, balance: income - expenses - investmentContributions },
     compass,
     goals,
     alerts: activeAlerts,
     retirementPreview,
+    tobiasMessage,
+    tobiasFocusLabel,
   };
 }
