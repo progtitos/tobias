@@ -108,6 +108,21 @@ body {
   background: var(--color-gold-100);
 }
 
+/* Number inputs keep their type (for the numeric keyboard on mobile and
+   native validation) but lose the up/down spinner — it clutters the compact
+   money/percentage fields across the app and isn't needed since every one
+   of them already has custom +/- affordances or is typed directly. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Minimal, calm scrollbars — the product should feel quiet, not busy. */
 ::-webkit-scrollbar {
   width: 10px;

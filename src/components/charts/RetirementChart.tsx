@@ -6,7 +6,6 @@ import {
   Line,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ReferenceLine,
   ResponsiveContainer,
@@ -103,7 +102,6 @@ export function RetirementChart({
             <stop offset="100%" stopColor={palette.base} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid stroke={palette.grid} vertical={false} />
         <XAxis
           dataKey="age"
           tick={{ fontSize: 12, fill: palette.tick }}
@@ -112,9 +110,8 @@ export function RetirementChart({
           tickLine={false}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: palette.tick }}
-          tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-          width={46}
+          tick={false}
+          width={0}
           axisLine={false}
           tickLine={false}
           domain={[yDomainMin, yDomainMax]}
