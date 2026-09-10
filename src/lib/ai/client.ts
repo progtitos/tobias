@@ -16,8 +16,11 @@ const RAW_KEYS = (process.env.GEMINI_API_KEYS ?? "")
   .map((k) => k.trim())
   .filter(Boolean);
 
-export const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || "gemini-2.0-flash";
-export const VISION_MODEL = process.env.GEMINI_VISION_MODEL || "gemini-2.0-flash";
+// gemini-2.0-flash was retired by Google (404 "no longer available") —
+// gemini-3.6-flash is the current flash model and, like its predecessor,
+// natively multimodal (text + image), so one model covers both use cases.
+export const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || "gemini-3.6-flash";
+export const VISION_MODEL = process.env.GEMINI_VISION_MODEL || "gemini-3.6-flash";
 
 export function isAIConfigured() {
   return RAW_KEYS.length > 0;
