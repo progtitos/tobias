@@ -34,11 +34,12 @@ export function BudgetClient({
   const totalPct = totalLimit > 0 ? Math.round((totalActual / totalLimit) * 100) : 0;
 
   return (
-    <div className="flex-1 px-5 py-6 max-w-3xl mx-auto w-full">
+    <div className="flex-1 bg-brand-950 px-5 py-6">
+      <div className="max-w-3xl mx-auto w-full">
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
-          <h1 className="font-serif text-2xl text-brand-950">Seu orçamento</h1>
-          <p className="text-sm text-ink-500 mt-1">
+          <h1 className="font-sans font-bold text-2xl text-cream-50">Seu orçamento</h1>
+          <p className="text-sm text-cream-50/55 mt-1">
             Um guia dinâmico com base na sua renda e seus objetivos. Ajuste qualquer limite quando quiser.
           </p>
         </div>
@@ -55,12 +56,12 @@ export function BudgetClient({
       <Card className="my-6">
         <CardContent className="py-4">
           <div className="flex justify-between text-sm mb-1.5">
-            <span className="text-ink-700">Total do mês</span>
-            <span className="font-medium text-ink-900">
+            <span className="text-cream-50/70">Total do mês</span>
+            <span className="font-medium text-cream-50">
               {formatBRL(totalActual)} de {formatBRL(totalLimit)} ({totalPct}%)
             </span>
           </div>
-          <ProgressBar value={Math.min(100, totalPct)} barClassName={totalPct > 100 ? "bg-danger-600" : undefined} />
+          <ProgressBar value={Math.min(100, totalPct)} barClassName={totalPct > 100 ? "bg-danger-300" : undefined} />
         </CardContent>
       </Card>
 
@@ -68,6 +69,7 @@ export function BudgetClient({
         {budgets.map((b) => (
           <BudgetRowCard key={b.id} budget={b} />
         ))}
+      </div>
       </div>
     </div>
   );
@@ -94,7 +96,7 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
       <CardContent className="py-4">
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-medium text-ink-900">{budget.label}</p>
+            <p className="font-medium text-cream-50">{budget.label}</p>
             {!budget.isAutoCalculated && <Badge tone="neutral">Ajustado por você</Badge>}
             {budget.isOverrun && <Badge tone="danger">Estourou</Badge>}
           </div>
@@ -109,11 +111,11 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
                 onChange={(e) => setValue(e.target.value)}
                 className="h-8 w-28 text-sm"
               />
-              <button className="text-ok-600 disabled:opacity-50" disabled={pending} onClick={save} title="Salvar">
+              <button className="text-ok-400 disabled:opacity-50" disabled={pending} onClick={save} title="Salvar">
                 <Check className="h-4 w-4" />
               </button>
               <button
-                className="text-ink-400"
+                className="text-cream-50/40"
                 onClick={() => {
                   setEditing(false);
                   setValue(String(budget.limitAmount));
@@ -125,7 +127,7 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
             </div>
           ) : (
             <button
-              className="text-ink-400 hover:text-brand-800 shrink-0"
+              className="text-cream-50/40 hover:text-gold-400 shrink-0"
               title="Ajustar limite"
               onClick={() => setEditing(true)}
             >
@@ -135,12 +137,12 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
         </div>
 
         <div className="flex justify-between text-sm mb-1">
-          <span className="text-ink-500">
+          <span className="text-cream-50/55">
             {formatBRL(budget.actual)} de {formatBRL(budget.limitAmount)}
           </span>
-          <span className={budget.isOverrun ? "text-danger-600 font-medium" : "text-ink-700"}>{pct}%</span>
+          <span className={budget.isOverrun ? "text-danger-300 font-medium" : "text-cream-50/70"}>{pct}%</span>
         </div>
-        <ProgressBar value={Math.min(100, pct)} barClassName={budget.isOverrun ? "bg-danger-600" : undefined} />
+        <ProgressBar value={Math.min(100, pct)} barClassName={budget.isOverrun ? "bg-danger-300" : undefined} />
       </CardContent>
     </Card>
   );

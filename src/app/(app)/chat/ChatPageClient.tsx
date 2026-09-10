@@ -16,9 +16,9 @@ export function ChatPageClient({ initialMessages }: { initialMessages: ChatMessa
   const router = useRouter();
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      <div className="px-5 py-4 border-b border-ink-300/20 bg-white/50">
-        <h1 className="font-serif text-xl text-brand-950">Converse com o Tobias</h1>
+    <div className="flex flex-col flex-1 min-h-0 bg-brand-950">
+      <div className="px-5 py-4 border-b border-white/10">
+        <h1 className="font-sans font-bold text-xl text-cream-50">Converse com o Tobias</h1>
       </div>
       <ChatWindow
         initialMessages={initialMessages}

@@ -88,7 +88,7 @@ export function ChatWindow({
             <div
               className={cn(
                 "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap",
-                m.role === "USER" ? "bg-brand-900 text-cream-50 rounded-br-sm" : "bg-white border border-ink-300/25 text-ink-900 rounded-bl-sm"
+                m.role === "USER" ? "bg-gold-500 text-brand-950 rounded-br-sm" : "bg-brand-800 border border-black/20 text-cream-50 rounded-bl-sm"
               )}
             >
               {m.content}
@@ -98,7 +98,7 @@ export function ChatWindow({
                     <button
                       key={a.action}
                       onClick={() => onAction?.(a.action)}
-                      className="text-xs font-medium rounded-full border border-gold-500 text-gold-700 px-3 py-1 hover:bg-gold-100 transition-colors"
+                      className="text-xs font-medium rounded-full border border-gold-400/60 text-gold-400 px-3 py-1 hover:bg-white/5 transition-colors"
                     >
                       {a.label}
                     </button>
@@ -111,15 +111,15 @@ export function ChatWindow({
         {pending && (
           <div className="flex items-end gap-2 justify-start">
             <TobiasAvatar />
-            <div className="rounded-2xl rounded-bl-sm bg-white border border-ink-300/25 px-4 py-2.5">
-              <Loader2 className="h-4 w-4 animate-spin text-ink-500" />
+            <div className="rounded-2xl rounded-bl-sm bg-brand-800 border border-black/20 px-4 py-2.5">
+              <Loader2 className="h-4 w-4 animate-spin text-cream-50/60" />
             </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-ink-300/20 bg-white/70 px-4 py-3">
+      <div className="border-t border-white/10 bg-brand-950 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-end gap-2">
           <textarea
             value={input}
@@ -132,7 +132,7 @@ export function ChatWindow({
             }}
             rows={1}
             placeholder={placeholder}
-            className="flex-1 resize-none max-h-32 rounded-xl border border-ink-300/50 bg-cream-50 px-3.5 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-brand-700/30 focus:border-brand-700"
+            className="flex-1 resize-none max-h-32 rounded-xl border border-black/20 bg-brand-900 text-cream-50 placeholder:text-cream-50/35 px-3.5 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60"
           />
           <Button onClick={handleSend} disabled={!input.trim()} loading={pending} size="md" className="shrink-0">
             <Send className="h-4 w-4" />

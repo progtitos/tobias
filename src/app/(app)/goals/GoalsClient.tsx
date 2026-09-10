@@ -39,9 +39,10 @@ export function GoalsClient({ goals }: { goals: Goal[] }) {
   const others = goals.filter((g) => g.status !== "ACTIVE");
 
   return (
-    <div className="flex-1 px-5 py-6 max-w-3xl mx-auto w-full">
+    <div className="flex-1 bg-brand-950 px-5 py-6">
+      <div className="max-w-3xl mx-auto w-full">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-serif text-2xl text-brand-950">Seus sonhos e objetivos</h1>
+        <h1 className="font-sans font-bold text-2xl text-cream-50">Seus sonhos e objetivos</h1>
         <Button size="sm" onClick={() => setShowForm((v) => !v)}>
           <Plus className="h-4 w-4" /> Novo objetivo
         </Button>
@@ -95,7 +96,7 @@ export function GoalsClient({ goals }: { goals: Goal[] }) {
       )}
 
       {goals.length === 0 ? (
-        <p className="text-sm text-ink-500 py-12 text-center">
+        <p className="text-sm text-cream-50/55 py-12 text-center">
           Você ainda não tem objetivos. Conte um sonho seu pro Tobias no chat, ou crie um aqui.
         </p>
       ) : (
@@ -105,7 +106,7 @@ export function GoalsClient({ goals }: { goals: Goal[] }) {
           ))}
           {others.length > 0 && (
             <>
-              <p className="text-xs font-medium text-ink-500 pt-4">Outros</p>
+              <p className="text-xs font-medium text-cream-50/55 pt-4">Outros</p>
               {others.map((g) => (
                 <GoalCard key={g.id} goal={g} />
               ))}
@@ -113,6 +114,7 @@ export function GoalsClient({ goals }: { goals: Goal[] }) {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -128,21 +130,21 @@ function GoalCard({ goal }: { goal: Goal }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-ink-900">{goal.title}</p>
+              <p className="font-medium text-cream-50">{goal.title}</p>
               <Badge tone="brand">{TYPE_LABELS[goal.type]}</Badge>
               {goal.status !== "ACTIVE" && <Badge tone="neutral">{goal.status}</Badge>}
             </div>
             {goal.targetAmount ? (
-              <p className="text-sm text-ink-500 mt-0.5">
+              <p className="text-sm text-cream-50/55 mt-0.5">
                 {formatBRL(goal.currentAmount)} de {formatBRL(goal.targetAmount)}
                 {goal.targetDate ? ` · até ${new Date(goal.targetDate).toLocaleDateString("pt-BR")}` : ""}
               </p>
             ) : (
-              <p className="text-sm text-ink-500 mt-0.5">Ainda não quantificado. Conte mais detalhes ao Tobias.</p>
+              <p className="text-sm text-cream-50/55 mt-0.5">Ainda não quantificado. Conte mais detalhes ao Tobias.</p>
             )}
           </div>
           <button
-            className="text-ink-400 hover:text-brand-800 shrink-0"
+            className="text-cream-50/40 hover:text-gold-400 shrink-0"
             title={goal.status === "ACTIVE" ? "Pausar" : "Retomar"}
             onClick={() =>
               startTransition(() => updateGoalStatusAction(goal.id, goal.status === "ACTIVE" ? "PAUSED" : "ACTIVE"))

@@ -31,19 +31,20 @@ export function SettingsClient({ user }: { user: SettingsUser }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   return (
-    <div className="flex-1 px-5 py-6 max-w-2xl mx-auto w-full space-y-6">
-      <h1 className="font-serif text-2xl text-brand-950">Configurações</h1>
+    <div className="flex-1 bg-brand-950 px-5 py-6">
+      <div className="max-w-2xl mx-auto w-full space-y-6">
+      <h1 className="font-sans font-bold text-2xl text-cream-50">Configurações</h1>
 
       <Card>
         <CardContent className="py-5 space-y-3">
-          <h2 className="font-serif text-lg text-brand-950 mb-1">Sua conta</h2>
+          <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-1">Sua conta</h2>
           <Row label="Nome" value={user.name} />
           <Row label="E-mail" value={user.email} />
           <Row label="CPF" value={maskCPF(user.cpf) ?? "Não informado"} />
           <Row label="Telefone" value={maskPhone(user.phone) ?? "Não informado"} />
           <Row label="Cliente desde" value={new Date(user.memberSince).toLocaleDateString("pt-BR")} />
           <div className="flex items-center justify-between pt-1">
-            <span className="text-sm text-ink-500">Plano</span>
+            <span className="text-sm text-cream-50/55">Plano</span>
             <Badge tone={user.subscriptionStatus === "TRIALING" ? "gold" : "brand"}>
               {PLAN_LABELS[user.subscriptionPlan] ?? user.subscriptionPlan}
             </Badge>
@@ -53,8 +54,8 @@ export function SettingsClient({ user }: { user: SettingsUser }) {
 
       <Card>
         <CardContent className="py-5 space-y-1">
-          <h2 className="font-serif text-lg text-brand-950 mb-2 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-brand-800" /> Privacidade e segurança
+          <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-2 flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-gold-400" /> Privacidade e segurança
           </h2>
           <SettingsLink href="/settings/activity" icon={History} label="Ver atividade recente da sua conta" />
           <SettingsLink href="/legal/privacidade" icon={FileText} label="Política de privacidade" />
@@ -62,12 +63,12 @@ export function SettingsClient({ user }: { user: SettingsUser }) {
         </CardContent>
       </Card>
 
-      <Card className="border-danger-600/30">
+      <Card className="border-danger-600/40">
         <CardContent className="py-5 space-y-3">
-          <h2 className="font-serif text-lg text-danger-600 flex items-center gap-2">
+          <h2 className="font-serif italic font-medium text-lg text-danger-300 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" /> Zona de risco
           </h2>
-          <p className="text-sm text-ink-600">
+          <p className="text-sm text-cream-50/65">
             Excluir sua conta apaga permanentemente seu perfil, gastos, objetivos, conversas com o Tobias e todo o
             resto dos seus dados financeiros. Essa ação não pode ser desfeita.
           </p>
@@ -90,6 +91,7 @@ export function SettingsClient({ user }: { user: SettingsUser }) {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
@@ -97,15 +99,15 @@ export function SettingsClient({ user }: { user: SettingsUser }) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between text-sm">
-      <span className="text-ink-500">{label}</span>
-      <span className="text-ink-900 font-medium">{value}</span>
+      <span className="text-cream-50/55">{label}</span>
+      <span className="text-cream-50 font-medium">{value}</span>
     </div>
   );
 }
 
 function SettingsLink({ href, icon: Icon, label }: { href: string; icon: typeof History; label: string }) {
   return (
-    <Link href={href} className="flex items-center gap-2.5 py-2 text-sm text-ink-700 hover:text-brand-900">
+    <Link href={href} className="flex items-center gap-2.5 py-2 text-sm text-cream-50/70 hover:text-gold-400">
       <Icon className="h-4 w-4" /> {label}
     </Link>
   );

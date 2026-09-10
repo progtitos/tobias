@@ -32,12 +32,13 @@ export function ConfirmReceiptClient({
   const lowConfidence = receipt.confidence < LOW_CONFIDENCE_THRESHOLD;
 
   return (
-    <div className="flex-1 px-5 py-6 max-w-lg mx-auto w-full">
-      <h1 className="font-serif text-2xl text-brand-950 mb-1">Confirme a compra</h1>
-      <p className="text-sm text-ink-500 mb-5">Confira os dados que o Tobias leu da nota antes de salvar.</p>
+    <div className="flex-1 bg-brand-950 px-5 py-6">
+      <div className="max-w-lg mx-auto w-full">
+      <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Confirme a compra</h1>
+      <p className="text-sm text-cream-50/55 mb-5">Confira os dados que o Tobias leu da nota antes de salvar.</p>
 
       {lowConfidence && (
-        <div className="flex items-start gap-2 rounded-xl bg-warn-100 border border-warn-600/30 p-3 mb-5 text-sm text-ink-700">
+        <div className="flex items-start gap-2 rounded-xl bg-warn-100/10 border border-warn-600/40 p-3 mb-5 text-sm text-cream-50/80">
           <AlertTriangle className="h-4 w-4 text-warn-600 shrink-0 mt-0.5" />
           <span>A leitura desta nota teve confiança baixa ({Math.round(receipt.confidence * 100)}%). Revise os valores com atenção.</span>
         </div>
@@ -79,10 +80,10 @@ export function ConfirmReceiptClient({
         {items.length > 0 && (
           <Card>
             <CardContent className="py-3">
-              <p className="text-xs font-medium text-ink-500 mb-2">Itens identificados</p>
+              <p className="text-xs font-medium text-cream-50/55 mb-2">Itens identificados</p>
               <ul className="space-y-1.5">
                 {items.map((it, i) => (
-                  <li key={i} className="flex justify-between text-sm text-ink-700">
+                  <li key={i} className="flex justify-between text-sm text-cream-50/80">
                     <span className="truncate pr-2">
                       {it.quantity > 1 ? `${it.quantity}x ` : ""}
                       {it.description}
@@ -100,6 +101,7 @@ export function ConfirmReceiptClient({
           Salvar gasto
         </Button>
       </form>
+      </div>
     </div>
   );
 }

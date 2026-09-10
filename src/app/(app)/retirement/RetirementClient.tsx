@@ -47,11 +47,12 @@ export function RetirementClient({
   }
 
   return (
-    <div className="flex-1 px-5 py-6 max-w-4xl mx-auto w-full">
+    <div className="flex-1 bg-brand-950 px-5 py-6">
+      <div className="max-w-4xl mx-auto w-full">
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
-          <h1 className="font-serif text-2xl text-brand-950">Curva de aposentadoria</h1>
-          <p className="text-sm text-ink-500 mt-1">
+          <h1 className="font-sans font-bold text-2xl text-cream-50">Curva de aposentadoria</h1>
+          <p className="text-sm text-cream-50/55 mt-1">
             Simule cenários conservador, base e agressivo. Os números usam seu patrimônio real de hoje ({formatBRL(currentNetWorth)}).
           </p>
         </div>
@@ -63,22 +64,22 @@ export function RetirementClient({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 mt-6">
         <Card>
           <CardContent className="py-5">
-            <RetirementChart simulation={simulation} targetAge={inputs.targetRetirementAge} height={300} />
+            <RetirementChart simulation={simulation} targetAge={inputs.targetRetirementAge} height={300} dark />
             <div className="flex flex-wrap gap-1.5 mt-3">
               <ScenarioBadge label="Conservador" onTrack={simulation.conservative.onTrack} />
               <ScenarioBadge label="Base" onTrack={simulation.base.onTrack} />
               <ScenarioBadge label="Agressivo" onTrack={simulation.aggressive.onTrack} />
             </div>
             <div className="mt-4 space-y-1.5 text-sm">
-              <p className="text-ink-700">
-                Patrimônio necessário para viver de renda: <span className="font-medium text-ink-900">{formatBRL(simulation.requiredNetWorth)}</span>
+              <p className="text-cream-50/70">
+                Patrimônio necessário para viver de renda: <span className="font-medium text-cream-50">{formatBRL(simulation.requiredNetWorth)}</span>
               </p>
-              <p className="text-ink-700">
+              <p className="text-cream-50/70">
                 Projeção no cenário base aos {inputs.targetRetirementAge} anos:{" "}
-                <span className="font-medium text-ink-900">{formatBRL(simulation.base.finalValueAtTargetAge)}</span>
+                <span className="font-medium text-cream-50">{formatBRL(simulation.base.finalValueAtTargetAge)}</span>
               </p>
               {!simulation.base.onTrack && (
-                <p className="text-brand-800 flex items-center gap-1.5">
+                <p className="text-gold-400 flex items-center gap-1.5">
                   <Sparkles className="h-3.5 w-3.5 shrink-0" />
                   Para chegar lá no cenário base, o aporte mensal precisaria ser de aproximadamente{" "}
                   <span className="font-medium">{formatBRL(suggestedContribution)}</span>.
@@ -134,6 +135,7 @@ export function RetirementClient({
           </CardContent>
         </Card>
       </div>
+      </div>
     </div>
   );
 }
@@ -163,7 +165,7 @@ function NumberField({
     <div>
       <Label>{label}</Label>
       <div className="relative">
-        {prefix && <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-ink-400">{prefix}</span>}
+        {prefix && <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-cream-50/40">{prefix}</span>}
         <Input
           type="number"
           step={step}
@@ -179,7 +181,7 @@ function NumberField({
 function MiniPctField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
     <div>
-      <p className="text-xs text-ink-400 mb-1">{label}</p>
+      <p className="text-xs text-cream-50/40 mb-1">{label}</p>
       <Input
         type="number"
         step={0.5}

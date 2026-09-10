@@ -20,12 +20,13 @@ export function DecideClient() {
   const [state, formAction, pending] = useActionState<AffordabilityState, FormData>(checkAffordabilityAction, undefined);
 
   return (
-    <div className="flex-1 px-5 py-6 max-w-2xl mx-auto w-full">
+    <div className="flex-1 bg-brand-950 px-5 py-6">
+      <div className="max-w-2xl mx-auto w-full">
       <div className="mb-6">
-        <h1 className="font-serif text-2xl text-brand-950 flex items-center gap-2">
-          <ShoppingBag className="h-6 w-6 text-brand-800" /> Posso comprar isso?
+        <h1 className="font-sans font-bold text-2xl text-cream-50 flex items-center gap-2">
+          <ShoppingBag className="h-6 w-6 text-gold-400" /> Posso comprar isso?
         </h1>
-        <p className="text-sm text-ink-500 mt-1">
+        <p className="text-sm text-cream-50/55 mt-1">
           Conte o que você está pensando em comprar. O Tobias olha sua renda, reserva, dívidas e objetivos de verdade antes de responder.
         </p>
       </div>
@@ -52,6 +53,7 @@ export function DecideClient() {
       {state?.result && (
         <ResultCard result={state.result} description={state.description} amount={state.amount} />
       )}
+      </div>
     </div>
   );
 }
@@ -73,15 +75,15 @@ function ResultCard({
     <Card className="mt-4">
       <CardContent className="py-5 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <p className="text-sm text-ink-500">
+          <p className="text-sm text-cream-50/55">
             {description}: {amount !== undefined ? formatBRL(amount) : ""}
           </p>
           <Badge tone={meta.tone}>
             <Icon className="h-3.5 w-3.5" /> {meta.label}
           </Badge>
         </div>
-        <p className="text-ink-800">{result.explanation}</p>
-        <p className="text-sm text-brand-800 border-t border-ink-300/20 pt-3">
+        <p className="text-cream-50/85">{result.explanation}</p>
+        <p className="text-sm text-gold-400 border-t border-white/10 pt-3">
           <span className="font-medium">Impacto: </span>
           {result.impactSummary}
         </p>

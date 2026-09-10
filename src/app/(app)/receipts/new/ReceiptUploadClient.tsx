@@ -33,18 +33,19 @@ export function ReceiptUploadClient() {
   }
 
   return (
-    <div className="flex-1 px-5 py-6 max-w-lg mx-auto w-full">
-      <h1 className="font-serif text-2xl text-brand-950 mb-1">Fotografar nota</h1>
-      <p className="text-sm text-ink-500 mb-6">
+    <div className="flex-1 bg-brand-950 px-5 py-6">
+      <div className="max-w-lg mx-auto w-full">
+      <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Fotografar nota</h1>
+      <p className="text-sm text-cream-50/55 mb-6">
         Tire uma foto da nota fiscal ou comprovante. Para notas grandes, envie até 5 fotos: o Tobias
         consolida tudo como uma única compra.
       </p>
 
       <form action={formAction}>
         {previews.length === 0 ? (
-          <label className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-brand-700/40 bg-white/60 py-16 cursor-pointer hover:bg-brand-50 transition-colors">
-            <Camera className="h-10 w-10 text-brand-700" />
-            <span className="text-sm font-medium text-brand-900">Toque para fotografar ou escolher</span>
+          <label className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gold-400/40 bg-brand-900/40 py-16 cursor-pointer hover:bg-brand-900/70 transition-colors">
+            <Camera className="h-10 w-10 text-gold-400" />
+            <span className="text-sm font-medium text-cream-50">Toque para fotografar ou escolher</span>
             <input
               type="file"
               name="photos-input"
@@ -59,7 +60,7 @@ export function ReceiptUploadClient() {
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-2">
               {previews.map((p, i) => (
-                <div key={p.url} className="relative aspect-square rounded-xl overflow-hidden border border-ink-300/30">
+                <div key={p.url} className="relative aspect-square rounded-xl overflow-hidden border border-black/20">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
                   <span className="absolute bottom-1 left-1 text-[10px] bg-black/60 text-white rounded px-1.5">
@@ -75,8 +76,8 @@ export function ReceiptUploadClient() {
                 </div>
               ))}
               {previews.length < 5 && (
-                <label className="flex items-center justify-center aspect-square rounded-xl border-2 border-dashed border-ink-300/50 cursor-pointer hover:bg-cream-100">
-                  <Camera className="h-6 w-6 text-ink-500" />
+                <label className="flex items-center justify-center aspect-square rounded-xl border-2 border-dashed border-white/15 cursor-pointer hover:bg-white/5">
+                  <Camera className="h-6 w-6 text-cream-50/55" />
                   <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
                 </label>
               )}
@@ -105,11 +106,12 @@ export function ReceiptUploadClient() {
       </form>
 
       <Card className="mt-8">
-        <CardContent className="py-4 text-xs text-ink-500">
+        <CardContent className="py-4 text-xs text-cream-50/55">
           Sem uma nota em mãos? Você também pode registrar o gasto direto pelo chat, dizendo algo como
           &quot;gastei 80 reais no mercado&quot;, ou lançar manualmente na tela de Gastos.
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

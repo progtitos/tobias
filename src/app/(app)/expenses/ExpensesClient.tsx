@@ -47,9 +47,10 @@ export function ExpensesClient({ transactions, categories }: { transactions: Tra
   }, [state]);
 
   return (
-    <div className="flex-1 px-5 py-6 max-w-3xl mx-auto w-full">
+    <div className="flex-1 bg-brand-950 px-5 py-6">
+      <div className="max-w-3xl mx-auto w-full">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-serif text-2xl text-brand-950">Seus gastos</h1>
+        <h1 className="font-sans font-bold text-2xl text-cream-50">Seus gastos</h1>
         <Button size="sm" onClick={() => setShowForm((v) => !v)}>
           <Plus className="h-4 w-4" /> Novo gasto
         </Button>
@@ -126,7 +127,7 @@ export function ExpensesClient({ transactions, categories }: { transactions: Tra
       )}
 
       {transactions.length === 0 ? (
-        <p className="text-ink-500 text-sm py-12 text-center">
+        <p className="text-cream-50/55 text-sm py-12 text-center">
           Nenhum gasto registrado este mês ainda. Adicione um gasto ou conte pro Tobias no chat.
         </p>
       ) : (
@@ -136,6 +137,7 @@ export function ExpensesClient({ transactions, categories }: { transactions: Tra
           ))}
         </ul>
       )}
+      </div>
     </div>
   );
 }
@@ -151,7 +153,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
         <CardContent className="py-3.5 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <p className="font-medium text-ink-900 truncate">{transaction.description}</p>
+              <p className="font-medium text-cream-50 truncate">{transaction.description}</p>
               {transaction.installmentTotal && transaction.installmentTotal > 1 && (
                 <Badge tone="neutral">
                   {transaction.installmentNumber}/{transaction.installmentTotal}
@@ -163,7 +165,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-ink-500">
+            <p className="text-xs text-cream-50/55">
               {new Date(transaction.date).toLocaleDateString("pt-BR")}
               {transaction.merchant ? ` · ${transaction.merchant}` : ""}
               {transaction.paymentMethod ? ` · ${PAYMENT_LABELS[transaction.paymentMethod]}` : ""}
@@ -172,7 +174,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
 
           {!isIncome && (
             <select
-              className="text-xs rounded-lg border border-ink-300/50 bg-cream-50 px-2 py-1.5 max-w-[130px]"
+              className="text-xs rounded-lg border border-black/20 bg-brand-900 text-cream-50 px-2 py-1.5 max-w-[130px]"
               value={transaction.categoryId ?? ""}
               disabled={pending}
               onChange={(e) => {
@@ -190,14 +192,14 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
             </select>
           )}
 
-          <span className={`font-medium tabular-nums ${isIncome ? "text-ok-600" : "text-ink-900"}`}>
+          <span className={`font-medium tabular-nums ${isIncome ? "text-ok-400" : "text-cream-50"}`}>
             {isIncome ? "+" : "-"}
             {formatBRL(transaction.amount)}
           </span>
 
           <button
             aria-label="Excluir"
-            className="text-ink-300 hover:text-danger-600 transition-colors"
+            className="text-cream-50/35 hover:text-danger-300 transition-colors"
             onClick={() => startTransition(() => deleteTransactionAction(transaction.id))}
           >
             <Trash2 className="h-4 w-4" />
