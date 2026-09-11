@@ -41,10 +41,19 @@ export default async function DashboardPage() {
     <div className="flex-1 bg-brand-950 px-5 py-6 space-y-6">
       <div className="max-w-5xl mx-auto w-full space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h1 className="font-sans font-bold text-[23px] tracking-tight text-cream-50">Olá, {firstName}.</h1>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/avatars/tobias-sempre-ao-lado.png"
+              alt="Tobias"
+              width={44}
+              height={44}
+              className="rounded-full shrink-0"
+            />
+            <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
+          </div>
           <div className="flex gap-2">
             <Link href="/receipts/new">
-              <Button variant="outline" size="sm" className="border-brand-700 text-cream-50 hover:bg-white/5">
+              <Button variant="outline" size="sm" className="border-brand-700 text-onbrand hover:bg-white/5">
                 <Camera className="h-4 w-4" /> Fotografar nota
               </Button>
             </Link>
@@ -60,7 +69,7 @@ export default async function DashboardPage() {
           <StatCard label="Seu patrimônio" value={formatBRL(data.netWorth.netWorth)} />
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
-              <h2 className="font-serif italic font-medium text-base text-cream-50 mb-3">Seu mês</h2>
+              <h2 className="font-display font-semibold text-base text-onbrand mb-3">Seu mês</h2>
               <MonthFlow
                 income={data.month.income}
                 expenses={data.month.expenses}
@@ -79,7 +88,7 @@ export default async function DashboardPage() {
                 <AlertTriangle className="h-3.5 w-3.5" /> Atenção
               </p>
               {data.alerts.map((a) => (
-                <p key={a.id} className="text-sm text-cream-50/80">
+                <p key={a.id} className="text-sm text-onbrand/80">
                   {a.message}
                 </p>
               ))}
@@ -92,18 +101,18 @@ export default async function DashboardPage() {
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="font-serif italic font-medium text-lg text-cream-50">Seu Ponteiro</h2>
+                <h2 className="font-display font-semibold text-lg text-onbrand">Seu Ponteiro</h2>
                 <Link href="/compass" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                   Ver tudo <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
               {data.compass.length === 0 ? (
-                <p className="text-sm text-cream-50/60 mt-3">
+                <p className="text-sm text-onbrand/60 mt-3">
                   Seu Ponteiro aparece assim que terminarmos a primeira conversa.
                 </p>
               ) : (
                 <>
-                  <p className="text-xs text-cream-50/50 mb-2">Pontuação geral, 9 dimensões</p>
+                  <p className="text-xs text-onbrand/50 mb-2">Pontuação geral, 9 dimensões</p>
                   <div className="flex justify-center">
                     <CompassDial score={data.healthScore} status={data.healthStatus} />
                   </div>
@@ -112,7 +121,7 @@ export default async function DashboardPage() {
                       {heroChips.map((c) => (
                         <span
                           key={c.dimension}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-cream-50/75"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-onbrand/75"
                         >
                           <span className={`h-1.5 w-1.5 rounded-full ${CHIP_DOT_TONE[c.status]}`} />
                           {c.label} {c.score}
@@ -129,7 +138,7 @@ export default async function DashboardPage() {
             <Card className={DARK_CARD}>
               <CardContent className="py-5">
                 <div className="flex items-center justify-between mb-1">
-                  <h2 className="font-serif italic font-medium text-lg text-cream-50">Curva de aposentadoria</h2>
+                  <h2 className="font-display font-semibold text-lg text-onbrand">Curva de aposentadoria</h2>
                   <Link href="/retirement" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                     Simular <ArrowRight className="h-3 w-3" />
                   </Link>
@@ -149,7 +158,7 @@ export default async function DashboardPage() {
                     </div>
                   </>
                 ) : (
-                  <p className="text-sm text-cream-50/60 mt-3">
+                  <p className="text-sm text-onbrand/60 mt-3">
                     Ainda não montamos seu plano de aposentadoria.{" "}
                     <Link href="/chat" className="text-gold-400 underline">
                       Vamos conversar sobre isso
@@ -172,7 +181,7 @@ export default async function DashboardPage() {
                   />
                   <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400 mb-1">Tobias</p>
-                    <p className="text-sm leading-relaxed text-cream-50">{data.tobiasMessage}</p>
+                    <p className="text-sm leading-relaxed text-onbrand">{data.tobiasMessage}</p>
                   </div>
                 </div>
               </CardContent>
@@ -188,8 +197,8 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
   return (
     <Card className={accent ? "bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]" : DARK_CARD}>
       <CardContent className="py-5">
-        <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-1.5">{label}</p>
-        <p className="font-sans font-medium text-[22px] tracking-tight tabular-nums text-cream-50">{value}</p>
+        <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-1.5">{label}</p>
+        <p className="font-sans font-medium text-[22px] tracking-tight tabular-nums text-onbrand">{value}</p>
       </CardContent>
     </Card>
   );
@@ -225,7 +234,7 @@ function MonthFlow({
     <div>
       <div className="flex items-end justify-between gap-3 mb-3">
         <div>
-          <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-0.5">Saldo do mês</p>
+          <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-0.5">Saldo do mês</p>
           <p
             className={`font-sans font-medium text-2xl tracking-tight tabular-nums ${
               balance >= 0 ? "text-ok-400" : "text-danger-300"
@@ -234,8 +243,8 @@ function MonthFlow({
             {formatBRL(balance)}
           </p>
         </div>
-        <p className="text-xs text-cream-50/50 text-right leading-snug">
-          de <span className="text-cream-50/80 font-medium tabular-nums">{formatBRL(income)}</span>
+        <p className="text-xs text-onbrand/50 text-right leading-snug">
+          de <span className="text-onbrand/80 font-medium tabular-nums">{formatBRL(income)}</span>
           <br />
           em receitas
         </p>
@@ -258,8 +267,8 @@ function FlowLegend({ dotClass, label, value }: { dotClass: string; label: strin
   return (
     <div className="flex items-center gap-1.5 text-xs">
       <span className={`h-2 w-2 rounded-full shrink-0 ${dotClass}`} />
-      <span className="text-cream-50/55">{label}</span>
-      <span className="text-cream-50/85 font-medium tabular-nums">{formatBRL(value)}</span>
+      <span className="text-onbrand/55">{label}</span>
+      <span className="text-onbrand/85 font-medium tabular-nums">{formatBRL(value)}</span>
     </div>
   );
 }

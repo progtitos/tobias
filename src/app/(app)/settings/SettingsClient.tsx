@@ -2,12 +2,14 @@
 
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertTriangle, ShieldCheck, History, FileText, MessageCircle } from "lucide-react";
+import { AlertTriangle, ShieldCheck, History, FileText, MessageCircle, Palette } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input, FieldError } from "@/components/ui/Input";
+import { ThemeToggle } from "@/components/settings/ThemeToggle";
 import { maskCPF, maskPhone } from "@/lib/utils/mask";
+import type { Theme } from "@/lib/theme";
 import {
   deleteAccountAction,
   cancelSubscriptionAction,
@@ -46,7 +48,15 @@ const PLAN_LABELS: Record<string, string> = {
   TOBIAS_PLANNER: "Tobias Planner",
 };
 
-export function SettingsClient({ user, whatsapp }: { user: SettingsUser; whatsapp: WhatsAppConnection }) {
+export function SettingsClient({
+  user,
+  whatsapp,
+  theme,
+}: {
+  user: SettingsUser;
+  whatsapp: WhatsAppConnection;
+  theme: Theme;
+}) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelPending, startCancelTransition] = useTransition();
@@ -55,18 +65,18 @@ export function SettingsClient({ user, whatsapp }: { user: SettingsUser; whatsap
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
       <div className="max-w-2xl mx-auto w-full space-y-6">
-      <h1 className="font-sans font-bold text-2xl text-cream-50">Configurações</h1>
+      <h1 className="font-sans font-bold text-2xl text-onbrand">Configurações</h1>
 
       <Card>
         <CardContent className="py-5 space-y-3">
-          <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-1">Sua conta</h2>
+          <h2 className="font-display font-semibold text-lg text-onbrand mb-1">Sua conta</h2>
           <Row label="Nome" value={user.name} />
           <Row label="E-mail" value={user.email} />
           <Row label="CPF" value={maskCPF(user.cpf) ?? "Não informado"} />
           <Row label="Telefone" value={maskPhone(user.phone) ?? "Não informado"} />
           <Row label="Cliente desde" value={new Date(user.memberSince).toLocaleDateString("pt-BR")} />
           <div className="flex items-center justify-between pt-1">
-            <span className="text-sm text-cream-50/55">Plano</span>
+            <span className="text-sm text-onbrand/55">Plano</span>
             <Badge tone={user.subscriptionStatus === "TRIALING" ? "gold" : "brand"}>
               {PLAN_LABELS[user.subscriptionPlan] ?? user.subscriptionPlan}
             </Badge>
@@ -74,11 +84,23 @@ export function SettingsClient({ user, whatsapp }: { user: SettingsUser; whatsap
         </CardContent>
       </Card>
 
+      <Card>
+        <CardContent className="py-5 space-y-3">
+          <h2 className="font-display font-semibold text-lg text-onbrand mb-1 flex items-center gap-2">
+            <Palette className="h-4 w-4 text-gold-400" /> Aparência
+          </h2>
+          <p className="text-sm text-onbrand/65">
+            Escolha entre o tema claro ou escuro do app. O escolhido vale só para você.
+          </p>
+          <ThemeToggle current={theme} />
+        </CardContent>
+      </Card>
+
       {CANCELABLE_STATUSES.includes(user.subscriptionStatus) && (
         <Card>
           <CardContent className="py-5 space-y-3">
-            <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-1">Assinatura</h2>
-            <p className="text-sm text-cream-50/65">
+            <h2 className="font-display font-semibold text-lg text-onbrand mb-1">Assinatura</h2>
+            <p className="text-sm text-onbrand/65">
               Cancelar interrompe as próximas cobranças no Mercado Pago. Você continua com acesso até o fim do
               período já pago.
             </p>
@@ -119,7 +141,7 @@ export function SettingsClient({ user, whatsapp }: { user: SettingsUser; whatsap
 
       <Card>
         <CardContent className="py-5 space-y-1">
-          <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-2 flex items-center gap-2">
+          <h2 className="font-display font-semibold text-lg text-onbrand mb-2 flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-gold-400" /> Privacidade e segurança
           </h2>
           <SettingsLink href="/settings/activity" icon={History} label="Ver atividade recente da sua conta" />
@@ -130,10 +152,10 @@ export function SettingsClient({ user, whatsapp }: { user: SettingsUser; whatsap
 
       <Card className="border-danger-600/40">
         <CardContent className="py-5 space-y-3">
-          <h2 className="font-serif italic font-medium text-lg text-danger-300 flex items-center gap-2">
+          <h2 className="font-display font-semibold text-lg text-danger-300 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" /> Zona de risco
           </h2>
-          <p className="text-sm text-cream-50/65">
+          <p className="text-sm text-onbrand/65">
             Excluir sua conta apaga permanentemente seu perfil, gastos, objetivos, conversas com o Tobias e todo o
             resto dos seus dados financeiros. Essa ação não pode ser desfeita.
           </p>
@@ -164,15 +186,15 @@ export function SettingsClient({ user, whatsapp }: { user: SettingsUser; whatsap
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between text-sm">
-      <span className="text-cream-50/55">{label}</span>
-      <span className="text-cream-50 font-medium">{value}</span>
+      <span className="text-onbrand/55">{label}</span>
+      <span className="text-onbrand font-medium">{value}</span>
     </div>
   );
 }
 
 function SettingsLink({ href, icon: Icon, label }: { href: string; icon: typeof History; label: string }) {
   return (
-    <Link href={href} className="flex items-center gap-2.5 py-2 text-sm text-cream-50/70 hover:text-gold-400">
+    <Link href={href} className="flex items-center gap-2.5 py-2 text-sm text-onbrand/70 hover:text-gold-400">
       <Icon className="h-4 w-4" /> {label}
     </Link>
   );
@@ -185,18 +207,18 @@ function WhatsAppCard({ whatsapp }: { whatsapp: WhatsAppConnection }) {
   return (
     <Card>
       <CardContent className="py-5 space-y-3">
-        <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-1 flex items-center gap-2">
+        <h2 className="font-display font-semibold text-lg text-onbrand mb-1 flex items-center gap-2">
           <MessageCircle className="h-4 w-4 text-gold-400" /> WhatsApp
         </h2>
 
         {!whatsapp && (
           <>
-            <p className="text-sm text-cream-50/65">
+            <p className="text-sm text-onbrand/65">
               Conecte seu número para conversar com o Tobias direto pelo WhatsApp, do mesmo jeito que no app.
             </p>
             <form action={formAction} className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[200px] space-y-1">
-                <label htmlFor="whatsapp-phone" className="text-xs text-cream-50/55">
+                <label htmlFor="whatsapp-phone" className="text-xs text-onbrand/55">
                   Número (com DDI)
                 </label>
                 <Input id="whatsapp-phone" name="phone" placeholder="+5511999999999" />
@@ -211,8 +233,8 @@ function WhatsAppCard({ whatsapp }: { whatsapp: WhatsAppConnection }) {
 
         {whatsapp && !whatsapp.verified && (
           <>
-            <p className="text-sm text-cream-50/65">
-              Enviamos um código de verificação para <span className="text-cream-50">{maskPhone(whatsapp.phone)}</span>.
+            <p className="text-sm text-onbrand/65">
+              Enviamos um código de verificação para <span className="text-onbrand">{maskPhone(whatsapp.phone)}</span>.
               Responda a mensagem no WhatsApp com o código para confirmar.
             </p>
             <Button
@@ -230,7 +252,7 @@ function WhatsAppCard({ whatsapp }: { whatsapp: WhatsAppConnection }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Badge tone="brand">Conectado</Badge>
-              <span className="text-sm text-cream-50/70">{maskPhone(whatsapp.phone)}</span>
+              <span className="text-sm text-onbrand/70">{maskPhone(whatsapp.phone)}</span>
             </div>
             <Button
               variant="outline"

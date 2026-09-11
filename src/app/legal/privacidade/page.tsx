@@ -11,7 +11,7 @@ export default function PrivacyPage() {
           <ArrowLeft className="h-3.5 w-3.5" /> Voltar para o Tobias
         </Link>
 
-        <h1 className="font-serif text-2xl text-brand-950 mb-1">Política de Privacidade</h1>
+        <h1 className="font-display text-2xl text-brand-950 mb-1">Política de Privacidade</h1>
         <p className="text-xs text-ink-400 mb-6">
           Versão de rascunho do MVP, ainda não revisada por um advogado. Deve ser substituída por uma versão
           revisada antes do lançamento público.

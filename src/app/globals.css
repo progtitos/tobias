@@ -1,56 +1,128 @@
 @import "tailwindcss";
 
 /*
-  TOBIAS brand tokens.
-  Deep green + off-white + discreet gold, per the brand brief: elegant,
-  confiável, humano — "financeiro sem parecer banco". Fraunces (serif) and
-  Plus Jakarta Sans (sans) are loaded via next/font/google in layout.tsx,
-  which self-hosts the font files from our own domain at build time — the
-  browser never fetches fonts.googleapis.com/fonts.gstatic.com directly, so
-  privacy browsers and ad-blockers that block those hosts can't silently
-  fall back to a system font. --font-fraunces / --font-plus-jakarta below
-  are the CSS variables next/font generates; the system stacks after them
-  are the fallback while the font loads (display: swap), not the primary.
+  TOBIAS brand tokens — "Ardósia Solar".
+  Slate neutrals + a single solar accent, in the spirit of the fintech apps
+  we're taking cues from (Mercado Pago's navigation, Nubank/Monzo's
+  confidence in one strong accent): direto, moderno, sem parecer banco de
+  antigamente e sem parecer "gerado por IA" (bege+serifa+dourado apagado).
+
+  Sora (display headings) and Work Sans (body) are loaded via
+  next/font/google in layout.tsx, which self-hosts the font files from our
+  own domain at build time — the browser never fetches
+  fonts.googleapis.com/fonts.gstatic.com directly, so privacy browsers and
+  ad-blockers that block those hosts can't silently fall back to a system
+  font. --font-sora / --font-work-sans below are the CSS variables
+  next/font generates; the system stacks after them are the fallback while
+  the font loads (display: swap), not the primary.
+
+  THEME MODEL — this is not the usual light/dark split.
+  The public/marketing surface (landing page, login/onboarding, termos e
+  privacidade) has one fixed, deliberately dark look and never changes — it
+  is not part of the user's preference. Only the logged-in product surface
+  (everything AppShell wraps) can be light or dark, chosen in Configurações
+  and stored in a cookie (see src/lib/theme.ts), read server-side and set as
+  `data-theme="light" | "dark"` on AppShell's own root element — NOT on
+  <html>. That scoping is what keeps the marketing/legal pages untouched:
+  they simply never sit inside an element carrying that attribute, so they
+  always resolve the bare `:root` values below regardless of what a logged
+  in user picked for the product.
+
+  Token roles, so a future change doesn't reintroduce a contrast bug:
+  - brand-950..50: the FLIPPING surface scale (page bg, nav bg, card bg,
+    input bg, button surfaces). Dark by default (bare :root — this is also
+    what every marketing/legal page renders, always). Overridden lighter
+    under [data-theme="light"].
+  - onbrand: the text color for content sitting ON a brand-* surface.
+    Flips opposite to brand-* (light text in the dark theme, dark text in
+    the light theme) so it always stays legible on top of it.
+  - gold-*, danger-*, warn-*, ok-*: accent + semantic colors, FIXED across
+    both themes on purpose (same accent everywhere, like Nubank/Monzo).
+  - cream-*, ink-*: FIXED, used only for the handful of deliberately
+    "always light" chrome elements regardless of app theme — a popover
+    menu (UserMenu), a neutral status chip (Badge tone="neutral"), and the
+    standalone termos/privacidade pages. Never put these on a brand-*
+    surface; use onbrand for that.
+  - brandchip-100/900: FIXED pair for Badge tone="brand" specifically — it
+    needs to always read as a light chip with dark text regardless of
+    theme, which brand-100/900 can no longer guarantee once those flip.
 */
 :root {
-  --font-serif: var(--font-fraunces), ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
-  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-sora), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-work-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-  --color-brand-950: #0a2a20;
-  --color-brand-900: #0f3d2e;
-  --color-brand-800: #14503c;
-  --color-brand-700: #1a6349;
-  --color-brand-600: #237857;
-  --color-brand-500: #2e8f68;
-  --color-brand-100: #e3ede7;
-  --color-brand-50: #f1f6f3;
+  --color-brand-950: #14181c;
+  --color-brand-900: #1b2126;
+  --color-brand-800: #23292f;
+  --color-brand-700: #2c3339;
+  --color-brand-600: #394048;
+  --color-brand-500: #4a525a;
+  --color-brand-100: #dfe3e6;
+  --color-brand-50: #eef1f2;
 
-  --color-gold-700: #8a6a24;
-  --color-gold-600: #a5822f;
-  --color-gold-500: #bd9a44;
-  --color-gold-400: #d1b567;
-  --color-gold-100: #f3ead0;
+  --color-onbrand: #f5f6f5;
 
-  --color-cream-50: #fbf9f4;
-  --color-cream-100: #f5f1e7;
-  --color-cream-200: #ece5d3;
+  --color-brandchip-100: #dfe3e6;
+  --color-brandchip-900: #1b2126;
 
-  --color-ink-900: #1b1d1a;
-  --color-ink-700: #3a3d38;
-  --color-ink-500: #6b6f66;
-  --color-ink-300: #a3a89c;
+  --color-gold-700: #a8631a;
+  --color-gold-600: #d9862b;
+  --color-gold-500: #f0992f;
+  --color-gold-400: #ffb648;
+  --color-gold-100: #ffe7c4;
 
-  --color-danger-600: #b3453a;
-  --color-danger-300: #e08a72;
-  --color-danger-100: #f6e3e0;
-  --color-warn-600: #b07a1f;
-  --color-warn-100: #f6ecd6;
-  --color-ok-600: #2e7a52;
-  --color-ok-400: #7fc79a;
-  --color-ok-100: #e3f0e8;
+  --color-cream-50: #f5f6f5;
+  --color-cream-100: #eef0ef;
+  --color-cream-200: #e2e5e3;
+
+  --color-ink-900: #1c2023;
+  --color-ink-700: #3f444a;
+  --color-ink-500: #6b7176;
+  --color-ink-300: #a6acb1;
+
+  --color-danger-600: #c14a3a;
+  --color-danger-300: #f08a72;
+  --color-danger-100: #fbe3df;
+  --color-warn-600: #a8791f;
+  --color-warn-100: #f5ecd8;
+  --color-ok-600: #1f8f74;
+  --color-ok-400: #5ecbb8;
+  --color-ok-100: #dff5f0;
 
   --background: var(--color-cream-50);
   --foreground: var(--color-ink-900);
+}
+
+/* Explicit dark override — identical to the bare :root above. Redundant on
+   its own (anything without [data-theme="light"] already resolves to these
+   values by inheritance), but AppShell always sets an explicit attribute,
+   so this keeps "dark" self-contained and safe to edit on its own later
+   without having to remember it doubles as the global default. */
+[data-theme="dark"] {
+  --color-brand-950: #14181c;
+  --color-brand-900: #1b2126;
+  --color-brand-800: #23292f;
+  --color-brand-700: #2c3339;
+  --color-brand-600: #394048;
+  --color-brand-500: #4a525a;
+  --color-brand-100: #dfe3e6;
+  --color-brand-50: #eef1f2;
+  --color-onbrand: #f5f6f5;
+}
+
+/* The real light theme — Mercado Pago-style: light page, white cards,
+   dark text, same solar accent. Scoped to AppShell's root element only. */
+[data-theme="light"] {
+  --color-brand-950: #f2f4f5;
+  --color-brand-900: #ffffff;
+  --color-brand-800: #ffffff;
+  --color-brand-700: #23292f;
+  --color-brand-600: #394048;
+  --color-brand-500: #6b7176;
+  --color-brand-100: #e7ebed;
+  --color-brand-50: #f7f8f8;
+
+  --color-onbrand: #1c2023;
 }
 
 @theme inline {
@@ -65,6 +137,10 @@
   --color-brand-500: var(--color-brand-500);
   --color-brand-100: var(--color-brand-100);
   --color-brand-50: var(--color-brand-50);
+
+  --color-onbrand: var(--color-onbrand);
+  --color-brandchip-100: var(--color-brandchip-100);
+  --color-brandchip-900: var(--color-brandchip-900);
 
   --color-gold-700: var(--color-gold-700);
   --color-gold-600: var(--color-gold-600);
@@ -91,7 +167,7 @@
   --color-ok-100: var(--color-ok-100);
 
   --font-sans: var(--font-sans);
-  --font-serif: var(--font-serif);
+  --font-display: var(--font-display);
 }
 
 body {

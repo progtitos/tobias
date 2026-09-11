@@ -42,8 +42,8 @@ export function ContaClient({ accounts }: { accounts: BankAccount[] }) {
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
       <div className="max-w-3xl mx-auto w-full">
-        <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Suas contas</h1>
-        <p className="text-sm text-cream-50/55 mb-6">
+        <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Suas contas</h1>
+        <p className="text-sm text-onbrand/55 mb-6">
           Contas bancárias e carteiras digitais. O saldo delas alimenta seu patrimônio líquido, a reserva de
           emergência e o Ponteiro — e pode ser ligado direto a uma transação em Lançamentos.
         </p>
@@ -51,8 +51,8 @@ export function ContaClient({ accounts }: { accounts: BankAccount[] }) {
         <Card className="mb-6">
           <CardContent className="py-5 flex items-center justify-between flex-wrap gap-3">
             <div>
-              <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-0.5">Saldo em contas</p>
-              <p className="font-sans font-medium text-3xl tracking-tight tabular-nums text-cream-50">
+              <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-0.5">Saldo em contas</p>
+              <p className="font-sans font-medium text-3xl tracking-tight tabular-nums text-onbrand">
                 {formatBRL(totalBalance)}
               </p>
             </div>
@@ -111,7 +111,7 @@ export function ContaClient({ accounts }: { accounts: BankAccount[] }) {
         )}
 
         {accounts.length === 0 ? (
-          <p className="text-sm text-cream-50/55 py-12 text-center">
+          <p className="text-sm text-onbrand/55 py-12 text-center">
             Você ainda não cadastrou nenhuma conta. Adicione suas contas para o patrimônio e a reserva de emergência
             refletirem a realidade.
           </p>
@@ -122,7 +122,7 @@ export function ContaClient({ accounts }: { accounts: BankAccount[] }) {
             ))}
             {inactive.length > 0 && (
               <>
-                <p className="text-xs font-medium text-cream-50/55 pt-4">Desativadas</p>
+                <p className="text-xs font-medium text-onbrand/55 pt-4">Desativadas</p>
                 {inactive.map((a) => (
                   <AccountRow key={a.id} account={a} />
                 ))}
@@ -143,14 +143,14 @@ function AccountRow({ account }: { account: BankAccount }) {
   return (
     <Card>
       <CardContent className="py-4 flex items-center gap-3">
-        <Wallet className="h-5 w-5 shrink-0 text-cream-50/45" />
+        <Wallet className="h-5 w-5 shrink-0 text-onbrand/45" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-medium text-cream-50 truncate">{account.name}</p>
+            <p className="font-medium text-onbrand truncate">{account.name}</p>
             <Badge tone="brand">{ACCOUNT_TYPE_LABELS[account.type]}</Badge>
             {!account.isActive && <Badge tone="neutral">Desativada</Badge>}
           </div>
-          {account.bankName && <p className="text-xs text-cream-50/55 mt-0.5">{account.bankName}</p>}
+          {account.bankName && <p className="text-xs text-onbrand/55 mt-0.5">{account.bankName}</p>}
         </div>
 
         {editing ? (
@@ -176,7 +176,7 @@ function AccountRow({ account }: { account: BankAccount }) {
             >
               <Check className="h-4 w-4" />
             </button>
-            <button className="text-cream-50/40 hover:text-cream-50/70" onClick={() => setEditing(false)}>
+            <button className="text-onbrand/40 hover:text-onbrand/70" onClick={() => setEditing(false)}>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -189,13 +189,13 @@ function AccountRow({ account }: { account: BankAccount }) {
             }}
             title="Atualizar saldo"
           >
-            <span className="font-medium tabular-nums text-cream-50">{formatBRL(account.balance)}</span>
-            <Pencil className="h-3.5 w-3.5 text-cream-50/30 group-hover:text-gold-400" />
+            <span className="font-medium tabular-nums text-onbrand">{formatBRL(account.balance)}</span>
+            <Pencil className="h-3.5 w-3.5 text-onbrand/30 group-hover:text-gold-400" />
           </button>
         )}
 
         <button
-          className="text-cream-50/40 hover:text-gold-400 shrink-0"
+          className="text-onbrand/40 hover:text-gold-400 shrink-0"
           title={account.isActive ? "Desativar" : "Reativar"}
           disabled={pending}
           onClick={() => startTransition(() => toggleBankAccountActiveAction(account.id, !account.isActive))}
@@ -204,7 +204,7 @@ function AccountRow({ account }: { account: BankAccount }) {
         </button>
         <button
           aria-label="Excluir"
-          className="text-cream-50/35 hover:text-danger-300 transition-colors shrink-0"
+          className="text-onbrand/35 hover:text-danger-300 transition-colors shrink-0"
           disabled={pending}
           onClick={() => startTransition(() => deleteBankAccountAction(account.id))}
         >

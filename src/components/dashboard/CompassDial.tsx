@@ -94,7 +94,7 @@ export function CompassDial({
                 width: 5,
                 height: needleLen,
                 borderRadius: "3px 3px 0 0",
-                background: "linear-gradient(var(--color-cream-50), var(--color-gold-400))",
+                background: "linear-gradient(var(--color-onbrand), var(--color-gold-400))",
                 transformOrigin: "50% 100%",
               }}
             />
@@ -110,7 +110,7 @@ export function CompassDial({
         </div>
       </div>
       <div className="text-center mt-3.5">
-        <span className="block font-sans font-medium text-4xl leading-none tracking-tight tabular-nums text-cream-50">
+        <span className="block font-sans font-medium text-4xl leading-none tracking-tight tabular-nums text-onbrand">
           {displayScore}
         </span>
         <span className={`block text-xs font-semibold mt-1.5 ${STATUS_TONE[status]}`}>{status}</span>

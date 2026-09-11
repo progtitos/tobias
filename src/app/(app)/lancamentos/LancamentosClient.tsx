@@ -109,9 +109,9 @@ const PAYMENT_LABELS: Record<string, string> = {
 // transferência (neutro) — dá pra escanear a lista sem ler o valor.
 const TYPE_META: Record<string, { label: string; icon: LucideIcon; amountClass: string; sign: string }> = {
   INCOME: { label: "Receita", icon: ArrowDownCircle, amountClass: "text-ok-400", sign: "+" },
-  EXPENSE: { label: "Gasto", icon: ArrowUpCircle, amountClass: "text-cream-50/85", sign: "−" },
+  EXPENSE: { label: "Gasto", icon: ArrowUpCircle, amountClass: "text-onbrand/85", sign: "−" },
   INVESTMENT_CONTRIBUTION: { label: "Investimento", icon: PiggyBank, amountClass: "text-gold-400", sign: "+" },
-  TRANSFER: { label: "Transferência", icon: ArrowLeftRight, amountClass: "text-cream-50/55", sign: "" },
+  TRANSFER: { label: "Transferência", icon: ArrowLeftRight, amountClass: "text-onbrand/55", sign: "" },
 };
 
 // Mesmos ícones plantados em seedCategories.ts, um por categoria — assim uma
@@ -181,23 +181,23 @@ export function LancamentosClient({
     <div className="flex-1 bg-brand-950 px-5 py-6">
       <div className="max-w-3xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <h1 className="font-sans font-bold text-2xl text-cream-50">Lançamentos</h1>
+          <h1 className="font-sans font-bold text-2xl text-onbrand">Lançamentos</h1>
           <div className="flex items-center gap-1">
             <Link
               href={`/lancamentos?month=${shiftMonth(month, -1)}`}
-              className="p-1.5 rounded-lg text-cream-50/55 hover:bg-white/5 hover:text-cream-50"
+              className="p-1.5 rounded-lg text-onbrand/55 hover:bg-white/5 hover:text-onbrand"
               aria-label="Mês anterior"
             >
               <ChevronLeft className="h-4 w-4" />
             </Link>
-            <span className="text-sm font-medium text-cream-50 capitalize min-w-[140px] text-center">
+            <span className="text-sm font-medium text-onbrand capitalize min-w-[140px] text-center">
               {monthLabel}
             </span>
             <Link
               href={`/lancamentos?month=${shiftMonth(month, 1)}`}
               className={cn(
                 "p-1.5 rounded-lg hover:bg-white/5",
-                isCurrentMonth ? "text-cream-50/20 pointer-events-none" : "text-cream-50/55 hover:text-cream-50"
+                isCurrentMonth ? "text-onbrand/20 pointer-events-none" : "text-onbrand/55 hover:text-onbrand"
               )}
               aria-label="Próximo mês"
             >
@@ -209,8 +209,8 @@ export function LancamentosClient({
         <Card className="mb-5">
           <CardContent className="py-4">
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-cream-50/70">Total do mês</span>
-              <span className="font-medium text-cream-50">
+              <span className="text-onbrand/70">Total do mês</span>
+              <span className="font-medium text-onbrand">
                 {formatBRL(totalActual)}
                 {totalLimit > 0 ? ` de ${formatBRL(totalLimit)} (${Math.round((totalActual / totalLimit) * 100)}%)` : ""}
               </span>
@@ -259,7 +259,7 @@ function TabButton({
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
-        active ? "border-gold-400 text-gold-400" : "border-transparent text-cream-50/50 hover:text-cream-50/80"
+        active ? "border-gold-400 text-gold-400" : "border-transparent text-onbrand/50 hover:text-onbrand/80"
       )}
     >
       <Icon className="h-4 w-4" /> {children}
@@ -380,7 +380,7 @@ function TransactionsTab({
                   ))}
                 </Select>
                 {accounts.length === 0 && (
-                  <p className="text-xs text-cream-50/45 mt-1">
+                  <p className="text-xs text-onbrand/45 mt-1">
                     Nenhuma conta cadastrada ainda. Adicione uma em Conta para o saldo dela mudar sozinho aqui.
                   </p>
                 )}
@@ -402,7 +402,7 @@ function TransactionsTab({
       )}
 
       {transactions.length === 0 ? (
-        <p className="text-cream-50/55 text-sm py-12 text-center">
+        <p className="text-onbrand/55 text-sm py-12 text-center">
           Nenhuma transação registrada neste mês ainda. Adicione uma ou conte pro Tobias no chat.
         </p>
       ) : (
@@ -435,7 +435,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <p className="font-medium text-cream-50 truncate">{transaction.description}</p>
+              <p className="font-medium text-onbrand truncate">{transaction.description}</p>
               {transaction.installmentTotal && transaction.installmentTotal > 1 && (
                 <Badge tone="neutral">
                   {transaction.installmentNumber}/{transaction.installmentTotal}
@@ -449,7 +449,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-cream-50/55">
+            <p className="text-xs text-onbrand/55">
               {new Date(transaction.date).toLocaleDateString("pt-BR")}
               {transaction.merchant ? ` · ${transaction.merchant}` : ""}
               {transaction.paymentMethod ? ` · ${PAYMENT_LABELS[transaction.paymentMethod]}` : ""}
@@ -458,7 +458,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
 
           {transaction.type === "EXPENSE" && (
             <select
-              className="text-xs rounded-lg border border-black/20 bg-brand-900 text-cream-50 px-2 py-1.5 max-w-[130px]"
+              className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[130px]"
               value={transaction.categoryId ?? ""}
               disabled={pending}
               onChange={(e) => {
@@ -483,7 +483,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
 
           <button
             aria-label="Excluir"
-            className="text-cream-50/35 hover:text-danger-300 transition-colors"
+            className="text-onbrand/35 hover:text-danger-300 transition-colors"
             onClick={() => startTransition(() => deleteTransactionAction(transaction.id))}
           >
             <Trash2 className="h-4 w-4" />
@@ -515,7 +515,7 @@ function BudgetTab({ budgets }: { budgets: BudgetRow[] }) {
       </div>
 
       {budgets.length === 0 ? (
-        <p className="text-sm text-cream-50/55 py-12 text-center">
+        <p className="text-sm text-onbrand/55 py-12 text-center">
           Ainda não há um orçamento sugerido. Conte pro Tobias sua renda no chat para ele montar um guia inicial.
         </p>
       ) : (
@@ -550,7 +550,7 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
       <CardContent className="py-4">
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-medium text-cream-50">{budget.label}</p>
+            <p className="font-medium text-onbrand">{budget.label}</p>
             {!budget.isAutoCalculated && <Badge tone="neutral">Ajustado por você</Badge>}
             {budget.isOverrun && <Badge tone="danger">Estourou</Badge>}
           </div>
@@ -569,7 +569,7 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
                 <Check className="h-4 w-4" />
               </button>
               <button
-                className="text-cream-50/40"
+                className="text-onbrand/40"
                 onClick={() => {
                   setEditing(false);
                   setValue(String(budget.limitAmount));
@@ -581,7 +581,7 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
             </div>
           ) : (
             <button
-              className="text-cream-50/40 hover:text-gold-400 shrink-0"
+              className="text-onbrand/40 hover:text-gold-400 shrink-0"
               title="Ajustar limite"
               onClick={() => setEditing(true)}
             >
@@ -591,10 +591,10 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
         </div>
 
         <div className="flex justify-between text-sm mb-1">
-          <span className="text-cream-50/55">
+          <span className="text-onbrand/55">
             {formatBRL(budget.actual)} de {formatBRL(budget.limitAmount)}
           </span>
-          <span className={budget.isOverrun ? "text-danger-300 font-medium" : "text-cream-50/70"}>{pct}%</span>
+          <span className={budget.isOverrun ? "text-danger-300 font-medium" : "text-onbrand/70"}>{pct}%</span>
         </div>
         <ProgressBar value={Math.min(100, pct)} barClassName={budget.isOverrun ? "bg-danger-300" : undefined} />
       </CardContent>

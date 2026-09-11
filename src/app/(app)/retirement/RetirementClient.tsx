@@ -51,8 +51,8 @@ export function RetirementClient({
       <div className="max-w-4xl mx-auto w-full">
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
-          <h1 className="font-sans font-bold text-2xl text-cream-50">Curva de aposentadoria</h1>
-          <p className="text-sm text-cream-50/55 mt-1">
+          <h1 className="font-sans font-bold text-2xl text-onbrand">Curva de aposentadoria</h1>
+          <p className="text-sm text-onbrand/55 mt-1">
             Simule cenários conservador, base e agressivo. Os números usam seu patrimônio real de hoje ({formatBRL(currentNetWorth)}).
           </p>
         </div>
@@ -71,12 +71,12 @@ export function RetirementClient({
               <ScenarioBadge label="Agressivo" onTrack={simulation.aggressive.onTrack} />
             </div>
             <div className="mt-4 space-y-1.5 text-sm">
-              <p className="text-cream-50/70">
-                Patrimônio necessário para viver de renda: <span className="font-medium text-cream-50">{formatBRL(simulation.requiredNetWorth)}</span>
+              <p className="text-onbrand/70">
+                Patrimônio necessário para viver de renda: <span className="font-medium text-onbrand">{formatBRL(simulation.requiredNetWorth)}</span>
               </p>
-              <p className="text-cream-50/70">
+              <p className="text-onbrand/70">
                 Projeção no cenário base aos {inputs.targetRetirementAge} anos:{" "}
-                <span className="font-medium text-cream-50">{formatBRL(simulation.base.finalValueAtTargetAge)}</span>
+                <span className="font-medium text-onbrand">{formatBRL(simulation.base.finalValueAtTargetAge)}</span>
               </p>
               {!simulation.base.onTrack && (
                 <p className="text-gold-400 flex items-center gap-1.5">
@@ -165,7 +165,7 @@ function NumberField({
     <div>
       <Label>{label}</Label>
       <div className="relative">
-        {prefix && <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-cream-50/40">{prefix}</span>}
+        {prefix && <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-onbrand/40">{prefix}</span>}
         <Input
           type="number"
           step={step}
@@ -181,7 +181,7 @@ function NumberField({
 function MiniPctField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
     <div>
-      <p className="text-xs text-cream-50/40 mb-1">{label}</p>
+      <p className="text-xs text-onbrand/40 mb-1">{label}</p>
       <Input
         type="number"
         step={0.5}

@@ -62,15 +62,15 @@ export function PatrimonioClient({
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
       <div className="max-w-3xl mx-auto w-full">
-        <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Seu patrimônio</h1>
-        <p className="text-sm text-cream-50/55 mb-6">
+        <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Seu patrimônio</h1>
+        <p className="text-sm text-onbrand/55 mb-6">
           Seus investimentos e o patrimônio líquido que eles formam junto com suas contas. Esses números alimentam a
           curva de aposentadoria e o Ponteiro — para editar suas contas bancárias, vá em Conta.
         </p>
 
         <NetWorthSummary netWorth={netWorth} />
 
-        <h2 className="font-sans font-medium text-lg text-cream-50 mt-8 mb-4">Investimentos</h2>
+        <h2 className="font-sans font-medium text-lg text-onbrand mt-8 mb-4">Investimentos</h2>
 
         <InvestmentsSection investments={investments} goals={goals} />
       </div>
@@ -84,11 +84,11 @@ function NetWorthSummary({ netWorth }: { netWorth: NetWorth }) {
       <CardContent className="py-5">
         <div className="flex items-end justify-between flex-wrap gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-0.5">Patrimônio líquido</p>
+            <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-0.5">Patrimônio líquido</p>
             <p
               className={cn(
                 "font-sans font-medium text-3xl tracking-tight tabular-nums",
-                netWorth.netWorth >= 0 ? "text-cream-50" : "text-danger-300"
+                netWorth.netWorth >= 0 ? "text-onbrand" : "text-danger-300"
               )}
             >
               {formatBRL(netWorth.netWorth)}
@@ -109,8 +109,8 @@ function NetWorthSummary({ netWorth }: { netWorth: NetWorth }) {
 function SummaryFigure({ label, value, negative }: { label: string; value: number; negative?: boolean }) {
   return (
     <div>
-      <p className="text-[11px] text-cream-50/50 mb-0.5">{label}</p>
-      <p className={cn("text-sm font-medium tabular-nums", negative && value > 0 ? "text-danger-300" : "text-cream-50/85")}>
+      <p className="text-[11px] text-onbrand/50 mb-0.5">{label}</p>
+      <p className={cn("text-sm font-medium tabular-nums", negative && value > 0 ? "text-danger-300" : "text-onbrand/85")}>
         {negative && value > 0 ? "−" : ""}
         {formatBRL(value)}
       </p>
@@ -129,7 +129,7 @@ function InvestmentsSection({ investments, goals }: { investments: Investment[];
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-cream-50/55">
+        <p className="text-sm text-onbrand/55">
           {investments.length} investimento{investments.length === 1 ? "" : "s"}
         </p>
         <Button size="sm" onClick={() => setShowForm((v) => !v)}>
@@ -211,7 +211,7 @@ function InvestmentsSection({ investments, goals }: { investments: Investment[];
       )}
 
       {investments.length === 0 ? (
-        <p className="text-sm text-cream-50/55 py-12 text-center">
+        <p className="text-sm text-onbrand/55 py-12 text-center">
           Você ainda não cadastrou investimentos. Adicione os seus para o patrimônio, a curva de aposentadoria e o
           Ponteiro considerarem o que você já tem guardado.
         </p>
@@ -241,11 +241,11 @@ function InvestmentRow({ investment }: { investment: Investment }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-cream-50">{investment.name}</p>
+              <p className="font-medium text-onbrand">{investment.name}</p>
               <Badge tone="brand">{INVESTMENT_TYPE_LABELS[investment.type]}</Badge>
               {investment.goalTitle && <Badge tone="gold">→ {investment.goalTitle}</Badge>}
             </div>
-            <p className="text-xs text-cream-50/55 mt-0.5">
+            <p className="text-xs text-onbrand/55 mt-0.5">
               {investment.institution ? `${investment.institution} · ` : ""}
               Aportado: {formatBRL(investment.investedAmount)}
               {investment.liquidity ? ` · Liquidez: ${investment.liquidity}` : ""}
@@ -275,7 +275,7 @@ function InvestmentRow({ investment }: { investment: Investment }) {
               >
                 <Check className="h-4 w-4" />
               </button>
-              <button className="text-cream-50/40 hover:text-cream-50/70" onClick={() => setEditingValue(false)}>
+              <button className="text-onbrand/40 hover:text-onbrand/70" onClick={() => setEditingValue(false)}>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -289,8 +289,8 @@ function InvestmentRow({ investment }: { investment: Investment }) {
                 }}
                 title="Atualizar valor atual"
               >
-                <span className="font-medium tabular-nums text-cream-50">{formatBRL(investment.currentAmount)}</span>
-                <Pencil className="h-3.5 w-3.5 text-cream-50/30 group-hover:text-gold-400" />
+                <span className="font-medium tabular-nums text-onbrand">{formatBRL(investment.currentAmount)}</span>
+                <Pencil className="h-3.5 w-3.5 text-onbrand/30 group-hover:text-gold-400" />
               </button>
               {gain !== 0 && (
                 <p className={cn("text-xs tabular-nums", gain > 0 ? "text-ok-400" : "text-danger-300")}>
@@ -330,7 +330,7 @@ function InvestmentRow({ investment }: { investment: Investment }) {
           </div>
           <button
             aria-label="Excluir"
-            className="text-cream-50/35 hover:text-danger-300 transition-colors"
+            className="text-onbrand/35 hover:text-danger-300 transition-colors"
             disabled={pending}
             onClick={() => startTransition(() => deleteInvestmentAction(investment.id))}
           >

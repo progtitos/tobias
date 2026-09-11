@@ -35,8 +35,8 @@ export function ReceiptUploadClient() {
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
       <div className="max-w-lg mx-auto w-full">
-      <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Fotografar nota</h1>
-      <p className="text-sm text-cream-50/55 mb-6">
+      <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Fotografar nota</h1>
+      <p className="text-sm text-onbrand/55 mb-6">
         Tire uma foto da nota fiscal ou comprovante. Para notas grandes, envie até 5 fotos: o Tobias
         consolida tudo como uma única compra.
       </p>
@@ -45,7 +45,7 @@ export function ReceiptUploadClient() {
         {previews.length === 0 ? (
           <label className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gold-400/40 bg-brand-900/40 py-16 cursor-pointer hover:bg-brand-900/70 transition-colors">
             <Camera className="h-10 w-10 text-gold-400" />
-            <span className="text-sm font-medium text-cream-50">Toque para fotografar ou escolher</span>
+            <span className="text-sm font-medium text-onbrand">Toque para fotografar ou escolher</span>
             <input
               type="file"
               name="photos-input"
@@ -77,7 +77,7 @@ export function ReceiptUploadClient() {
               ))}
               {previews.length < 5 && (
                 <label className="flex items-center justify-center aspect-square rounded-xl border-2 border-dashed border-white/15 cursor-pointer hover:bg-white/5">
-                  <Camera className="h-6 w-6 text-cream-50/55" />
+                  <Camera className="h-6 w-6 text-onbrand/55" />
                   <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
                 </label>
               )}
@@ -106,7 +106,7 @@ export function ReceiptUploadClient() {
       </form>
 
       <Card className="mt-8">
-        <CardContent className="py-4 text-xs text-cream-50/55">
+        <CardContent className="py-4 text-xs text-onbrand/55">
           Sem uma nota em mãos? Você também pode registrar o gasto direto pelo chat, dizendo algo como
           &quot;gastei 80 reais no mercado&quot;, ou lançar manualmente na tela de Gastos.
         </CardContent>

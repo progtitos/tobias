@@ -13,8 +13,8 @@ export default function LoginPage() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Bem-vindo de volta</h1>
-        <p className="text-sm text-cream-50/55 mb-6">Entre para continuar seu plano.</p>
+        <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Bem-vindo de volta</h1>
+        <p className="text-sm text-onbrand/55 mb-6">Entre para continuar seu plano.</p>
 
         <form action={formAction} className="space-y-4">
           <div>
@@ -36,7 +36,7 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="mt-5 text-center text-sm text-cream-50/55">
+        <p className="mt-5 text-center text-sm text-onbrand/55">
           Ainda não tem conta?{" "}
           <Link href="/signup" className="text-gold-400 font-medium hover:underline">
             Criar conta

@@ -20,8 +20,8 @@ export default async function PagamentoPendentePage() {
         <div className="mx-auto h-11 w-11 rounded-full bg-gold-400/10 flex items-center justify-center mb-4">
           <Clock className="h-5 w-5 text-gold-400" />
         </div>
-        <h1 className="font-sans font-bold text-xl text-cream-50 mb-2">Confirmando seu pagamento</h1>
-        <p className="text-sm text-cream-50/60 leading-relaxed">
+        <h1 className="font-sans font-bold text-xl text-onbrand mb-2">Confirmando seu pagamento</h1>
+        <p className="text-sm text-onbrand/60 leading-relaxed">
           Estamos aguardando a confirmação do Mercado Pago de que o cartão foi cadastrado. Isso costuma levar poucos
           segundos. Se você fechou a página do Mercado Pago antes de terminar, pode tentar de novo abaixo.
         </p>

@@ -19,9 +19,9 @@ function TobiasAvatar() {
     // than next/image's optimization pipeline.
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/logo-transparent.png"
-      alt=""
-      className="h-7 w-7 shrink-0 rounded-full bg-brand-950 p-1 object-contain"
+      src="/avatars/tobias-boas-vindas.png"
+      alt="Tobias"
+      className="h-8 w-8 shrink-0 rounded-full object-cover"
     />
   );
 }
@@ -88,7 +88,7 @@ export function ChatWindow({
             <div
               className={cn(
                 "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap",
-                m.role === "USER" ? "bg-gold-500 text-brand-950 rounded-br-sm" : "bg-brand-800 text-cream-50 rounded-bl-sm"
+                m.role === "USER" ? "bg-gold-500 text-ink-900 rounded-br-sm" : "bg-brand-800 text-onbrand rounded-bl-sm"
               )}
             >
               {m.content}
@@ -112,7 +112,7 @@ export function ChatWindow({
           <div className="flex items-end gap-2 justify-start">
             <TobiasAvatar />
             <div className="rounded-2xl rounded-bl-sm bg-brand-800 px-4 py-2.5">
-              <Loader2 className="h-4 w-4 animate-spin text-cream-50/60" />
+              <Loader2 className="h-4 w-4 animate-spin text-onbrand/60" />
             </div>
           </div>
         )}
@@ -132,7 +132,7 @@ export function ChatWindow({
             }}
             rows={1}
             placeholder={placeholder}
-            className="flex-1 resize-none max-h-32 rounded-xl border border-black/20 bg-brand-900 text-cream-50 placeholder:text-cream-50/35 px-3.5 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60"
+            className="flex-1 resize-none max-h-32 rounded-xl border border-black/20 bg-brand-900 text-onbrand placeholder:text-onbrand/35 px-3.5 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60"
           />
           <Button onClick={handleSend} disabled={!input.trim()} loading={pending} size="md" className="shrink-0">
             <Send className="h-4 w-4" />

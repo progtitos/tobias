@@ -30,13 +30,13 @@ export function UserMenu({ user, compact }: { user: SessionUser; compact?: boole
           compact ? "p-1" : "w-full p-2"
         )}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-400 text-brand-950 text-sm font-semibold">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-400 text-ink-900 text-sm font-semibold">
           {initial}
         </span>
         {!compact && (
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-cream-50 truncate">{user.name}</span>
-            <span className="block text-xs text-cream-50/55 truncate">{user.email}</span>
+            <span className="block text-sm font-medium text-onbrand truncate">{user.name}</span>
+            <span className="block text-xs text-onbrand/55 truncate">{user.email}</span>
           </span>
         )}
       </button>

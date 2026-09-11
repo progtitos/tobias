@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm";
 import { requireOnboardedUser } from "@/lib/auth/guards";
+import { getTheme } from "@/lib/theme";
 import { db } from "@/lib/db/client";
 import { users, whatsappConnections } from "@/lib/db/schema";
 import { SettingsClient } from "./SettingsClient";
 
 export default async function SettingsPage() {
   const user = await requireOnboardedUser();
+  const theme = await getTheme();
   const [full] = await db
     .select({ cpf: users.cpf, phone: users.phone, createdAt: users.createdAt })
     .from(users)
@@ -31,6 +33,7 @@ export default async function SettingsPage() {
         trialEndsAt: user.trialEndsAt.toISOString(),
       }}
       whatsapp={whatsapp ? { phone: whatsapp.phone, verified: whatsapp.verified } : null}
+      theme={theme}
     />
   );
 }

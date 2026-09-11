@@ -14,6 +14,7 @@ import {
   Landmark,
 } from "lucide-react";
 import type { SessionUser } from "@/lib/auth/session";
+import type { Theme } from "@/lib/theme";
 import { UserMenu } from "./UserMenu";
 import { TrialBadge } from "./TrialBadge";
 import { cn } from "@/lib/utils/cn";
@@ -29,17 +30,29 @@ const NAV_ITEMS = [
   { href: "/retirement", label: "Aposentadoria", icon: TrendingUp },
 ];
 
-export function AppShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
+export function AppShell({
+  user,
+  theme,
+  children,
+}: {
+  user: SessionUser;
+  theme: Theme;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + "/");
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-cream-50">
+    // data-theme lives HERE, not on <html> — this is what keeps the
+    // marketing/legal pages (outside AppShell) always on the fixed dark
+    // look regardless of what a logged-in user picked in Configurações.
+    // See the "THEME MODEL" note at the top of globals.css.
+    <div data-theme={theme} className="flex-1 flex flex-col md:flex-row min-h-screen bg-brand-950">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:w-60 md:flex-col bg-brand-950 px-4 py-6">
         <Link href="/dashboard" className="flex items-center gap-2.5 px-2 mb-8">
           <Image src="/logo-transparent.png" alt="Tobias" width={28} height={28} />
-          <span className="font-serif text-lg text-cream-50">Tobias</span>
+          <span className="font-display text-lg text-onbrand">Tobias</span>
         </Link>
         <nav className="flex flex-col gap-1 flex-1">
           {NAV_ITEMS.map((item) => {
@@ -50,7 +63,7 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                  active ? "bg-white/10 text-gold-400" : "text-cream-50/45 hover:bg-white/5 hover:text-cream-50/80"
+                  active ? "bg-white/10 text-gold-400" : "text-onbrand/45 hover:bg-white/5 hover:text-onbrand/80"
                 )}
               >
                 <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -67,7 +80,7 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
       <header className="md:hidden flex items-center justify-between px-4 py-3 bg-brand-950 sticky top-0 z-10">
         <Link href="/dashboard" className="flex items-center gap-2">
           <Image src="/logo-transparent.png" alt="Tobias" width={24} height={24} />
-          <span className="font-serif text-base text-cream-50">Tobias</span>
+          <span className="font-display text-base text-onbrand">Tobias</span>
         </Link>
         <div className="flex items-center gap-2">
           <TrialBadge user={user} compact />
@@ -87,7 +100,7 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
               href={item.href}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[11px]",
-                active ? "text-gold-400" : "text-cream-50/45"
+                active ? "text-gold-400" : "text-onbrand/45"
               )}
             >
               <item.icon className="h-5 w-5" strokeWidth={1.75} />

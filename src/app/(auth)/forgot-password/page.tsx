@@ -19,8 +19,8 @@ export default function ForgotPasswordPage() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Redefinir senha</h1>
-        <p className="text-sm text-cream-50/55 mb-6">
+        <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Redefinir senha</h1>
+        <p className="text-sm text-onbrand/55 mb-6">
           Digite seu e-mail cadastrado para receber o link de redefinição.
         </p>
 
@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
         )}
 
         {resetUrl && (
-          <div className="rounded-xl bg-brand-900 border border-gold-400/30 p-4 text-sm text-cream-50/80">
+          <div className="rounded-xl bg-brand-900 border border-gold-400/30 p-4 text-sm text-onbrand/80">
             <p className="mb-2">
               Ainda não temos um servidor de e-mail configurado nesta versão, então aqui está seu link
               de redefinição (válido por 1 hora):
@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
           </div>
         )}
 
-        <p className="mt-5 text-center text-sm text-cream-50/55">
+        <p className="mt-5 text-center text-sm text-onbrand/55">
           <Link href="/login" className="text-gold-400 font-medium hover:underline">
             Voltar para o login
           </Link>

@@ -9,7 +9,7 @@ const toneClasses: Record<Tone, string> = {
   ok: "bg-ok-100 text-ok-600",
   warn: "bg-warn-100 text-warn-600",
   danger: "bg-danger-100 text-danger-600",
-  brand: "bg-brand-100 text-brand-900",
+  brand: "bg-brandchip-100 text-brandchip-900",
 };
 
 export function Badge({

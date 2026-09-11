@@ -36,7 +36,7 @@ export default async function LandingPage() {
   if (user) redirect(user.onboardingCompleted ? "/dashboard" : "/onboarding");
 
   return (
-    <div className="flex-1 flex flex-col bg-brand-950 text-cream-50 relative overflow-hidden">
+    <div className="flex-1 flex flex-col bg-brand-950 text-onbrand relative overflow-hidden">
       {/* Soft radial glow behind the hero — the only "decoration" on the page,
           kept subtle so it reads as premium rather than busy. */}
       <div
@@ -50,10 +50,10 @@ export default async function LandingPage() {
       <header className="relative flex items-center justify-between px-6 py-5 max-w-5xl mx-auto w-full">
         <div className="flex items-center gap-2.5">
           <Image src="/logo-transparent.png" alt="Tobias" width={36} height={36} className="drop-shadow-sm" />
-          <span className="font-serif font-semibold text-xl tracking-wide">Tobias</span>
+          <span className="font-display font-semibold text-xl tracking-wide">Tobias</span>
         </div>
         <nav className="flex items-center gap-3">
-          <Link href="/login" className="text-sm text-cream-100/80 hover:text-cream-50 px-3 py-2 transition-colors">
+          <Link href="/login" className="text-sm text-cream-100/80 hover:text-onbrand px-3 py-2 transition-colors">
             Entrar
           </Link>
           <Link href="/signup">
@@ -72,7 +72,7 @@ export default async function LandingPage() {
           height={112}
           className="mb-9 drop-shadow-[0_8px_30px_rgba(0,0,0,0.25)]"
         />
-        <h1 className="font-serif font-semibold text-4xl sm:text-6xl leading-[1.08] max-w-3xl text-cream-50 tracking-tight">
+        <h1 className="font-display font-semibold text-4xl sm:text-6xl leading-[1.08] max-w-3xl text-onbrand tracking-tight">
           Você conversa. O Tobias entende. O plano acontece.
         </h1>
         <p className="mt-6 max-w-xl text-cream-100/75 text-lg leading-relaxed">
@@ -89,7 +89,7 @@ export default async function LandingPage() {
             <Button
               variant="outline"
               size="lg"
-              className="w-full sm:w-auto border-cream-100/30 text-cream-50 hover:bg-white/5"
+              className="w-full sm:w-auto border-cream-100/30 text-onbrand hover:bg-white/5"
             >
               Já tenho conta
             </Button>
@@ -104,7 +104,7 @@ export default async function LandingPage() {
             <div key={f.title} className="flex gap-4 text-left rounded-2xl bg-white/[0.03] border border-white/5 p-5">
               <f.icon className="h-6 w-6 text-gold-400 shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-sans font-semibold text-cream-50">{f.title}</h3>
+                <h3 className="font-sans font-semibold text-onbrand">{f.title}</h3>
                 <p className="text-sm text-cream-100/65 mt-1 leading-relaxed">{f.description}</p>
               </div>
             </div>
@@ -114,7 +114,7 @@ export default async function LandingPage() {
 
       {/* Planos */}
       <section id="planos" className="relative px-6 py-16 max-w-5xl mx-auto w-full text-center">
-        <h2 className="font-serif font-semibold text-3xl text-cream-50 tracking-tight">Um plano, do seu jeito</h2>
+        <h2 className="font-display font-semibold text-3xl text-onbrand tracking-tight">Um plano, do seu jeito</h2>
         <p className="mt-3 text-cream-100/65 max-w-lg mx-auto">
           Comece com 15 dias grátis. Depois, escolha como prefere pagar: quanto mais longo o
           período, menor o valor por mês.
@@ -137,7 +137,7 @@ export default async function LandingPage() {
                   </Badge>
                 )}
                 <p className="text-xs uppercase tracking-wide text-cream-100/60 mb-2">{plan.label}</p>
-                <p className="font-sans font-semibold text-3xl tracking-tight text-cream-50 tabular-nums">
+                <p className="font-sans font-semibold text-3xl tracking-tight text-onbrand tabular-nums">
                   {plan.priceLabel}
                 </p>
                 <p className="text-sm text-gold-400 mt-1 tabular-nums">{plan.monthlyEquivalentLabel}</p>

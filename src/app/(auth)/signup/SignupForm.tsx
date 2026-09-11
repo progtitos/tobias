@@ -21,8 +21,8 @@ export function SignupForm() {
 
   return (
     <>
-      <h1 className="font-sans font-bold text-2xl text-cream-50 mb-1">Criar sua conta</h1>
-      <p className="text-sm text-cream-50/55 mb-6">
+      <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Criar sua conta</h1>
+      <p className="text-sm text-onbrand/55 mb-6">
         15 dias grátis. Cadastre um cartão para liberar o teste, nada é cobrado agora.
       </p>
 
@@ -37,10 +37,10 @@ export function SignupForm() {
               cycle === plan.cycle ? "border-gold-400 bg-gold-400/10" : "border-white/10 hover:border-white/25"
             )}
           >
-            <p className={cn("text-xs font-medium", cycle === plan.cycle ? "text-gold-400" : "text-cream-50/70")}>
+            <p className={cn("text-xs font-medium", cycle === plan.cycle ? "text-gold-400" : "text-onbrand/70")}>
               {plan.label}
             </p>
-            <p className="text-[13px] font-medium text-cream-50 tabular-nums mt-0.5">{plan.monthlyEquivalentLabel}</p>
+            <p className="text-[13px] font-medium text-onbrand tabular-nums mt-0.5">{plan.monthlyEquivalentLabel}</p>
           </button>
         ))}
       </div>
@@ -71,24 +71,24 @@ export function SignupForm() {
         <Button type="submit" className="w-full" loading={pending} variant="secondary">
           Continuar para o pagamento
         </Button>
-        <p className="text-center text-xs text-cream-50/40">
+        <p className="text-center text-xs text-onbrand/40">
           Você será redirecionado ao Mercado Pago para cadastrar o cartão com segurança.
         </p>
       </form>
 
-      <p className="mt-5 text-center text-xs text-cream-50/40">
+      <p className="mt-5 text-center text-xs text-onbrand/40">
         Ao criar sua conta, você concorda com os{" "}
-        <Link href="/legal/termos" className="underline hover:text-cream-50/70">
+        <Link href="/legal/termos" className="underline hover:text-onbrand/70">
           Termos de Uso
         </Link>{" "}
         e a{" "}
-        <Link href="/legal/privacidade" className="underline hover:text-cream-50/70">
+        <Link href="/legal/privacidade" className="underline hover:text-onbrand/70">
           Política de Privacidade
         </Link>{" "}
         do Tobias.
       </p>
 
-      <p className="mt-4 text-center text-sm text-cream-50/55">
+      <p className="mt-4 text-center text-sm text-onbrand/55">
         Já tem conta?{" "}
         <Link href="/login" className="text-gold-400 font-medium hover:underline">
           Entrar

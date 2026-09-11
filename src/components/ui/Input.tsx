@@ -3,7 +3,7 @@ import type { InputHTMLAttributes, LabelHTMLAttributes, TextareaHTMLAttributes }
 import { cn } from "@/lib/utils/cn";
 
 export const Label = ({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) => (
-  <label className={cn("text-sm font-medium text-cream-50/80 mb-1.5 block", className)} {...props} />
+  <label className={cn("text-sm font-medium text-onbrand/80 mb-1.5 block", className)} {...props} />
 );
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
@@ -11,8 +11,8 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        "w-full h-11 rounded-xl border border-black/20 bg-brand-900 px-3.5 text-[15px] text-cream-50",
-        "placeholder:text-cream-50/35 focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60",
+        "w-full h-11 rounded-xl border border-black/20 bg-brand-900 px-3.5 text-[15px] text-onbrand",
+        "placeholder:text-onbrand/35 focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60",
         "disabled:opacity-50 disabled:cursor-not-allowed transition-shadow",
         className
       )}
@@ -27,8 +27,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
     <textarea
       ref={ref}
       className={cn(
-        "w-full rounded-xl border border-black/20 bg-brand-900 px-3.5 py-2.5 text-[15px] text-cream-50",
-        "placeholder:text-cream-50/35 focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60",
+        "w-full rounded-xl border border-black/20 bg-brand-900 px-3.5 py-2.5 text-[15px] text-onbrand",
+        "placeholder:text-onbrand/35 focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60",
         "disabled:opacity-50 disabled:cursor-not-allowed transition-shadow resize-none",
         className
       )}

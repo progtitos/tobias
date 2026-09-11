@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/guards";
@@ -8,6 +9,19 @@ import { destroySession } from "@/lib/auth/session";
 import { cancelSubscription } from "@/services/subscription";
 import { WhatsAppService } from "@/lib/whatsapp/WhatsAppService";
 import { connectWhatsAppSchema } from "@/lib/validations/whatsapp";
+import { THEME_COOKIE, type Theme } from "@/lib/theme";
+
+export async function setThemeAction(theme: Theme) {
+  const store = await cookies();
+  store.set(THEME_COOKIE, theme, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+  });
+  revalidatePath("/", "layout");
+}
 
 export async function deleteAccountAction() {
   const user = await requireUser();

@@ -17,7 +17,7 @@ export function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <p className="text-sm text-cream-50/55">
+      <p className="text-sm text-onbrand/55">
         Link inválido.{" "}
         <Link href="/forgot-password" className="text-gold-400 underline">
           Solicite um novo
