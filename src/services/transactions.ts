@@ -2,11 +2,12 @@ import "server-only";
 import { createId } from "@paralleldrive/cuid2";
 import { and, eq, gte, lte, desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { transactions, categories } from "@/lib/db/schema";
+import { transactions, categories, goals } from "@/lib/db/schema";
 import type { CreateTransactionInput } from "@/lib/validations/transaction";
 import { suggestCategory, learnMerchantCategory } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { monthRange } from "./aggregations";
+import { applyGoalContribution, reverseGoalContribution } from "./goals";
 
 export async function createManualTransaction(userId: string, input: CreateTransactionInput) {
   let categoryId = input.categoryId ?? null;
@@ -25,6 +26,11 @@ export async function createManualTransaction(userId: string, input: CreateTrans
       source = suggestion.source === "ai" ? "AI_INFERENCE" : "MANUAL";
     }
   }
+
+  // A goal link only makes sense for a contribution — a goal isn't "spent
+  // from" or "earned into" directly, so we ignore it for any other type
+  // rather than silently linking a stray expense to someone's dream trip.
+  const goalId = input.type === "INVESTMENT_CONTRIBUTION" ? (input.goalId ?? null) : null;
 
   const installmentTotal = input.installmentTotal && input.installmentTotal > 1 ? input.installmentTotal : 1;
   const baseDate = new Date(input.date);
@@ -51,12 +57,22 @@ export async function createManualTransaction(userId: string, input: CreateTrans
       source,
       confidence,
       notes: input.notes,
+      goalId,
     });
   }
 
   const inserted = await db.insert(transactions).values(rows).returning();
   await trackEvent(userId, "expense_created", { type: input.type, amount: input.amount, installments: installmentTotal });
   await logFinancialEvent(userId, "transaction_created", { count: inserted.length, amount: input.amount });
+
+  // Reflect the contribution in the goal's own progress right away — a
+  // contribution logged from the Transações screen should move the needle
+  // on Sonhos/aposentadoria exactly like one logged from the goal's own
+  // "Aportar" button, regardless of installments (the full pledged amount
+  // counts toward progress immediately, not spread out per installment).
+  if (goalId) {
+    await applyGoalContribution(userId, goalId, input.amount);
+  }
 
   return inserted;
 }
@@ -86,9 +102,12 @@ export async function listTransactions(
       confidence: transactions.confidence,
       installmentNumber: transactions.installmentNumber,
       installmentTotal: transactions.installmentTotal,
+      goalId: transactions.goalId,
+      goalTitle: goals.title,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(goals, eq(transactions.goalId, goals.id))
     .where(and(...conditions))
     .orderBy(desc(transactions.date))
     .limit(filters.limit ?? 200);
@@ -106,5 +125,17 @@ export async function updateTransactionCategory(userId: string, transactionId: s
 }
 
 export async function deleteTransaction(userId: string, transactionId: string) {
+  const [tx] = await db
+    .select({ type: transactions.type, goalId: transactions.goalId, amount: transactions.amount })
+    .from(transactions)
+    .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)))
+    .limit(1);
+
   await db.delete(transactions).where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)));
+
+  // Undo the progress it added, so deleting a mistaken contribution doesn't
+  // leave a goal permanently (and invisibly) ahead of reality.
+  if (tx?.type === "INVESTMENT_CONTRIBUTION" && tx.goalId) {
+    await reverseGoalContribution(userId, tx.goalId, tx.amount);
+  }
 }

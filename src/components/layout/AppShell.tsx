@@ -11,7 +11,6 @@ import {
   PieChart,
   Compass,
   TrendingUp,
-  ShoppingBag,
 } from "lucide-react";
 import type { SessionUser } from "@/lib/auth/session";
 import { UserMenu } from "./UserMenu";
@@ -21,12 +20,11 @@ import { cn } from "@/lib/utils/cn";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
   { href: "/chat", label: "Tobias", icon: MessageCircle },
-  { href: "/expenses", label: "Gastos", icon: Receipt },
+  { href: "/expenses", label: "Transações", icon: Receipt },
   { href: "/goals", label: "Sonhos", icon: Target },
   { href: "/budget", label: "Orçamento", icon: PieChart },
-  { href: "/compass", label: "Bússola", icon: Compass },
+  { href: "/compass", label: "Ponteiro", icon: Compass },
   { href: "/retirement", label: "Aposentadoria", icon: TrendingUp },
-  { href: "/decide", label: "Decisão", icon: ShoppingBag },
 ];
 
 export function AppShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {

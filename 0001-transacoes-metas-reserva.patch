@@ -1,0 +1,592 @@
+From eb09fc7d871d89b520ab289365a1b4a696598015 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 11 Sep 2026 02:09:12 +0000
+Subject: [PATCH] =?UTF-8?q?Wire=20the=20Transa=C3=A7=C3=B5es=20screen's=20?=
+ =?UTF-8?q?contributions=20into=20goals,=20reserve=20and=20retirement?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Rename the Gastos screen to Transações and make entrada/saída/investimento
+visually distinct (icon + color + sign per type), instead of a single
+"income vs everything else" split. More importantly, fix the actual gap
+behind that request: a transaction created here previously had no way to
+touch a goal's progress at all (no goalId field existed on this form), so
+"aportar" only worked from the Sonhos screen's own button. Any contribution
+made anywhere else silently vanished from that goal's numbers.
+
+- transactions.ts: createManualTransaction now accepts a goalId (ignored
+  unless the transaction is an INVESTMENT_CONTRIBUTION) and applies it via
+  the same goal-progress logic the Sonhos screen uses, so progress can't
+  drift depending on which screen logged the money. deleteTransaction now
+  reverses that effect when a contribution transaction is deleted.
+- goals.ts: extracted applyGoalContribution/reverseGoalContribution as the
+  one shared place that logic lives, used by both addGoalContribution and
+  the new transactions.ts path.
+- aggregations.ts: goals of type EMERGENCY_FUND now always display the
+  live-computed reserve (bank balances + liquid investments) instead of a
+  manually-tracked column, so the reserva de emergência never disagrees
+  with itself between the Sonhos screen and the Ponteiro/dashboard. The
+  Sonhos screen's "Aportar" input is hidden for that goal type since its
+  number isn't something you log by hand.
+
+Retirement's own progress (currentNetWorth) already recomputes live on
+every save, so it needed no change here.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Ka2YTSc9tuveNjCeKZ63MD
+---
+ src/app/(app)/expenses/ExpensesClient.tsx | 92 +++++++++++++++++------
+ src/app/(app)/expenses/actions.ts         |  4 +
+ src/app/(app)/expenses/page.tsx           | 10 ++-
+ src/app/(app)/goals/GoalsClient.tsx       | 58 +++++++-------
+ src/components/layout/AppShell.tsx        |  2 +-
+ src/lib/validations/transaction.ts        |  1 +
+ src/services/aggregations.ts              | 22 +++++-
+ src/services/goals.ts                     | 41 +++++++++-
+ src/services/transactions.ts              | 33 +++++++-
+ 9 files changed, 207 insertions(+), 56 deletions(-)
+
+diff --git a/src/app/(app)/expenses/ExpensesClient.tsx b/src/app/(app)/expenses/ExpensesClient.tsx
+index d088947..77fed93 100644
+--- a/src/app/(app)/expenses/ExpensesClient.tsx
++++ b/src/app/(app)/expenses/ExpensesClient.tsx
+@@ -1,7 +1,7 @@
+ "use client";
+ 
+ import { useActionState, useState, useTransition, useEffect } from "react";
+-import { Plus, Trash2, Sparkles } from "lucide-react";
++import { Plus, Trash2, Sparkles, ArrowDownCircle, ArrowUpCircle, PiggyBank, ArrowLeftRight } from "lucide-react";
+ import { Button } from "@/components/ui/Button";
+ import { Input, Label, FieldError } from "@/components/ui/Input";
+ import { Select } from "@/components/ui/Select";
+@@ -11,6 +11,7 @@ import { formatBRL } from "@/lib/utils/money";
+ import { createTransactionAction, updateCategoryAction, deleteTransactionAction, type ExpenseFormState } from "./actions";
+ 
+ type Category = { id: string; name: string; type: string };
++type Goal = { id: string; title: string };
+ type Transaction = {
+   id: string;
+   date: string;
+@@ -25,6 +26,8 @@ type Transaction = {
+   confidence: number;
+   installmentNumber: number | null;
+   installmentTotal: number | null;
++  goalId: string | null;
++  goalTitle: string | null;
+ };
+ 
+ const PAYMENT_LABELS: Record<string, string> = {
+@@ -37,8 +40,28 @@ const PAYMENT_LABELS: Record<string, string> = {
+   OTHER: "Outro",
+ };
+ 
+-export function ExpensesClient({ transactions, categories }: { transactions: Transaction[]; categories: Category[] }) {
++// One consistent visual language for direction, reused in the form's type
++// picker and in every row: entrada (verde), saída (o tom padrão do texto,
++// sem soar como alerta), aporte (dourado, com o objetivo ligado) e
++// transferência (neutro) — assim dá pra escanear a lista sem ler o valor.
++const TYPE_META: Record<string, { label: string; icon: typeof ArrowDownCircle; amountClass: string; sign: string }> = {
++  INCOME: { label: "Receita", icon: ArrowDownCircle, amountClass: "text-ok-400", sign: "+" },
++  EXPENSE: { label: "Gasto", icon: ArrowUpCircle, amountClass: "text-cream-50/85", sign: "−" },
++  INVESTMENT_CONTRIBUTION: { label: "Investimento", icon: PiggyBank, amountClass: "text-gold-400", sign: "+" },
++  TRANSFER: { label: "Transferência", icon: ArrowLeftRight, amountClass: "text-cream-50/55", sign: "" },
++};
++
++export function ExpensesClient({
++  transactions,
++  categories,
++  goals,
++}: {
++  transactions: Transaction[];
++  categories: Category[];
++  goals: Goal[];
++}) {
+   const [showForm, setShowForm] = useState(false);
++  const [type, setType] = useState("EXPENSE");
+   const [state, formAction, pending] = useActionState<ExpenseFormState, FormData>(createTransactionAction, undefined);
+   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
+ 
+@@ -50,9 +73,9 @@ export function ExpensesClient({ transactions, categories }: { transactions: Tra
+     <div className="flex-1 bg-brand-950 px-5 py-6">
+       <div className="max-w-3xl mx-auto w-full">
+       <div className="flex items-center justify-between mb-6">
+-        <h1 className="font-sans font-bold text-2xl text-cream-50">Seus gastos</h1>
++        <h1 className="font-sans font-bold text-2xl text-cream-50">Suas transações</h1>
+         <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+-          <Plus className="h-4 w-4" /> Novo gasto
++          <Plus className="h-4 w-4" /> Nova transação
+         </Button>
+       </div>
+ 
+@@ -78,23 +101,38 @@ export function ExpensesClient({ transactions, categories }: { transactions: Tra
+               </div>
+               <div>
+                 <Label htmlFor="type">Tipo</Label>
+-                <Select id="type" name="type" defaultValue="EXPENSE">
+-                  <option value="EXPENSE">Gasto</option>
+-                  <option value="INCOME">Receita</option>
+-                  <option value="INVESTMENT_CONTRIBUTION">Investimento</option>
+-                </Select>
+-              </div>
+-              <div>
+-                <Label htmlFor="categoryId">Categoria</Label>
+-                <Select id="categoryId" name="categoryId" defaultValue="">
+-                  <option value="">Deixar o Tobias categorizar</option>
+-                  {expenseCategories.map((c) => (
+-                    <option key={c.id} value={c.id}>
+-                      {c.name}
+-                    </option>
+-                  ))}
++                <Select id="type" name="type" value={type} onChange={(e) => setType(e.target.value)}>
++                  <option value="EXPENSE">Saída (gasto)</option>
++                  <option value="INCOME">Entrada (receita)</option>
++                  <option value="INVESTMENT_CONTRIBUTION">Investimento / aporte</option>
+                 </Select>
+               </div>
++              {type === "EXPENSE" && (
++                <div>
++                  <Label htmlFor="categoryId">Categoria</Label>
++                  <Select id="categoryId" name="categoryId" defaultValue="">
++                    <option value="">Deixar o Tobias categorizar</option>
++                    {expenseCategories.map((c) => (
++                      <option key={c.id} value={c.id}>
++                        {c.name}
++                      </option>
++                    ))}
++                  </Select>
++                </div>
++              )}
++              {type === "INVESTMENT_CONTRIBUTION" && (
++                <div>
++                  <Label htmlFor="goalId">Destino (opcional)</Label>
++                  <Select id="goalId" name="goalId" defaultValue="">
++                    <option value="">Não ligar a um objetivo</option>
++                    {goals.map((g) => (
++                      <option key={g.id} value={g.id}>
++                        {g.title}
++                      </option>
++                    ))}
++                  </Select>
++                </div>
++              )}
+               <div>
+                 <Label htmlFor="paymentMethod">Forma de pagamento</Label>
+                 <Select id="paymentMethod" name="paymentMethod" defaultValue="">
+@@ -114,7 +152,7 @@ export function ExpensesClient({ transactions, categories }: { transactions: Tra
+                 <FieldError>{state?.error}</FieldError>
+                 <div className="flex gap-2 mt-1">
+                   <Button type="submit" loading={pending}>
+-                    Salvar gasto
++                    Salvar transação
+                   </Button>
+                   <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
+                     Cancelar
+@@ -128,7 +166,7 @@ export function ExpensesClient({ transactions, categories }: { transactions: Tra
+ 
+       {transactions.length === 0 ? (
+         <p className="text-cream-50/55 text-sm py-12 text-center">
+-          Nenhum gasto registrado este mês ainda. Adicione um gasto ou conte pro Tobias no chat.
++          Nenhuma transação registrada este mês ainda. Adicione uma ou conte pro Tobias no chat.
+         </p>
+       ) : (
+         <ul className="space-y-2">
+@@ -144,13 +182,16 @@ export function ExpensesClient({ transactions, categories }: { transactions: Tra
+ 
+ function TransactionRow({ transaction, categories }: { transaction: Transaction; categories: Category[] }) {
+   const [pending, startTransition] = useTransition();
+-  const isIncome = transaction.type === "INCOME";
+   const lowConfidence = transaction.categoryId && transaction.confidence < 0.7;
++  const meta = TYPE_META[transaction.type] ?? TYPE_META.EXPENSE;
++  const Icon = meta.icon;
+ 
+   return (
+     <li>
+       <Card>
+         <CardContent className="py-3.5 flex items-center gap-3">
++          <Icon className={`h-5 w-5 shrink-0 ${meta.amountClass}`} aria-hidden />
++
+           <div className="flex-1 min-w-0">
+             <div className="flex items-center gap-2">
+               <p className="font-medium text-cream-50 truncate">{transaction.description}</p>
+@@ -159,6 +200,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
+                   {transaction.installmentNumber}/{transaction.installmentTotal}
+                 </Badge>
+               )}
++              {transaction.goalTitle && <Badge tone="gold">→ {transaction.goalTitle}</Badge>}
+               {lowConfidence && (
+                 <Badge tone="warn" title="Categoria sugerida com baixa confiança, confira">
+                   <Sparkles className="h-3 w-3" /> confirmar
+@@ -172,7 +214,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
+             </p>
+           </div>
+ 
+-          {!isIncome && (
++          {transaction.type === "EXPENSE" && (
+             <select
+               className="text-xs rounded-lg border border-black/20 bg-brand-900 text-cream-50 px-2 py-1.5 max-w-[130px]"
+               value={transaction.categoryId ?? ""}
+@@ -192,8 +234,8 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
+             </select>
+           )}
+ 
+-          <span className={`font-medium tabular-nums ${isIncome ? "text-ok-400" : "text-cream-50"}`}>
+-            {isIncome ? "+" : "-"}
++          <span className={`font-medium tabular-nums ${meta.amountClass}`}>
++            {meta.sign}
+             {formatBRL(transaction.amount)}
+           </span>
+ 
+diff --git a/src/app/(app)/expenses/actions.ts b/src/app/(app)/expenses/actions.ts
+index cb6db0c..df0fa19 100644
+--- a/src/app/(app)/expenses/actions.ts
++++ b/src/app/(app)/expenses/actions.ts
+@@ -15,6 +15,7 @@ export async function createTransactionAction(_prev: ExpenseFormState, formData:
+     amount: Number(formData.get("amount") ?? 0),
+     type: String(formData.get("type") ?? "EXPENSE"),
+     categoryId: (formData.get("categoryId") as string) || null,
++    goalId: (formData.get("goalId") as string) || null,
+     description: String(formData.get("description") ?? ""),
+     merchant: (formData.get("merchant") as string) || null,
+     paymentMethod: (formData.get("paymentMethod") as string) || null,
+@@ -30,6 +31,7 @@ export async function createTransactionAction(_prev: ExpenseFormState, formData:
+   await createManualTransaction(user.id, parsed.data);
+   revalidatePath("/expenses");
+   revalidatePath("/dashboard");
++  revalidatePath("/goals");
+   return { success: true };
+ }
+ 
+@@ -38,6 +40,7 @@ export async function updateCategoryAction(transactionId: string, categoryId: st
+   await updateTransactionCategory(user.id, transactionId, categoryId);
+   revalidatePath("/expenses");
+   revalidatePath("/dashboard");
++  revalidatePath("/goals");
+ }
+ 
+ export async function deleteTransactionAction(transactionId: string) {
+@@ -45,4 +48,5 @@ export async function deleteTransactionAction(transactionId: string) {
+   await deleteTransaction(user.id, transactionId);
+   revalidatePath("/expenses");
+   revalidatePath("/dashboard");
++  revalidatePath("/goals");
+ }
+diff --git a/src/app/(app)/expenses/page.tsx b/src/app/(app)/expenses/page.tsx
+index 2124027..ee6b91a 100644
+--- a/src/app/(app)/expenses/page.tsx
++++ b/src/app/(app)/expenses/page.tsx
+@@ -1,13 +1,15 @@
+ import { requireOnboardedUser } from "@/lib/auth/guards";
+ import { listTransactions } from "@/services/transactions";
+ import { getUserCategories } from "@/services/categorization";
++import { listGoals } from "@/services/goals";
+ import { ExpensesClient } from "./ExpensesClient";
+ 
+ export default async function ExpensesPage() {
+   const user = await requireOnboardedUser();
+-  const [transactions, categories] = await Promise.all([
++  const [transactions, categories, goals] = await Promise.all([
+     listTransactions(user.id, { limit: 200 }),
+     getUserCategories(user.id),
++    listGoals(user.id),
+   ]);
+ 
+   return (
+@@ -16,6 +18,12 @@ export default async function ExpensesPage() {
+       categories={categories
+         .filter((c) => !c.parentId)
+         .map((c) => ({ id: c.id, name: c.name, type: c.type }))}
++      // A contribution to the Reserva de Emergência isn't logged by hand — its
++      // amount is always the live bank/investment total (see
++      // withLiveEmergencyFundAmount) — so it doesn't belong in this picker.
++      goals={goals
++        .filter((g) => g.status === "ACTIVE" && g.type !== "EMERGENCY_FUND")
++        .map((g) => ({ id: g.id, title: g.title }))}
+     />
+   );
+ }
+diff --git a/src/app/(app)/goals/GoalsClient.tsx b/src/app/(app)/goals/GoalsClient.tsx
+index b11c13d..f72aaf1 100644
+--- a/src/app/(app)/goals/GoalsClient.tsx
++++ b/src/app/(app)/goals/GoalsClient.tsx
+@@ -156,32 +156,38 @@ function GoalCard({ goal }: { goal: Goal }) {
+ 
+         {pct !== null && <ProgressBar value={pct} className="mt-3" />}
+ 
+-        {goal.status === "ACTIVE" && (
+-          <div className="mt-3 flex items-center gap-2">
+-            <Input
+-              type="number"
+-              step="0.01"
+-              placeholder="Registrar aporte (R$)"
+-              value={contribution}
+-              onChange={(e) => setContribution(e.target.value)}
+-              className="h-9 max-w-[180px]"
+-            />
+-            <Button
+-              size="sm"
+-              variant="outline"
+-              disabled={!contribution || pending}
+-              onClick={() => {
+-                const amount = Number(contribution);
+-                if (amount > 0) {
+-                  startTransition(() => addContributionAction(goal.id, amount));
+-                  setContribution("");
+-                }
+-              }}
+-            >
+-              <PlusCircle className="h-3.5 w-3.5" /> Aportar
+-            </Button>
+-          </div>
+-        )}
++        {goal.status === "ACTIVE" &&
++          (goal.type === "EMERGENCY_FUND" ? (
++            <p className="text-xs text-cream-50/45 mt-3">
++              Esse valor é calculado automaticamente a partir do seu saldo em conta e investimentos de liquidez
++              imediata — não precisa registrar aporte aqui.
++            </p>
++          ) : (
++            <div className="mt-3 flex items-center gap-2">
++              <Input
++                type="number"
++                step="0.01"
++                placeholder="Registrar aporte (R$)"
++                value={contribution}
++                onChange={(e) => setContribution(e.target.value)}
++                className="h-9 max-w-[180px]"
++              />
++              <Button
++                size="sm"
++                variant="outline"
++                disabled={!contribution || pending}
++                onClick={() => {
++                  const amount = Number(contribution);
++                  if (amount > 0) {
++                    startTransition(() => addContributionAction(goal.id, amount));
++                    setContribution("");
++                  }
++                }}
++              >
++                <PlusCircle className="h-3.5 w-3.5" /> Aportar
++              </Button>
++            </div>
++          ))}
+       </CardContent>
+     </Card>
+   );
+diff --git a/src/components/layout/AppShell.tsx b/src/components/layout/AppShell.tsx
+index cdfcdda..d64c129 100644
+--- a/src/components/layout/AppShell.tsx
++++ b/src/components/layout/AppShell.tsx
+@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils/cn";
+ const NAV_ITEMS = [
+   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
+   { href: "/chat", label: "Tobias", icon: MessageCircle },
+-  { href: "/expenses", label: "Gastos", icon: Receipt },
++  { href: "/expenses", label: "Transações", icon: Receipt },
+   { href: "/goals", label: "Sonhos", icon: Target },
+   { href: "/budget", label: "Orçamento", icon: PieChart },
+   { href: "/compass", label: "Ponteiro", icon: Compass },
+diff --git a/src/lib/validations/transaction.ts b/src/lib/validations/transaction.ts
+index dff7b24..128d267 100644
+--- a/src/lib/validations/transaction.ts
++++ b/src/lib/validations/transaction.ts
+@@ -5,6 +5,7 @@ export const createTransactionSchema = z.object({
+   amount: z.number().positive("O valor precisa ser maior que zero"),
+   type: z.enum(["INCOME", "EXPENSE", "INVESTMENT_CONTRIBUTION", "TRANSFER"]),
+   categoryId: z.string().optional().nullable(),
++  goalId: z.string().optional().nullable(),
+   description: z.string().min(1, "Descreva o gasto"),
+   merchant: z.string().optional().nullable(),
+   paymentMethod: z
+diff --git a/src/services/aggregations.ts b/src/services/aggregations.ts
+index 9a5f06b..5df7642 100644
+--- a/src/services/aggregations.ts
++++ b/src/services/aggregations.ts
+@@ -147,9 +147,29 @@ export async function computeEmergencyReserve(userId: string) {
+ }
+ 
+ export async function activeGoals(userId: string) {
+-  return db
++  const rows = await db
+     .select()
+     .from(goals)
+     .where(and(eq(goals.userId, userId), eq(goals.status, "ACTIVE")))
+     .orderBy(goals.priority);
++  return withLiveEmergencyFundAmount(userId, rows);
++}
++
++/**
++ * A goal of type EMERGENCY_FUND isn't something you "aportar" into by hand —
++ * it's just your liquid savings, which the Bússola/Ponteiro already computes
++ * independently via computeEmergencyReserve. If we displayed the goal's own
++ * `currentAmount` column instead, it'd drift from that number the moment a
++ * bank balance changes without a matching manual contribution, showing two
++ * different "reserve" figures in different corners of the app. So wherever
++ * goals are read for display, we override that one type's amount with the
++ * live computation instead of trusting the stored column.
++ */
++export async function withLiveEmergencyFundAmount<T extends { type: string; currentAmount: number }>(
++  userId: string,
++  rows: T[]
++): Promise<T[]> {
++  if (!rows.some((g) => g.type === "EMERGENCY_FUND")) return rows;
++  const reserve = await computeEmergencyReserve(userId);
++  return rows.map((g) => (g.type === "EMERGENCY_FUND" ? { ...g, currentAmount: reserve } : g));
+ }
+diff --git a/src/services/goals.ts b/src/services/goals.ts
+index f546048..8ea4291 100644
+--- a/src/services/goals.ts
++++ b/src/services/goals.ts
+@@ -3,9 +3,11 @@ import { eq, and, desc } from "drizzle-orm";
+ import { db } from "@/lib/db/client";
+ import { goals, transactions } from "@/lib/db/schema";
+ import { trackEvent, logFinancialEvent } from "./analytics";
++import { withLiveEmergencyFundAmount } from "./aggregations";
+ 
+ export async function listGoals(userId: string) {
+-  return db.select().from(goals).where(eq(goals.userId, userId)).orderBy(desc(goals.createdAt));
++  const rows = await db.select().from(goals).where(eq(goals.userId, userId)).orderBy(desc(goals.createdAt));
++  return withLiveEmergencyFundAmount(userId, rows);
+ }
+ 
+ export async function createGoal(
+@@ -52,6 +54,21 @@ export async function addGoalContribution(userId: string, goalId: string, amount
+     source: "MANUAL",
+   });
+ 
++  return applyGoalContribution(userId, goalId, amount);
++}
++
++/**
++ * Bumps a goal's stored progress by `amount` and flips it to ACHIEVED once
++ * the target is reached. This is the one place that logic lives — both
++ * `addGoalContribution` (the "Aportar" button on the Sonhos screen) and any
++ * transaction created elsewhere with a `goalId` (e.g. from the Transações
++ * screen) call this same function, so a goal's progress can never drift out
++ * of sync depending on which screen the money was logged from.
++ */
++export async function applyGoalContribution(userId: string, goalId: string, amount: number) {
++  const [goal] = await db.select().from(goals).where(and(eq(goals.id, goalId), eq(goals.userId, userId))).limit(1);
++  if (!goal) return null;
++
+   const newAmount = goal.currentAmount + amount;
+   const isAchieved = goal.targetAmount ? newAmount >= goal.targetAmount : false;
+ 
+@@ -64,6 +81,28 @@ export async function addGoalContribution(userId: string, goalId: string, amount
+   return { newAmount, isAchieved };
+ }
+ 
++/** The inverse of applyGoalContribution — used when a transaction that had
++ * bumped a goal's progress is deleted or corrected, so removing an entry
++ * from the Transações screen doesn't leave the goal permanently inflated. */
++export async function reverseGoalContribution(userId: string, goalId: string, amount: number) {
++  const [goal] = await db.select().from(goals).where(and(eq(goals.id, goalId), eq(goals.userId, userId))).limit(1);
++  if (!goal) return null;
++
++  const newAmount = Math.max(0, goal.currentAmount - amount);
++  const stillAchieved = goal.targetAmount ? newAmount >= goal.targetAmount : false;
++
++  await db
++    .update(goals)
++    .set({
++      currentAmount: newAmount,
++      status: goal.status === "ACHIEVED" && !stillAchieved ? "ACTIVE" : goal.status,
++      updatedAt: new Date(),
++    })
++    .where(eq(goals.id, goalId));
++
++  return { newAmount };
++}
++
+ export async function updateGoalStatus(userId: string, goalId: string, status: "ACTIVE" | "PAUSED" | "ABANDONED") {
+   await db.update(goals).set({ status, updatedAt: new Date() }).where(and(eq(goals.id, goalId), eq(goals.userId, userId)));
+ }
+diff --git a/src/services/transactions.ts b/src/services/transactions.ts
+index 8d427e6..79398a5 100644
+--- a/src/services/transactions.ts
++++ b/src/services/transactions.ts
+@@ -2,11 +2,12 @@ import "server-only";
+ import { createId } from "@paralleldrive/cuid2";
+ import { and, eq, gte, lte, desc } from "drizzle-orm";
+ import { db } from "@/lib/db/client";
+-import { transactions, categories } from "@/lib/db/schema";
++import { transactions, categories, goals } from "@/lib/db/schema";
+ import type { CreateTransactionInput } from "@/lib/validations/transaction";
+ import { suggestCategory, learnMerchantCategory } from "./categorization";
+ import { trackEvent, logFinancialEvent } from "./analytics";
+ import { monthRange } from "./aggregations";
++import { applyGoalContribution, reverseGoalContribution } from "./goals";
+ 
+ export async function createManualTransaction(userId: string, input: CreateTransactionInput) {
+   let categoryId = input.categoryId ?? null;
+@@ -26,6 +27,11 @@ export async function createManualTransaction(userId: string, input: CreateTrans
+     }
+   }
+ 
++  // A goal link only makes sense for a contribution — a goal isn't "spent
++  // from" or "earned into" directly, so we ignore it for any other type
++  // rather than silently linking a stray expense to someone's dream trip.
++  const goalId = input.type === "INVESTMENT_CONTRIBUTION" ? (input.goalId ?? null) : null;
++
+   const installmentTotal = input.installmentTotal && input.installmentTotal > 1 ? input.installmentTotal : 1;
+   const baseDate = new Date(input.date);
+   const groupId = installmentTotal > 1 ? createId() : null;
+@@ -51,6 +57,7 @@ export async function createManualTransaction(userId: string, input: CreateTrans
+       source,
+       confidence,
+       notes: input.notes,
++      goalId,
+     });
+   }
+ 
+@@ -58,6 +65,15 @@ export async function createManualTransaction(userId: string, input: CreateTrans
+   await trackEvent(userId, "expense_created", { type: input.type, amount: input.amount, installments: installmentTotal });
+   await logFinancialEvent(userId, "transaction_created", { count: inserted.length, amount: input.amount });
+ 
++  // Reflect the contribution in the goal's own progress right away — a
++  // contribution logged from the Transações screen should move the needle
++  // on Sonhos/aposentadoria exactly like one logged from the goal's own
++  // "Aportar" button, regardless of installments (the full pledged amount
++  // counts toward progress immediately, not spread out per installment).
++  if (goalId) {
++    await applyGoalContribution(userId, goalId, input.amount);
++  }
++
+   return inserted;
+ }
+ 
+@@ -86,9 +102,12 @@ export async function listTransactions(
+       confidence: transactions.confidence,
+       installmentNumber: transactions.installmentNumber,
+       installmentTotal: transactions.installmentTotal,
++      goalId: transactions.goalId,
++      goalTitle: goals.title,
+     })
+     .from(transactions)
+     .leftJoin(categories, eq(transactions.categoryId, categories.id))
++    .leftJoin(goals, eq(transactions.goalId, goals.id))
+     .where(and(...conditions))
+     .orderBy(desc(transactions.date))
+     .limit(filters.limit ?? 200);
+@@ -106,5 +125,17 @@ export async function updateTransactionCategory(userId: string, transactionId: s
+ }
+ 
+ export async function deleteTransaction(userId: string, transactionId: string) {
++  const [tx] = await db
++    .select({ type: transactions.type, goalId: transactions.goalId, amount: transactions.amount })
++    .from(transactions)
++    .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)))
++    .limit(1);
++
+   await db.delete(transactions).where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)));
++
++  // Undo the progress it added, so deleting a mistaken contribution doesn't
++  // leave a goal permanently (and invisibly) ahead of reality.
++  if (tx?.type === "INVESTMENT_CONTRIBUTION" && tx.goalId) {
++    await reverseGoalContribution(userId, tx.goalId, tx.amount);
++  }
+ }
+-- 
+2.43.0
+

@@ -92,14 +92,14 @@ export default async function DashboardPage() {
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="font-serif italic font-medium text-lg text-cream-50">Sua Bússola</h2>
+                <h2 className="font-serif italic font-medium text-lg text-cream-50">Seu Ponteiro</h2>
                 <Link href="/compass" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                   Ver tudo <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
               {data.compass.length === 0 ? (
                 <p className="text-sm text-cream-50/60 mt-3">
-                  Sua Bússola aparece assim que terminarmos a primeira conversa.
+                  Seu Ponteiro aparece assim que terminarmos a primeira conversa.
                 </p>
               ) : (
                 <>

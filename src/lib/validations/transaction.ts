@@ -5,6 +5,7 @@ export const createTransactionSchema = z.object({
   amount: z.number().positive("O valor precisa ser maior que zero"),
   type: z.enum(["INCOME", "EXPENSE", "INVESTMENT_CONTRIBUTION", "TRANSFER"]),
   categoryId: z.string().optional().nullable(),
+  goalId: z.string().optional().nullable(),
   description: z.string().min(1, "Descreva o gasto"),
   merchant: z.string().optional().nullable(),
   paymentMethod: z

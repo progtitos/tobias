@@ -156,32 +156,38 @@ function GoalCard({ goal }: { goal: Goal }) {
 
         {pct !== null && <ProgressBar value={pct} className="mt-3" />}
 
-        {goal.status === "ACTIVE" && (
-          <div className="mt-3 flex items-center gap-2">
-            <Input
-              type="number"
-              step="0.01"
-              placeholder="Registrar aporte (R$)"
-              value={contribution}
-              onChange={(e) => setContribution(e.target.value)}
-              className="h-9 max-w-[180px]"
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!contribution || pending}
-              onClick={() => {
-                const amount = Number(contribution);
-                if (amount > 0) {
-                  startTransition(() => addContributionAction(goal.id, amount));
-                  setContribution("");
-                }
-              }}
-            >
-              <PlusCircle className="h-3.5 w-3.5" /> Aportar
-            </Button>
-          </div>
-        )}
+        {goal.status === "ACTIVE" &&
+          (goal.type === "EMERGENCY_FUND" ? (
+            <p className="text-xs text-cream-50/45 mt-3">
+              Esse valor é calculado automaticamente a partir do seu saldo em conta e investimentos de liquidez
+              imediata — não precisa registrar aporte aqui.
+            </p>
+          ) : (
+            <div className="mt-3 flex items-center gap-2">
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Registrar aporte (R$)"
+                value={contribution}
+                onChange={(e) => setContribution(e.target.value)}
+                className="h-9 max-w-[180px]"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!contribution || pending}
+                onClick={() => {
+                  const amount = Number(contribution);
+                  if (amount > 0) {
+                    startTransition(() => addContributionAction(goal.id, amount));
+                    setContribution("");
+                  }
+                }}
+              >
+                <PlusCircle className="h-3.5 w-3.5" /> Aportar
+              </Button>
+            </div>
+          ))}
       </CardContent>
     </Card>
   );

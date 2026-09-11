@@ -147,9 +147,29 @@ export async function computeEmergencyReserve(userId: string) {
 }
 
 export async function activeGoals(userId: string) {
-  return db
+  const rows = await db
     .select()
     .from(goals)
     .where(and(eq(goals.userId, userId), eq(goals.status, "ACTIVE")))
     .orderBy(goals.priority);
+  return withLiveEmergencyFundAmount(userId, rows);
+}
+
+/**
+ * A goal of type EMERGENCY_FUND isn't something you "aportar" into by hand —
+ * it's just your liquid savings, which the Bússola/Ponteiro already computes
+ * independently via computeEmergencyReserve. If we displayed the goal's own
+ * `currentAmount` column instead, it'd drift from that number the moment a
+ * bank balance changes without a matching manual contribution, showing two
+ * different "reserve" figures in different corners of the app. So wherever
+ * goals are read for display, we override that one type's amount with the
+ * live computation instead of trusting the stored column.
+ */
+export async function withLiveEmergencyFundAmount<T extends { type: string; currentAmount: number }>(
+  userId: string,
+  rows: T[]
+): Promise<T[]> {
+  if (!rows.some((g) => g.type === "EMERGENCY_FUND")) return rows;
+  const reserve = await computeEmergencyReserve(userId);
+  return rows.map((g) => (g.type === "EMERGENCY_FUND" ? { ...g, currentAmount: reserve } : g));
 }

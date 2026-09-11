@@ -15,6 +15,7 @@ export async function createTransactionAction(_prev: ExpenseFormState, formData:
     amount: Number(formData.get("amount") ?? 0),
     type: String(formData.get("type") ?? "EXPENSE"),
     categoryId: (formData.get("categoryId") as string) || null,
+    goalId: (formData.get("goalId") as string) || null,
     description: String(formData.get("description") ?? ""),
     merchant: (formData.get("merchant") as string) || null,
     paymentMethod: (formData.get("paymentMethod") as string) || null,
@@ -30,6 +31,7 @@ export async function createTransactionAction(_prev: ExpenseFormState, formData:
   await createManualTransaction(user.id, parsed.data);
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  revalidatePath("/goals");
   return { success: true };
 }
 
@@ -38,6 +40,7 @@ export async function updateCategoryAction(transactionId: string, categoryId: st
   await updateTransactionCategory(user.id, transactionId, categoryId);
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  revalidatePath("/goals");
 }
 
 export async function deleteTransactionAction(transactionId: string) {
@@ -45,4 +48,5 @@ export async function deleteTransactionAction(transactionId: string) {
   await deleteTransaction(user.id, transactionId);
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  revalidatePath("/goals");
 }

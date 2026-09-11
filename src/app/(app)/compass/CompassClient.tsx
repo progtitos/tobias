@@ -39,7 +39,7 @@ export function CompassClient({ dimensions, overallScore }: { dimensions: Dimens
       <div className="max-w-4xl mx-auto w-full">
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
-          <h1 className="font-sans font-bold text-2xl text-cream-50">Sua Bússola Financeira</h1>
+          <h1 className="font-sans font-bold text-2xl text-cream-50">Seu Ponteiro Financeiro</h1>
           <p className="text-sm text-cream-50/55 mt-1">
             Um raio-x da sua vida financeira em 9 dimensões, calculado a partir dos seus dados reais.
           </p>
