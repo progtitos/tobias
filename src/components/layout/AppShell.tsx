@@ -11,6 +11,7 @@ import {
   PieChart,
   Compass,
   TrendingUp,
+  Landmark,
 } from "lucide-react";
 import type { SessionUser } from "@/lib/auth/session";
 import { UserMenu } from "./UserMenu";
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/expenses", label: "Transações", icon: Receipt },
   { href: "/goals", label: "Sonhos", icon: Target },
   { href: "/budget", label: "Orçamento", icon: PieChart },
+  { href: "/patrimonio", label: "Patrimônio", icon: Landmark },
   { href: "/compass", label: "Ponteiro", icon: Compass },
   { href: "/retirement", label: "Aposentadoria", icon: TrendingUp },
 ];
