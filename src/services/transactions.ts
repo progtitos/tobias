@@ -131,6 +131,7 @@ export async function listTransactions(
       paymentMethod: transactions.paymentMethod,
       categoryId: transactions.categoryId,
       categoryName: categories.name,
+      categoryIcon: categories.icon,
       source: transactions.source,
       confidence: transactions.confidence,
       installmentNumber: transactions.installmentNumber,

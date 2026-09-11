@@ -46,5 +46,5 @@ export async function confirmReceiptAction(
     date: String(formData.get("date") ?? "") || undefined,
   });
 
-  redirect("/expenses");
+  redirect("/lancamentos");
 }

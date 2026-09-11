@@ -4,10 +4,29 @@ import { revalidatePath } from "next/cache";
 import { requireOnboardedUser } from "@/lib/auth/guards";
 import { createTransactionSchema } from "@/lib/validations/transaction";
 import { createManualTransaction, updateTransactionCategory, deleteTransaction } from "@/services/transactions";
+import { generateInitialBudget, setBudgetLimit } from "@/services/budget";
 
-export type ExpenseFormState = { error?: string; success?: boolean } | undefined;
+export type LancamentosFormState = { error?: string; success?: boolean } | undefined;
 
-export async function createTransactionAction(_prev: ExpenseFormState, formData: FormData): Promise<ExpenseFormState> {
+function revalidateAll() {
+  revalidatePath("/lancamentos");
+  revalidatePath("/dashboard");
+  revalidatePath("/goals");
+  revalidatePath("/patrimonio");
+  // Uma transação ligada a uma conta muda o saldo dela (ver
+  // adjustBankAccountBalance em services/transactions.ts) — a tela Conta
+  // precisa refletir isso.
+  revalidatePath("/conta");
+}
+
+// ---------------------------------------------------------------------------
+// Transações
+// ---------------------------------------------------------------------------
+
+export async function createTransactionAction(
+  _prev: LancamentosFormState,
+  formData: FormData
+): Promise<LancamentosFormState> {
   const user = await requireOnboardedUser();
 
   const raw = {
@@ -30,26 +49,35 @@ export async function createTransactionAction(_prev: ExpenseFormState, formData:
   }
 
   await createManualTransaction(user.id, parsed.data);
-  revalidatePath("/expenses");
-  revalidatePath("/dashboard");
-  revalidatePath("/goals");
-  revalidatePath("/patrimonio");
+  revalidateAll();
   return { success: true };
 }
 
 export async function updateCategoryAction(transactionId: string, categoryId: string) {
   const user = await requireOnboardedUser();
   await updateTransactionCategory(user.id, transactionId, categoryId);
-  revalidatePath("/expenses");
-  revalidatePath("/dashboard");
-  revalidatePath("/goals");
+  revalidateAll();
 }
 
 export async function deleteTransactionAction(transactionId: string) {
   const user = await requireOnboardedUser();
   await deleteTransaction(user.id, transactionId);
-  revalidatePath("/expenses");
-  revalidatePath("/dashboard");
-  revalidatePath("/goals");
-  revalidatePath("/patrimonio");
+  revalidateAll();
+}
+
+// ---------------------------------------------------------------------------
+// Orçamento
+// ---------------------------------------------------------------------------
+
+export async function recalculateBudgetAction() {
+  const user = await requireOnboardedUser();
+  await generateInitialBudget(user.id);
+  revalidateAll();
+}
+
+export async function updateBudgetLimitAction(budgetId: string, limitAmount: number) {
+  const user = await requireOnboardedUser();
+  if (!(limitAmount >= 0)) throw new Error("Valor inválido");
+  await setBudgetLimit(user.id, budgetId, limitAmount);
+  revalidateAll();
 }

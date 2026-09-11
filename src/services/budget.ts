@@ -97,7 +97,11 @@ export async function setBudgetLimit(userId: string, budgetId: string, limitAmou
     .where(and(eq(budgets.id, budgetId), eq(budgets.userId, userId), isNull(budgets.effectiveTo)));
 }
 
-export async function getCurrentBudgetsWithActuals(userId: string) {
+// `referenceDate` picks which month's actuals to compare against the limit —
+// the limit itself isn't month-scoped (it's the current standing guideline,
+// see generateInitialBudget), so browsing to a past month in Lançamentos
+// shows that month's real spend against today's limit, not a historical one.
+export async function getCurrentBudgetsWithActuals(userId: string, referenceDate = new Date()) {
   const active = await db
     .select({
       id: budgets.id,
@@ -109,7 +113,7 @@ export async function getCurrentBudgetsWithActuals(userId: string) {
     .from(budgets)
     .where(and(eq(budgets.userId, userId), isNull(budgets.effectiveTo)));
 
-  const { start, end } = monthRange();
+  const { start, end } = monthRange(referenceDate);
   const actuals = await expensesByCategory(userId, start, end);
   const actualByCategory = new Map(actuals.map((a) => [a.categoryId, a.total] as const));
   const actualByLabel = new Map(actuals.map((a) => [a.categoryName, a.total] as const));

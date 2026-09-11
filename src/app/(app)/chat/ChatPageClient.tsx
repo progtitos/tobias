@@ -6,8 +6,8 @@ import { sendChatMessageAction } from "./actions";
 
 const ACTION_ROUTES: Record<string, string> = {
   simulate_retirement: "/retirement",
-  view_expenses: "/expenses",
-  adjust_budget: "/budget",
+  view_expenses: "/lancamentos",
+  adjust_budget: "/lancamentos",
   view_goals: "/goals",
   view_compass: "/compass",
 };

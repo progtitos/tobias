@@ -1,5 +1,4 @@
 import { requireOnboardedUser } from "@/lib/auth/guards";
-import { listBankAccounts } from "@/services/bankAccounts";
 import { listInvestments } from "@/services/investments";
 import { listGoals } from "@/services/goals";
 import { computeNetWorth } from "@/services/aggregations";
@@ -7,8 +6,7 @@ import { PatrimonioClient } from "./PatrimonioClient";
 
 export default async function PatrimonioPage() {
   const user = await requireOnboardedUser();
-  const [accounts, investments, goals, netWorth] = await Promise.all([
-    listBankAccounts(user.id),
+  const [investments, goals, netWorth] = await Promise.all([
     listInvestments(user.id),
     listGoals(user.id),
     computeNetWorth(user.id),
@@ -16,14 +14,6 @@ export default async function PatrimonioPage() {
 
   return (
     <PatrimonioClient
-      accounts={accounts.map((a) => ({
-        id: a.id,
-        name: a.name,
-        bankName: a.bankName,
-        type: a.type,
-        balance: a.balance,
-        isActive: a.isActive,
-      }))}
       investments={investments.map((i) => ({
         id: i.id,
         name: i.name,
