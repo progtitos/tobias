@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import type { CompassDimensionResult } from "@/services/compass";
 
 const STATUS_TONE: Record<CompassDimensionResult["status"], string> = {
@@ -7,11 +10,24 @@ const STATUS_TONE: Record<CompassDimensionResult["status"], string> = {
   Atenção: "text-danger-300",
 };
 
+function easeOutCubic(t: number) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
 /**
- * A literal compass dial for the overall Bússola score: a full ring with a
- * needle from the center, instead of a banded speedometer arc. The needle
- * angle and the gold fill both track `score` (0-100 mapped to 0-360deg,
- * clockwise from the top).
+ * A literal compass dial for the overall Bússola/Ponteiro score: a full ring
+ * with a needle from the center, instead of a banded speedometer arc. The
+ * needle angle and the gold fill both track `score` (0-100 mapped to
+ * 0-360deg, clockwise from the top).
+ *
+ * On mount (and whenever `score` changes, e.g. after "Recalcular"), the
+ * needle sweeps from 0 up to its target angle and the number counts up
+ * alongside it, driven by requestAnimationFrame rather than a CSS
+ * transition — conic-gradient and custom-property animations render
+ * inconsistently across browsers (we already hit exactly that with the
+ * static fill), so computing each frame's angle/number in JS keeps this
+ * looking the same everywhere. `prefers-reduced-motion` skips straight to
+ * the final state.
  */
 export function CompassDial({
   score,
@@ -23,7 +39,36 @@ export function CompassDial({
   size?: number;
 }) {
   const clamped = Math.max(0, Math.min(100, score));
-  const angle = (clamped / 100) * 360;
+  const [progress, setProgress] = useState(0);
+  const frameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      // Still deferred to a callback (not called synchronously in the
+      // effect body) so this follows the same pattern as the animated case.
+      frameRef.current = requestAnimationFrame(() => setProgress(1));
+      return () => {
+        if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      };
+    }
+
+    const duration = 1100;
+    const start = performance.now();
+
+    function tick(now: number) {
+      const t = Math.min(1, (now - start) / duration);
+      setProgress(easeOutCubic(t));
+      if (t < 1) frameRef.current = requestAnimationFrame(tick);
+    }
+    frameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    };
+  }, [clamped]);
+
+  const displayScore = Math.round(clamped * progress);
+  const angle = (clamped / 100) * 360 * progress;
   const ringWidth = Math.round(size * 0.082);
   const needleLen = Math.round(size * 0.38);
   const tailLen = Math.round(size * 0.12);
@@ -66,7 +111,7 @@ export function CompassDial({
       </div>
       <div className="text-center mt-3.5">
         <span className="block font-sans font-medium text-4xl leading-none tracking-tight tabular-nums text-cream-50">
-          {clamped}
+          {displayScore}
         </span>
         <span className={`block text-xs font-semibold mt-1.5 ${STATUS_TONE[status]}`}>{status}</span>
       </div>
