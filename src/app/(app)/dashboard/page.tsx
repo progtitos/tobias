@@ -61,12 +61,12 @@ export default async function DashboardPage() {
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <h2 className="font-serif italic font-medium text-base text-cream-50 mb-3">Seu mês</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <MiniStat label="Receitas" value={data.month.income} tone="ok" />
-                <MiniStat label="Despesas" value={data.month.expenses} tone="danger" />
-                <MiniStat label="Investimentos" value={data.month.investments} tone="brand" />
-                <MiniStat label="Saldo" value={data.month.balance} tone={data.month.balance >= 0 ? "ok" : "danger"} />
-              </div>
+              <MonthFlow
+                income={data.month.income}
+                expenses={data.month.expenses}
+                investments={data.month.investments}
+                balance={data.month.balance}
+              />
             </CardContent>
           </Card>
           <StatCard label="Saúde financeira" value={`${data.healthScore}/100`} accent />
@@ -195,12 +195,71 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
   );
 }
 
-function MiniStat({ label, value, tone }: { label: string; value: number; tone: "ok" | "danger" | "brand" }) {
-  const toneClass = { ok: "text-ok-400", danger: "text-danger-300", brand: "text-cream-50" }[tone];
+/**
+ * "Seu mês" used to be a flat 2x2 grid of numbers — accurate, but you had to
+ * read all four to understand anything. This leads with the one number that
+ * actually matters day-to-day (o saldo), then shows where the money that
+ * didn't stay as saldo actually went as a single proportional bar (despesas
+ * vs. investimentos, out of a receitas baseline) instead of two more
+ * disconnected figures.
+ */
+function MonthFlow({
+  income,
+  expenses,
+  investments,
+  balance,
+}: {
+  income: number;
+  expenses: number;
+  investments: number;
+  balance: number;
+}) {
+  // Scale against whichever is bigger — income, or everything that went out
+  // — so the bar never silently overflows its own track when spending (+
+  // investing) exceeds what came in that month.
+  const scale = Math.max(income, expenses + investments, 1);
+  const expensePct = (expenses / scale) * 100;
+  const investPct = (investments / scale) * 100;
+
   return (
     <div>
-      <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-0.5">{label}</p>
-      <p className={`font-normal tabular-nums ${toneClass}`}>{formatBRL(value)}</p>
+      <div className="flex items-end justify-between gap-3 mb-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-0.5">Saldo do mês</p>
+          <p
+            className={`font-sans font-medium text-2xl tracking-tight tabular-nums ${
+              balance >= 0 ? "text-ok-400" : "text-danger-300"
+            }`}
+          >
+            {formatBRL(balance)}
+          </p>
+        </div>
+        <p className="text-xs text-cream-50/50 text-right leading-snug">
+          de <span className="text-cream-50/80 font-medium tabular-nums">{formatBRL(income)}</span>
+          <br />
+          em receitas
+        </p>
+      </div>
+
+      <div className="h-2.5 rounded-full bg-white/[0.07] overflow-hidden flex">
+        {expensePct > 0 && <div className="h-full bg-danger-300/85" style={{ width: `${expensePct}%` }} />}
+        {investPct > 0 && <div className="h-full bg-gold-400" style={{ width: `${investPct}%` }} />}
+      </div>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+        <FlowLegend dotClass="bg-danger-300/85" label="Despesas" value={expenses} />
+        <FlowLegend dotClass="bg-gold-400" label="Investimentos" value={investments} />
+      </div>
+    </div>
+  );
+}
+
+function FlowLegend({ dotClass, label, value }: { dotClass: string; label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs">
+      <span className={`h-2 w-2 rounded-full shrink-0 ${dotClass}`} />
+      <span className="text-cream-50/55">{label}</span>
+      <span className="text-cream-50/85 font-medium tabular-nums">{formatBRL(value)}</span>
     </div>
   );
 }
