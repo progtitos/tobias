@@ -2,17 +2,40 @@ import "server-only";
 import { createId } from "@paralleldrive/cuid2";
 import { and, eq, gte, lte, desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { transactions, categories, goals } from "@/lib/db/schema";
+import { transactions, categories, goals, bankAccounts } from "@/lib/db/schema";
 import type { CreateTransactionInput } from "@/lib/validations/transaction";
 import { suggestCategory, learnMerchantCategory } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { monthRange } from "./aggregations";
 import { applyGoalContribution, reverseGoalContribution } from "./goals";
+import { adjustBankAccountBalance } from "./bankAccounts";
+
+// A transaction only moves a bank account's balance for these types — an
+// EXPENSE pulls money out, an INCOME puts it in, and an
+// INVESTMENT_CONTRIBUTION counts as money leaving the account into whatever
+// it was invested in. TRANSFER isn't in this list (and isn't offered in the
+// Transações form yet) since it would need a destination account too.
+const BALANCE_AFFECTING_TYPES = new Set(["EXPENSE", "INCOME", "INVESTMENT_CONTRIBUTION"]);
+
+function balanceDelta(type: string, amount: number): number {
+  return type === "INCOME" ? amount : -amount;
+}
 
 export async function createManualTransaction(userId: string, input: CreateTransactionInput) {
   let categoryId = input.categoryId ?? null;
   let confidence = 1.0;
   let source: typeof transactions.$inferInsert.source = "MANUAL";
+
+  let bankAccountId: string | null = null;
+  if (input.bankAccountId) {
+    const [account] = await db
+      .select({ id: bankAccounts.id })
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.id, input.bankAccountId), eq(bankAccounts.userId, userId)))
+      .limit(1);
+    if (!account) throw new Error("Conta não encontrada");
+    bankAccountId = account.id;
+  }
 
   if (!categoryId && input.type === "EXPENSE") {
     const suggestion = await suggestCategory(userId, {
@@ -58,6 +81,7 @@ export async function createManualTransaction(userId: string, input: CreateTrans
       confidence,
       notes: input.notes,
       goalId,
+      bankAccountId,
     });
   }
 
@@ -72,6 +96,15 @@ export async function createManualTransaction(userId: string, input: CreateTrans
   // counts toward progress immediately, not spread out per installment).
   if (goalId) {
     await applyGoalContribution(userId, goalId, input.amount);
+  }
+
+  // Unlike the goal above, the bank balance is real money right now, not a
+  // forward-looking commitment — so only the first installment's own share
+  // moves it, not the full pledged amount. Future installments get their
+  // own row (for the statement/history) but don't touch the balance until
+  // deleteTransaction shows they were the one actually applied.
+  if (bankAccountId && BALANCE_AFFECTING_TYPES.has(input.type)) {
+    await adjustBankAccountBalance(userId, bankAccountId, balanceDelta(input.type, inserted[0].amount));
   }
 
   return inserted;
@@ -104,10 +137,13 @@ export async function listTransactions(
       installmentTotal: transactions.installmentTotal,
       goalId: transactions.goalId,
       goalTitle: goals.title,
+      bankAccountId: transactions.bankAccountId,
+      bankAccountName: bankAccounts.name,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .leftJoin(goals, eq(transactions.goalId, goals.id))
+    .leftJoin(bankAccounts, eq(transactions.bankAccountId, bankAccounts.id))
     .where(and(...conditions))
     .orderBy(desc(transactions.date))
     .limit(filters.limit ?? 200);
@@ -126,7 +162,13 @@ export async function updateTransactionCategory(userId: string, transactionId: s
 
 export async function deleteTransaction(userId: string, transactionId: string) {
   const [tx] = await db
-    .select({ type: transactions.type, goalId: transactions.goalId, amount: transactions.amount })
+    .select({
+      type: transactions.type,
+      goalId: transactions.goalId,
+      amount: transactions.amount,
+      bankAccountId: transactions.bankAccountId,
+      installmentNumber: transactions.installmentNumber,
+    })
     .from(transactions)
     .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)))
     .limit(1);
@@ -137,5 +179,14 @@ export async function deleteTransaction(userId: string, transactionId: string) {
   // leave a goal permanently (and invisibly) ahead of reality.
   if (tx?.type === "INVESTMENT_CONTRIBUTION" && tx.goalId) {
     await reverseGoalContribution(userId, tx.goalId, tx.amount);
+  }
+
+  // Only the first installment's row ever touched the account balance (see
+  // createManualTransaction), so only undoing that specific row reverses it
+  // — deleting installment #2 of a parcelado, for instance, shouldn't touch
+  // the balance since it never did in the first place.
+  const isPrimaryInstallment = !tx?.installmentNumber || tx.installmentNumber === 1;
+  if (tx?.bankAccountId && isPrimaryInstallment && BALANCE_AFFECTING_TYPES.has(tx.type)) {
+    await adjustBankAccountBalance(userId, tx.bankAccountId, -balanceDelta(tx.type, tx.amount));
   }
 }

@@ -12,6 +12,7 @@ import { createTransactionAction, updateCategoryAction, deleteTransactionAction,
 
 type Category = { id: string; name: string; type: string };
 type Goal = { id: string; title: string };
+type Account = { id: string; name: string; bankName: string | null };
 type Transaction = {
   id: string;
   date: string;
@@ -28,6 +29,8 @@ type Transaction = {
   installmentTotal: number | null;
   goalId: string | null;
   goalTitle: string | null;
+  bankAccountId: string | null;
+  bankAccountName: string | null;
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -55,10 +58,12 @@ export function ExpensesClient({
   transactions,
   categories,
   goals,
+  accounts,
 }: {
   transactions: Transaction[];
   categories: Category[];
   goals: Goal[];
+  accounts: Account[];
 }) {
   const [showForm, setShowForm] = useState(false);
   const [type, setType] = useState("EXPENSE");
@@ -149,6 +154,23 @@ export function ExpensesClient({
                 <Input id="installmentTotal" name="installmentTotal" type="number" min="1" max="48" defaultValue="1" />
               </div>
               <div className="col-span-2">
+                <Label htmlFor="bankAccountId">Conta (opcional)</Label>
+                <Select id="bankAccountId" name="bankAccountId" defaultValue="">
+                  <option value="">Não afetar nenhuma conta</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                      {a.bankName ? ` · ${a.bankName}` : ""}
+                    </option>
+                  ))}
+                </Select>
+                {accounts.length === 0 && (
+                  <p className="text-xs text-cream-50/45 mt-1">
+                    Nenhuma conta cadastrada ainda. Adicione uma em Patrimônio para o saldo dela mudar sozinho aqui.
+                  </p>
+                )}
+              </div>
+              <div className="col-span-2">
                 <FieldError>{state?.error}</FieldError>
                 <div className="flex gap-2 mt-1">
                   <Button type="submit" loading={pending}>
@@ -201,6 +223,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
                 </Badge>
               )}
               {transaction.goalTitle && <Badge tone="gold">→ {transaction.goalTitle}</Badge>}
+              {transaction.bankAccountName && <Badge tone="neutral">{transaction.bankAccountName}</Badge>}
               {lowConfidence && (
                 <Badge tone="warn" title="Categoria sugerida com baixa confiança, confira">
                   <Sparkles className="h-3 w-3" /> confirmar
