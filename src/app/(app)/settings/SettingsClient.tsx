@@ -20,11 +20,16 @@ type SettingsUser = {
   trialEndsAt: string;
 };
 
+// Kept in sync with subscriptionPlanEnum in src/lib/db/schema.ts — this had
+// drifted to a set of labels (BASIC/PREMIUM/FAMILY) that no longer matched
+// the actual enum values, so every real subscriber saw the raw enum string
+// instead of a label.
 const PLAN_LABELS: Record<string, string> = {
   TRIAL: "Período de teste",
-  BASIC: "Plano Básico",
-  PREMIUM: "Plano Premium",
-  FAMILY: "Plano Família",
+  TOBIAS: "Plano Tobias",
+  TOBIAS_PRO: "Tobias Pro",
+  TOBIAS_FAMILIA: "Tobias Família",
+  TOBIAS_PLANNER: "Tobias Planner",
 };
 
 export function SettingsClient({ user }: { user: SettingsUser }) {

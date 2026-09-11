@@ -1,8 +1,35 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Compass, TrendingUp, Target, MessageCircle, Check } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { PRICING_PLANS } from "@/lib/billing/plans";
+
+const FEATURES = [
+  {
+    icon: Compass,
+    title: "Ponteiro financeiro",
+    description: "Uma pontuação em 9 dimensões da sua vida financeira, calculada a partir dos seus dados reais.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Curva de aposentadoria",
+    description: "Cenários conservador, base e agressivo mostram se você está no caminho e o que ajustar se não estiver.",
+  },
+  {
+    icon: Target,
+    title: "Metas que se atualizam sozinhas",
+    description: "Cada aporte que você registra já reflete no progresso do seu objetivo, sem precisar atualizar nada à mão.",
+  },
+  {
+    icon: MessageCircle,
+    title: "Uma conversa, não um formulário",
+    description: "Conte pro Tobias como está sua vida financeira e ele monta o plano, sem planilha e sem burocracia.",
+  },
+];
 
 export default async function LandingPage() {
   const user = await getCurrentUser();
@@ -37,7 +64,7 @@ export default async function LandingPage() {
         </nav>
       </header>
 
-      <main className="relative flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
+      <main className="relative flex flex-col items-center px-6 pt-16 pb-8 text-center">
         <Image
           src="/logo-transparent.png"
           alt=""
@@ -69,6 +96,73 @@ export default async function LandingPage() {
           </Link>
         </div>
       </main>
+
+      {/* O que o Tobias faz — feature highlights */}
+      <section className="relative px-6 py-16 max-w-5xl mx-auto w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {FEATURES.map((f) => (
+            <div key={f.title} className="flex gap-4 text-left rounded-2xl bg-white/[0.03] border border-white/5 p-5">
+              <f.icon className="h-6 w-6 text-gold-400 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-sans font-semibold text-cream-50">{f.title}</h3>
+                <p className="text-sm text-cream-100/65 mt-1 leading-relaxed">{f.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Planos */}
+      <section id="planos" className="relative px-6 py-16 max-w-5xl mx-auto w-full text-center">
+        <h2 className="font-serif font-semibold text-3xl text-cream-50 tracking-tight">Um plano, do seu jeito</h2>
+        <p className="mt-3 text-cream-100/65 max-w-lg mx-auto">
+          Comece com 15 dias grátis. Depois, escolha como prefere pagar: quanto mais longo o
+          período, menor o valor por mês.
+        </p>
+
+        <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-5 text-left">
+          {PRICING_PLANS.map((plan) => (
+            <Card
+              key={plan.cycle}
+              className={
+                plan.highlight
+                  ? "bg-brand-800 border-gold-500/50 shadow-[0_18px_40px_-20px_rgba(0,0,0,0.6)] relative"
+                  : "bg-brand-800/60"
+              }
+            >
+              <CardContent className="py-6 flex flex-col h-full">
+                {plan.highlight && (
+                  <Badge tone="gold" className="absolute -top-3 left-6">
+                    Melhor custo-benefício
+                  </Badge>
+                )}
+                <p className="text-xs uppercase tracking-wide text-cream-100/60 mb-2">{plan.label}</p>
+                <p className="font-sans font-semibold text-3xl tracking-tight text-cream-50 tabular-nums">
+                  {plan.priceLabel}
+                </p>
+                <p className="text-sm text-gold-400 mt-1 tabular-nums">{plan.monthlyEquivalentLabel}</p>
+                <p className="text-xs text-cream-100/50 mt-3">{plan.billingNote}</p>
+                <ul className="mt-5 space-y-2 text-sm text-cream-100/75 flex-1">
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-ok-400 shrink-0 mt-0.5" /> Acesso completo ao Tobias
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-ok-400 shrink-0 mt-0.5" /> 15 dias grátis para testar
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-ok-400 shrink-0 mt-0.5" /> Cancele quando quiser
+                  </li>
+                </ul>
+                <Link href="/signup" className="mt-6">
+                  <Button variant={plan.highlight ? "secondary" : "outline"} className="w-full border-cream-100/30">
+                    Começar grátis
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
 
       <footer className="relative text-center text-xs text-cream-100/40 py-8">
         © {new Date().getFullYear()} Tobias. Planejamento financeiro pessoal com IA.

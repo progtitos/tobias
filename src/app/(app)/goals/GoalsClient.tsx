@@ -160,7 +160,7 @@ function GoalCard({ goal }: { goal: Goal }) {
           (goal.type === "EMERGENCY_FUND" ? (
             <p className="text-xs text-cream-50/45 mt-3">
               Esse valor é calculado automaticamente a partir do seu saldo em conta e investimentos de liquidez
-              imediata — não precisa registrar aporte aqui.
+              imediata. Não precisa registrar aporte aqui.
             </p>
           ) : (
             <div className="mt-3 flex items-center gap-2">
