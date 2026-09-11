@@ -8,6 +8,7 @@ import { users, verificationTokens } from "@/lib/db/schema";
 import { hashPassword, verifyPassword } from "./password";
 import { createSession, destroySession } from "./session";
 import { signupSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/validations/auth";
+import { createSubscriptionCheckout } from "@/services/subscription";
 import { trackEvent } from "@/services/analytics";
 
 export type AuthActionState = { error?: string; success?: string } | undefined;
@@ -27,11 +28,12 @@ export async function signupAction(_prev: AuthActionState, formData: FormData): 
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
+    cycle: formData.get("cycle"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
-  const { name, email, password } = parsed.data;
+  const { name, email, password, cycle } = parsed.data;
 
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   if (existing.length > 0) {
@@ -41,18 +43,36 @@ export async function signupAction(_prev: AuthActionState, formData: FormData): 
   await trackEvent(null, "signup_started", { email });
 
   const passwordHash = await hashPassword(password);
+  // Placeholder until Mercado Pago confirms the card — activateTrialFromPreapproval
+  // overwrites both with the real start once the webhook fires. The account
+  // sits in PENDING_PAYMENT until then, so nothing reads this early value as
+  // if the trial were actually running.
   const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
 
   const [user] = await db
     .insert(users)
-    .values({ name, email, passwordHash, trialEndsAt })
+    .values({ name, email, passwordHash, trialEndsAt, subscriptionStatus: "PENDING_PAYMENT" })
     .returning({ id: users.id });
 
   await createSession(user.id);
   await trackEvent(user.id, "signup_completed", { email });
-  await trackEvent(user.id, "trial_started", { days: TRIAL_DAYS });
 
-  redirect("/onboarding");
+  // The 15 dias grátis only start once Mercado Pago confirms a card, so the
+  // very next step is Mercado Pago's own hosted checkout, not onboarding —
+  // if that fails to even create, don't leave a half-signed-up account
+  // dangling on this email with no way back in.
+  let initPoint: string;
+  try {
+    const checkout = await createSubscriptionCheckout(user.id, email, cycle);
+    initPoint = checkout.initPoint;
+  } catch (err) {
+    console.error("[signup] falha ao criar checkout no Mercado Pago", err);
+    await db.delete(users).where(eq(users.id, user.id));
+    await destroySession();
+    return { error: "Não foi possível iniciar o pagamento agora. Tente novamente em instantes." };
+  }
+
+  redirect(initPoint);
 }
 
 export async function loginAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {

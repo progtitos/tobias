@@ -153,7 +153,7 @@ export default async function LandingPage() {
                     <Check className="h-4 w-4 text-ok-400 shrink-0 mt-0.5" /> Cancele quando quiser
                   </li>
                 </ul>
-                <Link href="/signup" className="mt-6">
+                <Link href={`/signup?plano=${plan.cycle}`} className="mt-6">
                   <Button variant={plan.highlight ? "secondary" : "outline"} className="w-full border-cream-100/30">
                     Começar grátis
                   </Button>

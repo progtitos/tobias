@@ -1,13 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertTriangle, ShieldCheck, History, FileText } from "lucide-react";
+import { AlertTriangle, ShieldCheck, History, FileText, MessageCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Input, FieldError } from "@/components/ui/Input";
 import { maskCPF, maskPhone } from "@/lib/utils/mask";
-import { deleteAccountAction } from "./actions";
+import {
+  deleteAccountAction,
+  cancelSubscriptionAction,
+  connectWhatsAppAction,
+  disconnectWhatsAppAction,
+  type ConnectWhatsAppState,
+} from "./actions";
+
+// A subscription can only be canceled from here while it's actually
+// costing (or about to cost) money — PENDING_PAYMENT never got a
+// preapproval far enough along to cancel, and CANCELED/EXPIRED already are.
+const CANCELABLE_STATUSES = ["TRIALING", "ACTIVE", "PAST_DUE"];
 
 type SettingsUser = {
   name: string;
@@ -19,6 +31,8 @@ type SettingsUser = {
   subscriptionStatus: string;
   trialEndsAt: string;
 };
+
+type WhatsAppConnection = { phone: string; verified: boolean } | null;
 
 // Kept in sync with subscriptionPlanEnum in src/lib/db/schema.ts — this had
 // drifted to a set of labels (BASIC/PREMIUM/FAMILY) that no longer matched
@@ -32,8 +46,11 @@ const PLAN_LABELS: Record<string, string> = {
   TOBIAS_PLANNER: "Tobias Planner",
 };
 
-export function SettingsClient({ user }: { user: SettingsUser }) {
+export function SettingsClient({ user, whatsapp }: { user: SettingsUser; whatsapp: WhatsAppConnection }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelPending, startCancelTransition] = useTransition();
+  const [cancelError, setCancelError] = useState<string | undefined>();
 
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
@@ -56,6 +73,49 @@ export function SettingsClient({ user }: { user: SettingsUser }) {
           </div>
         </CardContent>
       </Card>
+
+      {CANCELABLE_STATUSES.includes(user.subscriptionStatus) && (
+        <Card>
+          <CardContent className="py-5 space-y-3">
+            <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-1">Assinatura</h2>
+            <p className="text-sm text-cream-50/65">
+              Cancelar interrompe as próximas cobranças no Mercado Pago. Você continua com acesso até o fim do
+              período já pago.
+            </p>
+            {!confirmingCancel ? (
+              <Button variant="outline" size="sm" onClick={() => setConfirmingCancel(true)}>
+                Cancelar assinatura
+              </Button>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="danger"
+                  size="sm"
+                  loading={cancelPending}
+                  onClick={() =>
+                    startCancelTransition(async () => {
+                      const result = await cancelSubscriptionAction();
+                      if (result?.error) {
+                        setCancelError(result.error);
+                      } else {
+                        setConfirmingCancel(false);
+                      }
+                    })
+                  }
+                >
+                  Sim, cancelar
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setConfirmingCancel(false)}>
+                  Voltar
+                </Button>
+              </div>
+            )}
+            <FieldError>{cancelError}</FieldError>
+          </CardContent>
+        </Card>
+      )}
+
+      <WhatsAppCard whatsapp={whatsapp} />
 
       <Card>
         <CardContent className="py-5 space-y-1">
@@ -115,5 +175,74 @@ function SettingsLink({ href, icon: Icon, label }: { href: string; icon: typeof 
     <Link href={href} className="flex items-center gap-2.5 py-2 text-sm text-cream-50/70 hover:text-gold-400">
       <Icon className="h-4 w-4" /> {label}
     </Link>
+  );
+}
+
+function WhatsAppCard({ whatsapp }: { whatsapp: WhatsAppConnection }) {
+  const [state, formAction, pending] = useActionState<ConnectWhatsAppState, FormData>(connectWhatsAppAction, undefined);
+  const [disconnectPending, startDisconnectTransition] = useTransition();
+
+  return (
+    <Card>
+      <CardContent className="py-5 space-y-3">
+        <h2 className="font-serif italic font-medium text-lg text-cream-50 mb-1 flex items-center gap-2">
+          <MessageCircle className="h-4 w-4 text-gold-400" /> WhatsApp
+        </h2>
+
+        {!whatsapp && (
+          <>
+            <p className="text-sm text-cream-50/65">
+              Conecte seu número para conversar com o Tobias direto pelo WhatsApp, do mesmo jeito que no app.
+            </p>
+            <form action={formAction} className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[200px] space-y-1">
+                <label htmlFor="whatsapp-phone" className="text-xs text-cream-50/55">
+                  Número (com DDI)
+                </label>
+                <Input id="whatsapp-phone" name="phone" placeholder="+5511999999999" />
+              </div>
+              <Button type="submit" size="sm" loading={pending}>
+                Enviar código
+              </Button>
+            </form>
+            <FieldError>{state?.error}</FieldError>
+          </>
+        )}
+
+        {whatsapp && !whatsapp.verified && (
+          <>
+            <p className="text-sm text-cream-50/65">
+              Enviamos um código de verificação para <span className="text-cream-50">{maskPhone(whatsapp.phone)}</span>.
+              Responda a mensagem no WhatsApp com o código para confirmar.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              loading={disconnectPending}
+              onClick={() => startDisconnectTransition(() => disconnectWhatsAppAction())}
+            >
+              Cancelar e tentar outro número
+            </Button>
+          </>
+        )}
+
+        {whatsapp?.verified && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Badge tone="brand">Conectado</Badge>
+              <span className="text-sm text-cream-50/70">{maskPhone(whatsapp.phone)}</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              loading={disconnectPending}
+              onClick={() => startDisconnectTransition(() => disconnectWhatsAppAction())}
+            >
+              Desconectar
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -36,6 +36,7 @@ export type AnalyticsEventName =
   | "trial_expiring_soon"
   | "trial_expired"
   | "subscription_started"
+  | "subscription_canceled"
   | "account_deleted";
 
 /**

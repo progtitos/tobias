@@ -4,6 +4,7 @@ export const signupSchema = z.object({
   name: z.string().trim().min(2, "Digite seu nome completo").max(120),
   email: z.string().trim().toLowerCase().email("Digite um e-mail válido"),
   password: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres"),
+  cycle: z.enum(["MENSAL", "SEMESTRAL", "ANUAL"]),
 });
 
 export const loginSchema = z.object({

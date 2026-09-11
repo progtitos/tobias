@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/guards";
 
 export default async function OnboardingLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  if (user.subscriptionStatus === "PENDING_PAYMENT") redirect("/pagamento-pendente");
   if (user.onboardingCompleted) redirect("/dashboard");
 
   return (

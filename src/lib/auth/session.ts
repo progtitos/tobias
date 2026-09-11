@@ -34,6 +34,7 @@ export type SessionUser = {
   trialEndsAt: Date;
   subscriptionPlan: string;
   subscriptionStatus: string;
+  planBillingCycle: "MENSAL" | "SEMESTRAL" | "ANUAL" | null;
 };
 
 function generateToken(): string {
@@ -77,6 +78,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       trialEndsAt: users.trialEndsAt,
       subscriptionPlan: users.subscriptionPlan,
       subscriptionStatus: users.subscriptionStatus,
+      planBillingCycle: users.planBillingCycle,
       deletedAt: users.deletedAt,
       expires: sessions.expires,
     })
@@ -103,6 +105,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     trialEndsAt: row.trialEndsAt,
     subscriptionPlan: row.subscriptionPlan,
     subscriptionStatus: row.subscriptionStatus,
+    planBillingCycle: row.planBillingCycle,
   };
 }
 

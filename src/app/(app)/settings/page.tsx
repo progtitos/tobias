@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { requireOnboardedUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db/client";
-import { users } from "@/lib/db/schema";
+import { users, whatsappConnections } from "@/lib/db/schema";
 import { SettingsClient } from "./SettingsClient";
 
 export default async function SettingsPage() {
@@ -10,6 +10,12 @@ export default async function SettingsPage() {
     .select({ cpf: users.cpf, phone: users.phone, createdAt: users.createdAt })
     .from(users)
     .where(eq(users.id, user.id))
+    .limit(1);
+
+  const [whatsapp] = await db
+    .select({ phone: whatsappConnections.phone, verified: whatsappConnections.verified })
+    .from(whatsappConnections)
+    .where(eq(whatsappConnections.userId, user.id))
     .limit(1);
 
   return (
@@ -24,6 +30,7 @@ export default async function SettingsPage() {
         subscriptionStatus: user.subscriptionStatus,
         trialEndsAt: user.trialEndsAt.toISOString(),
       }}
+      whatsapp={whatsapp ? { phone: whatsapp.phone, verified: whatsapp.verified } : null}
     />
   );
 }

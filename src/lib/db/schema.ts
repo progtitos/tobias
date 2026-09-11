@@ -54,12 +54,22 @@ export const subscriptionPlanEnum = pgEnum("subscription_plan", [
   "TOBIAS_PLANNER",
 ]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  // A user sits here from the moment they submit the signup form until
+  // Mercado Pago confirms their card was authorized — the free trial does
+  // not start yet (see AGENTS-facing note in lib/auth/actions.ts), and
+  // requireUser()-gated routes bounce them to /pagamento-pendente instead
+  // of onboarding while they're in this state.
+  "PENDING_PAYMENT",
   "TRIALING",
   "ACTIVE",
   "PAST_DUE",
   "CANCELED",
   "EXPIRED",
 ]);
+// Mercado Pago billing cycle for Tobias's own subscription (distinct from
+// billingCycleEnum below, which tracks a USER's own detected third-party
+// subscriptions like Netflix — unrelated to what Tobias charges).
+export const planBillingCycleEnum = pgEnum("plan_billing_cycle", ["MENSAL", "SEMESTRAL", "ANUAL"]);
 export const maritalStatusEnum = pgEnum("marital_status", [
   "SINGLE",
   "MARRIED",
@@ -285,6 +295,11 @@ export const users = pgTable(
     subscriptionStatus: subscriptionStatusEnum("subscription_status")
       .notNull()
       .default("TRIALING"),
+    planBillingCycle: planBillingCycleEnum("plan_billing_cycle"),
+    // Mercado Pago's subscription (preapproval) id for this user — the
+    // correlation key the webhook uses to find who to update, and what
+    // cancelSubscription() targets when the person cancels from Settings.
+    mpPreapprovalId: text("mp_preapproval_id"),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -294,6 +309,7 @@ export const users = pgTable(
     uniqueIndex("users_email_idx").on(t.email),
     uniqueIndex("users_phone_idx").on(t.phone),
     uniqueIndex("users_cpf_idx").on(t.cpf),
+    uniqueIndex("users_mp_preapproval_idx").on(t.mpPreapprovalId),
   ]
 );
 
@@ -906,6 +922,12 @@ export const whatsappConnections = pgTable("whatsapp_connections", {
   verified: boolean("verified").notNull().default(false),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
   optedIn: boolean("opted_in").notNull().default(false),
+  // Set when the user submits a phone number from Settings; cleared once
+  // they reply on WhatsApp with the matching code (see connectWhatsAppAction
+  // / WhatsAppService.receiveMessage). Proves they actually control that
+  // number before any bot message is ever answered for it.
+  verificationCode: text("verification_code"),
+  verificationCodeExpiresAt: timestamp("verification_code_expires_at", { withTimezone: true }),
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
