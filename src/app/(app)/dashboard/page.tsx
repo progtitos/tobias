@@ -41,16 +41,7 @@ export default async function DashboardPage() {
     <div className="flex-1 bg-brand-950 px-5 py-6 space-y-6">
       <div className="max-w-5xl mx-auto w-full space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/avatars/tobias-sempre-ao-lado.png"
-              alt="Tobias"
-              width={44}
-              height={44}
-              className="rounded-full shrink-0"
-            />
-            <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
-          </div>
+          <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
           <div className="flex gap-2">
             <Link href="/receipts/new">
               <Button variant="outline" size="sm" className="border-brand-700 text-onbrand hover:bg-white/5">
@@ -100,9 +91,21 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-4">
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="font-display font-semibold text-lg text-onbrand">Seu Ponteiro</h2>
-                <Link href="/compass" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
+              <div className="flex items-center justify-between mb-1 gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Image
+                    src="/avatars/tobias-bussola-financeira.png"
+                    alt="Tobias"
+                    width={34}
+                    height={34}
+                    className="rounded-full shrink-0 shadow-[0_0_0_2px_rgba(240,153,47,0.35)]"
+                  />
+                  <h2 className="font-display font-semibold text-lg text-onbrand truncate">Seu Ponteiro</h2>
+                </div>
+                <Link
+                  href="/compass"
+                  className="text-xs text-gold-400 hover:underline flex items-center gap-1 shrink-0"
+                >
                   Ver tudo <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
@@ -137,9 +140,21 @@ export default async function DashboardPage() {
           <div className="space-y-4">
             <Card className={DARK_CARD}>
               <CardContent className="py-5">
-                <div className="flex items-center justify-between mb-1">
-                  <h2 className="font-display font-semibold text-lg text-onbrand">Curva de aposentadoria</h2>
-                  <Link href="/retirement" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
+                <div className="flex items-center justify-between mb-1 gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Image
+                      src="/avatars/tobias-curva-aposentadoria.png"
+                      alt="Tobias"
+                      width={34}
+                      height={34}
+                      className="rounded-full shrink-0 shadow-[0_0_0_2px_rgba(240,153,47,0.35)]"
+                    />
+                    <h2 className="font-display font-semibold text-lg text-onbrand truncate">Curva de aposentadoria</h2>
+                  </div>
+                  <Link
+                    href="/retirement"
+                    className="text-xs text-gold-400 hover:underline flex items-center gap-1 shrink-0"
+                  >
                     Simular <ArrowRight className="h-3 w-3" />
                   </Link>
                 </div>
@@ -173,11 +188,11 @@ export default async function DashboardPage() {
               <CardContent className="py-5">
                 <div className="flex gap-3 items-start">
                   <Image
-                    src="/logo-transparent.png"
+                    src="/avatars/tobias-alertas.png"
                     alt="Tobias"
                     width={38}
                     height={38}
-                    className="rounded-xl bg-brand-950 p-0.5 shrink-0"
+                    className="rounded-full shrink-0 shadow-[0_0_0_2px_rgba(240,153,47,0.35)]"
                   />
                   <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400 mb-1">Tobias</p>

@@ -10,5 +10,9 @@ export type Theme = "light" | "dark";
 
 export async function getTheme(): Promise<Theme> {
   const store = await cookies();
-  return store.get(THEME_COOKIE)?.value === "dark" ? "dark" : "light";
+  // Ardósia Solar (dark) is the product's default look — light is the
+  // opt-in alternative, not the fallback. A visitor who has never touched
+  // the toggle (no cookie yet) must land on dark, so only an explicit
+  // "light" value flips it.
+  return store.get(THEME_COOKIE)?.value === "light" ? "light" : "dark";
 }
