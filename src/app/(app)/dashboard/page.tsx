@@ -57,9 +57,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Link href="/patrimonio" className="block">
-            <StatCard label="Seu patrimônio" value={formatBRL(data.netWorth.netWorth)} className="transition-colors hover:bg-brand-700" />
-          </Link>
+          <StatCard label="Seu patrimônio" value={formatBRL(data.netWorth.netWorth)} />
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <h2 className="font-serif italic font-medium text-base text-cream-50 mb-3">Seu mês</h2>
@@ -186,21 +184,9 @@ export default async function DashboardPage() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  accent,
-  className,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-  className?: string;
-}) {
+function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <Card
-      className={`${accent ? "bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]" : DARK_CARD} ${className ?? ""}`}
-    >
+    <Card className={accent ? "bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]" : DARK_CARD}>
       <CardContent className="py-5">
         <p className="text-xs uppercase tracking-wide text-cream-50/60 mb-1.5">{label}</p>
         <p className="font-sans font-medium text-[22px] tracking-tight tabular-nums text-cream-50">{value}</p>
