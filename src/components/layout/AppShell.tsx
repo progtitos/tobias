@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils/cn";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
   { href: "/chat", label: "Tobias", icon: MessageCircle },
-  { href: "/lancamentos", label: "Lançamentos", icon: Receipt },
+  { href: "/lancamentos", label: "Transações", icon: Receipt },
   { href: "/goals", label: "Sonhos", icon: Target },
   { href: "/conta", label: "Conta", icon: Wallet },
   { href: "/patrimonio", label: "Patrimônio", icon: Landmark },

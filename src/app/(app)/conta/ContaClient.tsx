@@ -45,7 +45,7 @@ export function ContaClient({ accounts }: { accounts: BankAccount[] }) {
         <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Suas contas</h1>
         <p className="text-sm text-onbrand/55 mb-6">
           Contas bancárias e carteiras digitais. O saldo delas alimenta seu patrimônio líquido, a reserva de
-          emergência e o Ponteiro — e pode ser ligado direto a uma transação em Lançamentos.
+          emergência e o Ponteiro — e pode ser ligado direto a uma transação em Transações.
         </p>
 
         <Card className="mb-6">

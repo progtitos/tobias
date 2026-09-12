@@ -181,7 +181,7 @@ export function LancamentosClient({
     <div className="flex-1 bg-brand-950 px-5 py-6">
       <div className="max-w-3xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <h1 className="font-sans font-bold text-2xl text-onbrand">Lançamentos</h1>
+          <h1 className="font-sans font-bold text-2xl text-onbrand">Transações</h1>
           <div className="flex items-center gap-1">
             <Link
               href={`/lancamentos?month=${shiftMonth(month, -1)}`}
@@ -430,11 +430,22 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
   return (
     <li>
       <Card>
-        <CardContent className="py-3.5 flex items-center gap-3">
-          <Icon className={`h-5 w-5 shrink-0 ${meta.amountClass}`} aria-hidden />
+        {/* 5-track grid: icon | main (1fr) | bank chip (auto) | empty spacer
+            (1fr) | right cluster (fixed width). The two 1fr tracks stay equal
+            to each other no matter how long the description gets, so the
+            bank chip in the middle track sits at the true geometric center
+            between them. The right cluster MUST be a fixed width, not auto:
+            it only shows the category <select> for EXPENSE rows, so an auto
+            track would be narrower on income/investment/transfer rows and
+            shove the 1fr tracks (and the bank chip) sideways between row
+            types — that was the remaining misalignment even after the grid
+            was introduced. A fixed width keeps every row's math identical
+            regardless of which controls that row happens to render. */}
+        <CardContent className="py-3.5 grid grid-cols-[20px_1fr_auto_1fr_260px] items-center gap-x-3">
+          <Icon className={`col-start-1 h-5 w-5 shrink-0 ${meta.amountClass}`} aria-hidden />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+          <div className="col-start-2 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="font-medium text-onbrand truncate">{transaction.description}</p>
               {transaction.installmentTotal && transaction.installmentTotal > 1 && (
                 <Badge tone="neutral">
@@ -442,7 +453,6 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
                 </Badge>
               )}
               {transaction.goalTitle && <Badge tone="gold">→ {transaction.goalTitle}</Badge>}
-              {transaction.bankAccountName && <Badge tone="neutral">{transaction.bankAccountName}</Badge>}
               {lowConfidence && (
                 <Badge tone="warn" title="Categoria sugerida com baixa confiança, confira">
                   <Sparkles className="h-3 w-3" /> confirmar
@@ -456,38 +466,46 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
             </p>
           </div>
 
-          {transaction.type === "EXPENSE" && (
-            <select
-              className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[130px]"
-              value={transaction.categoryId ?? ""}
-              disabled={pending}
-              onChange={(e) => {
-                const categoryId = e.target.value;
-                if (!categoryId) return;
-                startTransition(() => updateCategoryAction(transaction.id, categoryId));
-              }}
-            >
-              <option value="">Sem categoria</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          {transaction.bankAccountName && (
+            <Badge tone="neutral" className="col-start-3 justify-self-center whitespace-nowrap">
+              {transaction.bankAccountName}
+            </Badge>
           )}
 
-          <span className={`font-medium tabular-nums ${meta.amountClass}`}>
-            {meta.sign}
-            {formatBRL(transaction.amount)}
-          </span>
+          <div className="col-start-5 flex items-center gap-3 justify-self-end">
+            {transaction.type === "EXPENSE" && (
+              <select
+                className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[130px]"
+                value={transaction.categoryId ?? ""}
+                disabled={pending}
+                onChange={(e) => {
+                  const categoryId = e.target.value;
+                  if (!categoryId) return;
+                  startTransition(() => updateCategoryAction(transaction.id, categoryId));
+                }}
+              >
+                <option value="">Sem categoria</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
 
-          <button
-            aria-label="Excluir"
-            className="text-onbrand/35 hover:text-danger-300 transition-colors"
-            onClick={() => startTransition(() => deleteTransactionAction(transaction.id))}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+            <span className={`font-medium tabular-nums ${meta.amountClass}`}>
+              {meta.sign}
+              {formatBRL(transaction.amount)}
+            </span>
+
+            <button
+              aria-label="Excluir"
+              className="text-onbrand/35 hover:text-danger-300 transition-colors"
+              onClick={() => startTransition(() => deleteTransactionAction(transaction.id))}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
         </CardContent>
       </Card>
     </li>
