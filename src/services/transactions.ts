@@ -9,7 +9,7 @@ import { trackEvent, logFinancialEvent } from "./analytics";
 import { monthRange } from "./aggregations";
 import { applyGoalContribution, reverseGoalContribution } from "./goals";
 import { adjustBankAccountBalance } from "./bankAccounts";
-import { addMonthsClamped } from "@/lib/utils/dates";
+import { addMonthsClamped, parseDateOnly } from "@/lib/utils/dates";
 
 // A transaction only moves a bank account's balance for these types — an
 // EXPENSE pulls money out, an INCOME puts it in, and an
@@ -57,7 +57,7 @@ export async function createManualTransaction(userId: string, input: CreateTrans
   const goalId = input.type === "INVESTMENT_CONTRIBUTION" ? (input.goalId ?? null) : null;
 
   const installmentTotal = input.installmentTotal && input.installmentTotal > 1 ? input.installmentTotal : 1;
-  const baseDate = new Date(input.date);
+  const baseDate = parseDateOnly(input.date);
   const groupId = installmentTotal > 1 ? createId() : null;
 
   // Cartão de crédito parcela o valor (compra de R$1.200 em 12x = R$100/mês);
@@ -162,7 +162,7 @@ export async function updateTransaction(userId: string, transactionId: string, i
   const [updated] = await db
     .update(transactions)
     .set({
-      date: new Date(input.date),
+      date: parseDateOnly(input.date),
       amount: input.amount,
       type: input.type,
       categoryId: input.categoryId ?? null,
@@ -246,7 +246,11 @@ export async function listTransactions(
     .leftJoin(goals, eq(transactions.goalId, goals.id))
     .leftJoin(bankAccounts, eq(transactions.bankAccountId, bankAccounts.id))
     .where(and(...conditions))
-    .orderBy(desc(transactions.date))
+    // Desempate por createdAt: várias transações no mesmo dia (comum numa
+    // importação de extrato, onde todas ficam com a mesma data sem hora)
+    // ficavam em ordem arbitrária só com `desc(date)`, parecendo fora de
+    // ordem na lista.
+    .orderBy(desc(transactions.date), desc(transactions.createdAt))
     .limit(filters.limit ?? 200);
 }
 

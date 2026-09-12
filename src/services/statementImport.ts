@@ -8,6 +8,7 @@ import { parseCsvStatement } from "@/lib/utils/csvStatement";
 import { getUserCategories, matchCategoryByGuess } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { adjustBankAccountBalance } from "./bankAccounts";
+import { parseDateOnly } from "@/lib/utils/dates";
 
 export type UploadedFile = { buffer: Buffer; mimeType: string; fileName: string };
 export type ImportTarget = { bankAccountId: string } | { creditCardId: string };
@@ -130,8 +131,8 @@ export async function uploadStatementDocument(userId: string, file: UploadedFile
     .values({
       ...baseValues,
       status: "NEEDS_REVIEW",
-      periodStart: periodStart ? new Date(periodStart) : null,
-      periodEnd: periodEnd ? new Date(periodEnd) : null,
+      periodStart: periodStart ? parseDateOnly(periodStart) : null,
+      periodEnd: periodEnd ? parseDateOnly(periodEnd) : null,
       extractedSummary: `${extracted.length} transações lidas`,
     })
     .returning();
@@ -141,10 +142,10 @@ export async function uploadStatementDocument(userId: string, file: UploadedFile
     .values(
       await Promise.all(
         extracted.map(async (t) => {
-          const isDuplicate = await findExistingDuplicate(userId, target, new Date(t.date), t.amount);
+          const isDuplicate = await findExistingDuplicate(userId, target, parseDateOnly(t.date), t.amount);
           return {
             documentId: document.id,
-            date: new Date(t.date),
+            date: parseDateOnly(t.date),
             description: t.description,
             amount: t.amount,
             type: t.type,

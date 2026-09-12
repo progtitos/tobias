@@ -59,11 +59,19 @@ export async function generateInitialBudget(userId: string) {
   const allCategories = await db.select().from(categories).where(isNull(categories.userId));
   const byName = new Map(allCategories.filter((c) => !c.parentId).map((c) => [c.name, c] as const));
 
-  // Close out any previous auto-calculated budgets before creating fresh ones.
+  // Fecha TODA linha de orçamento ainda viva (automática ou ajustada à mão)
+  // antes de gerar o conjunto novo — não só as automáticas. Fechar só as
+  // automáticas deixava viva qualquer categoria que a pessoa já tinha
+  // ajustado manualmente (isAutoCalculated: false) e, junto com a inserção
+  // do conjunto novo logo abaixo, gerava DUAS linhas ativas pra mesma
+  // categoria (uma "Ajustado por você" antiga + uma automática nova) —
+  // exatamente o "Moradia duplicado" visto no Orçamento. "Recalcular
+  // automaticamente" deve mesmo substituir qualquer ajuste manual anterior,
+  // não empilhar ao lado dele.
   await db
     .update(budgets)
     .set({ effectiveTo: new Date() })
-    .where(and(eq(budgets.userId, userId), eq(budgets.isAutoCalculated, true), isNull(budgets.effectiveTo)));
+    .where(and(eq(budgets.userId, userId), isNull(budgets.effectiveTo)));
 
   const rows: (typeof budgets.$inferInsert)[] = [];
   for (const [name, pct] of Object.entries(GUIDELINE_PCT_OF_INCOME)) {
