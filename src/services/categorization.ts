@@ -57,6 +57,31 @@ export async function suggestCategory(
   }
 }
 
+/**
+ * Casa um "palpite" de categoria em texto puro (já produzido pela IA na
+ * hora de LER um extrato/fatura, ver AIService.extractStatement) com uma
+ * categoria de verdade do usuário, sem nenhuma chamada de IA nova. Usado
+ * na confirmação de importação de extrato/fatura, que pode ter 100+ linhas
+ * de uma vez e não pode se dar ao luxo de mais uma chamada de IA por linha
+ * ali (é exatamente isso que travava a confirmação, estourando o tempo
+ * limite da função serverless da Vercel) — o palpite em texto já veio de
+ * graça junto da leitura, então só falta casar com o nome certo.
+ */
+export function matchCategoryByGuess(
+  categoriesList: { id: string; name: string; type: string }[],
+  guess: string | null | undefined
+): string | null {
+  if (!guess) return null;
+  const normalized = guess.trim().toLowerCase();
+  if (!normalized) return null;
+  const exact = categoriesList.find((c) => c.name.toLowerCase() === normalized);
+  if (exact) return exact.id;
+  const loose = categoriesList.find(
+    (c) => c.name.toLowerCase().includes(normalized) || normalized.includes(c.name.toLowerCase())
+  );
+  return loose?.id ?? null;
+}
+
 /** Called whenever a user confirms or corrects a category — this is what makes Tobias "learn" (spec §11). */
 export async function learnMerchantCategory(userId: string, merchant: string, categoryId: string) {
   const normalized = normalizeMerchant(merchant);

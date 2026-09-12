@@ -5,7 +5,7 @@ import { documents, documentItems, transactions, bankAccounts, creditCards } fro
 import { AIService, isAIConfigured } from "@/lib/ai/AIService";
 import { saveDocumentFile } from "@/lib/storage";
 import { parseCsvStatement } from "@/lib/utils/csvStatement";
-import { suggestCategory } from "./categorization";
+import { getUserCategories, matchCategoryByGuess } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { adjustBankAccountBalance } from "./bankAccounts";
 
@@ -195,11 +195,18 @@ export async function confirmStatementImport(
   const selectedIds = new Set(selectedItemIds);
   const toInsert = items.filter((it) => selectedIds.has(it.id));
 
+  // Categoriza casando o `categoryGuess` (texto) que a IA já produziu na
+  // hora de LER o extrato/fatura com as categorias reais do usuário — sem
+  // nenhuma chamada de IA nova aqui. Uma importação pode ter 100+ linhas de
+  // uma vez; chamar a IA de novo por linha (como antes, via suggestCategory)
+  // estourava o tempo limite da função serverless da Vercel e travava a
+  // confirmação sem erro visível. Uma única leitura das categorias antes do
+  // loop, em vez de uma consulta por linha.
+  const userCategories = await getUserCategories(userId);
+
   let insertedCount = 0;
   for (const item of toInsert) {
-    let categoryId: string | null = null;
-    const suggestion = await suggestCategory(userId, { description: item.description, amount: item.amount });
-    if (suggestion.categoryId && suggestion.confidence >= 0.5) categoryId = suggestion.categoryId;
+    const categoryId = matchCategoryByGuess(userCategories, item.categoryGuess);
 
     const [inserted] = await db
       .insert(transactions)
