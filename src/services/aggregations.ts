@@ -16,9 +16,20 @@ import { nowInBrazil } from "@/lib/utils/dates";
 // isso o "mês atual" virava setembro ~3h antes da meia-noite de verdade no
 // Brasil (21h-23h59 em Brasília já é dia seguinte em UTC) — transações do
 // fim do mês apareciam agrupadas no mês seguinte por causa disso.
+//
+// Além disso, os limites do intervalo em si precisam ser a meia-noite EM
+// BRASÍLIA, não meia-noite UTC: `new Date(ano, mes, 1)` num servidor UTC
+// produz "01/mês 00:00 UTC", que na verdade é "31/mês-anterior 21:00" no
+// Brasil. Qualquer transação com horário real (não só data, ex.: um
+// lançamento antigo salvo com `new Date("2026-09-01")` antes do fix do
+// parseDateOnly) cai entre 00:00 e 03:00 UTC do dia 1º e ficava incluída no
+// mês novo mesmo sendo, pelo relógio de Brasília, ainda o dia 31 do mês
+// anterior — exatamente o "transação de 31/08 aparecendo em setembro"
+// visto em produção. Como o Brasil fica fixo em UTC-3 (sem horário de
+// verão desde 2019), meia-noite em Brasília é sempre 03:00 UTC.
 export function monthRange(date = nowInBrazil()) {
-  const start = new Date(date.getFullYear(), date.getMonth(), 1);
-  const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  const start = new Date(Date.UTC(date.getFullYear(), date.getMonth(), 1, 3, 0, 0, 0));
+  const end = new Date(Date.UTC(date.getFullYear(), date.getMonth() + 1, 1, 3, 0, 0, 0));
   return { start, end };
 }
 
