@@ -15,7 +15,6 @@ export type ContaFormState = { error?: string; success?: boolean } | undefined;
 function revalidateAll() {
   revalidatePath("/conta");
   revalidatePath("/dashboard");
-  revalidatePath("/goals");
   revalidatePath("/retirement");
   revalidatePath("/compass");
   revalidatePath("/patrimonio");

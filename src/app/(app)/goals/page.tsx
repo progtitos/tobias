@@ -1,18 +1,8 @@
-import { requireOnboardedUser } from "@/lib/auth/guards";
-import { listGoals } from "@/services/goals";
-import { GoalsClient } from "./GoalsClient";
+import { redirect } from "next/navigation";
 
-export default async function GoalsPage() {
-  const user = await requireOnboardedUser();
-  const goals = await listGoals(user.id);
-
-  return (
-    <GoalsClient
-      goals={goals.map((g) => ({
-        ...g,
-        targetDate: g.targetDate?.toISOString() ?? null,
-        createdAt: g.createdAt.toISOString(),
-      }))}
-    />
-  );
+// Sonhos saiu do menu principal e mora dentro de Patrimônio agora — mantido
+// como redirecionamento por segurança, caso alguém tenha essa URL salva
+// (favorito, link enviado pelo Tobias em conversas antigas, etc.).
+export default function GoalsPage() {
+  redirect("/patrimonio#sonhos");
 }

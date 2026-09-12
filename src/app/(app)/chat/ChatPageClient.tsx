@@ -8,7 +8,7 @@ const ACTION_ROUTES: Record<string, string> = {
   simulate_retirement: "/retirement",
   view_expenses: "/lancamentos",
   adjust_budget: "/lancamentos",
-  view_goals: "/goals",
+  view_goals: "/patrimonio#sonhos",
   view_compass: "/compass",
 };
 

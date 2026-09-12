@@ -19,19 +19,20 @@ export async function createGoalAction(_prev: GoalFormState, formData: FormData)
     monthlyContribution: formData.get("monthlyContribution") ? Number(formData.get("monthlyContribution")) : undefined,
   });
 
-  revalidatePath("/goals");
+  // Sonhos mora dentro de Patrimônio agora, não tem mais tela própria.
+  revalidatePath("/patrimonio");
   revalidatePath("/dashboard");
 }
 
 export async function addContributionAction(goalId: string, amount: number) {
   const user = await requireOnboardedUser();
   await addGoalContribution(user.id, goalId, amount);
-  revalidatePath("/goals");
+  revalidatePath("/patrimonio");
   revalidatePath("/dashboard");
 }
 
 export async function updateGoalStatusAction(goalId: string, status: "ACTIVE" | "PAUSED" | "ABANDONED") {
   const user = await requireOnboardedUser();
   await updateGoalStatus(user.id, goalId, status);
-  revalidatePath("/goals");
+  revalidatePath("/patrimonio");
 }

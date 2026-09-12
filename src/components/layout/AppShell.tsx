@@ -7,11 +7,11 @@ import {
   LayoutDashboard,
   MessageCircle,
   Receipt,
-  Target,
   Wallet,
   Compass,
   TrendingUp,
   Landmark,
+  LineChart,
 } from "lucide-react";
 import type { SessionUser } from "@/lib/auth/session";
 import type { Theme } from "@/lib/theme";
@@ -23,9 +23,9 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
   { href: "/chat", label: "Tobias", icon: MessageCircle },
   { href: "/lancamentos", label: "Transações", icon: Receipt },
-  { href: "/goals", label: "Sonhos", icon: Target },
   { href: "/conta", label: "Conta", icon: Wallet },
   { href: "/patrimonio", label: "Patrimônio", icon: Landmark },
+  { href: "/investimentos", label: "Investimentos", icon: LineChart },
   { href: "/compass", label: "Ponteiro", icon: Compass },
   { href: "/retirement", label: "Aposentadoria", icon: TrendingUp },
 ];

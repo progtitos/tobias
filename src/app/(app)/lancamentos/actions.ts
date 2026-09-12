@@ -11,7 +11,6 @@ export type LancamentosFormState = { error?: string; success?: boolean } | undef
 function revalidateAll() {
   revalidatePath("/lancamentos");
   revalidatePath("/dashboard");
-  revalidatePath("/goals");
   revalidatePath("/patrimonio");
   // Uma transação ligada a uma conta muda o saldo dela (ver
   // adjustBankAccountBalance em services/transactions.ts) — a tela Conta
