@@ -204,7 +204,11 @@ export function LancamentosClient({
 
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
-      <div className="max-w-3xl mx-auto w-full">
+      {/* max-w-4xl (era 3xl): a linha de transação precisa de espaço pra
+          descrição + banco + categoria + valor sem espremer nada — largura
+          fixa nas colunas resolve alinhamento, mas não resolve espaço
+          insuficiente no total. */}
+      <div className="max-w-4xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <h1 className="font-sans font-bold text-2xl text-onbrand">Transações</h1>
           <div className="flex items-center gap-1">
@@ -934,82 +938,111 @@ function TransactionRow({
   return (
     <li>
       <Card className="cursor-pointer hover:bg-white/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
-        {/* Voltou a ser o layout original de 5 colunas (icon | main 1fr |
-            selo do banco auto | espaçador 1fr | cluster direito largura
-            FIXA) — as duas tentativas de "aproximar categoria do banco"
-            (juntar os dois numa coluna "auto") pioraram duas coisas ao
-            mesmo tempo: sem largura fixa em NENHUMA coluna variável, o
-            valor ficava torto entre as linhas; e com o botão "sempre"
-            somado à seleça, a coluna do meio ficava larga demais e
-            espremia a descrição, cortando ela cedo demais. Largura fixa é
-            o que garante alinhamento entre linhas que são grids
-            independentes — por isso o cluster direito (agora com seletor +
-            botão "sempre" + valor + excluir, mais cheio que antes) preto no
-            branco continua sendo a única forma confiável de manter tudo no
-            lugar; só aumentei a largura fixa dele pra caber o botão novo. */}
-        <CardContent className="py-3.5 grid grid-cols-[20px_1fr_auto_1fr_300px] items-center gap-x-3">
-          <Icon className={`col-start-1 h-5 w-5 shrink-0 ${meta.amountClass}`} aria-hidden />
+        {/* Duas linhas em vez de um grid de uma linha só: as duas tentativas
+            anteriores de aproximar o selo do banco e o seletor de categoria
+            (juntando os dois numa coluna do MESMO grid que também tem a
+            descrição e o valor) sempre trocavam um problema por outro — ou o
+            valor desalinhava entre linhas (grids independentes, coluna
+            "auto" varia de largura por linha), ou a coluna do meio ficava
+            larga demais e espremia a descrição. Separando em duas linhas,
+            banco+categoria saem de vez da disputa por espaço com
+            descrição/valor: a linha de cima (ícone, descrição, valor+
+            excluir) só compete consigo mesma, e a de baixo (banco+categoria
+            num "chip" destacado) fica livre pra ficar perto um do outro. */}
+        <CardContent className="py-3.5">
+          <div className="flex items-center gap-3">
+            <Icon className={`h-5 w-5 shrink-0 ${meta.amountClass}`} aria-hidden />
 
-          <div className="col-start-2 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-onbrand truncate">{transaction.description}</p>
-              {transaction.installmentTotal && transaction.installmentTotal > 1 && (
-                <Badge tone="neutral">
-                  {transaction.installmentNumber}/{transaction.installmentTotal}
-                </Badge>
-              )}
-              {transaction.goalTitle && <Badge tone="gold">→ {transaction.goalTitle}</Badge>}
-              {lowConfidence && (
-                <Badge tone="warn" title="Categoria sugerida com baixa confiança, confira">
-                  <Sparkles className="h-3 w-3" /> confirmar
-                </Badge>
-              )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* title = tooltip nativo do navegador: passando o mouse por
+                    cima de uma descrição cortada (truncate), o texto inteiro
+                    aparece, sem precisar alargar a linha pra isso. */}
+                <p className="font-medium text-onbrand truncate" title={transaction.description}>
+                  {transaction.description}
+                </p>
+                {transaction.installmentTotal && transaction.installmentTotal > 1 && (
+                  <Badge tone="neutral">
+                    {transaction.installmentNumber}/{transaction.installmentTotal}
+                  </Badge>
+                )}
+                {transaction.goalTitle && <Badge tone="gold">→ {transaction.goalTitle}</Badge>}
+                {lowConfidence && (
+                  <Badge tone="warn" title="Categoria sugerida com baixa confiança, confira">
+                    <Sparkles className="h-3 w-3" /> confirmar
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-onbrand/55">
+                {new Date(transaction.date).toLocaleDateString("pt-BR")}
+                {transaction.merchant ? ` · ${transaction.merchant}` : ""}
+                {transaction.paymentMethod ? ` · ${PAYMENT_LABELS[transaction.paymentMethod]}` : ""}
+              </p>
             </div>
-            <p className="text-xs text-onbrand/55">
-              {new Date(transaction.date).toLocaleDateString("pt-BR")}
-              {transaction.merchant ? ` · ${transaction.merchant}` : ""}
-              {transaction.paymentMethod ? ` · ${PAYMENT_LABELS[transaction.paymentMethod]}` : ""}
-            </p>
+
+            <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <span className={`font-medium tabular-nums ${meta.amountClass}`}>
+                {meta.sign}
+                {formatBRL(transaction.amount)}
+              </span>
+
+              <button
+                aria-label="Excluir"
+                className="text-onbrand/35 hover:text-danger-300 transition-colors"
+                onClick={() => startTransition(() => deleteTransactionAction(transaction.id))}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
-          {transaction.bankAccountName && (
-            <div className="col-start-3 justify-self-center flex items-center gap-1.5 whitespace-nowrap">
-              {transaction.bankAccountBankName ? (
-                <>
-                  <BankBadge bankName={transaction.bankAccountBankName} />
-                  <span className="text-xs font-medium text-onbrand/75">{transaction.bankAccountBankName}</span>
-                </>
-              ) : (
-                <Badge tone="neutral" className="whitespace-nowrap">
-                  {transaction.bankAccountName}
-                </Badge>
-              )}
-            </div>
-          )}
-
-          <div className="col-start-5 flex items-center gap-2 justify-self-end" onClick={(e) => e.stopPropagation()}>
-            {transaction.type === "EXPENSE" && (
-              <>
-                <select
-                  className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[120px]"
-                  value={categoryId}
-                  disabled={pending}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    if (!next) return;
-                    setCategoryId(next);
-                    setShowRule(false);
-                    startTransition(() => updateCategoryAction(transaction.id, next));
-                  }}
-                >
-                  <option value="">Sem categoria</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
+          {(transaction.bankAccountName || transaction.type === "EXPENSE") && (
+            <div className="flex items-center gap-2 mt-2.5 pl-8" onClick={(e) => e.stopPropagation()}>
+              {/* Banco + categoria juntos num "chip" destacado — os dois lidos
+                  como um bloco só (de onde veio, pra onde foi), em vez de
+                  duas informações soltas na linha. */}
+              <div className="flex items-center gap-2 rounded-lg bg-white/[0.04] border border-white/10 pl-1.5 pr-2 py-1">
+                {transaction.bankAccountName &&
+                  (transaction.bankAccountBankName ? (
+                    <>
+                      <BankBadge bankName={transaction.bankAccountBankName} />
+                      <span className="text-xs font-medium text-onbrand/75 whitespace-nowrap">
+                        {transaction.bankAccountBankName}
+                      </span>
+                    </>
+                  ) : (
+                    <Badge tone="neutral" className="whitespace-nowrap">
+                      {transaction.bankAccountName}
+                    </Badge>
                   ))}
-                </select>
 
+                {transaction.type === "EXPENSE" && (
+                  <select
+                    className={cn(
+                      "text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1 max-w-[140px]",
+                      transaction.bankAccountName && "ml-1"
+                    )}
+                    value={categoryId}
+                    disabled={pending}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      if (!next) return;
+                      setCategoryId(next);
+                      setShowRule(false);
+                      startTransition(() => updateCategoryAction(transaction.id, next));
+                    }}
+                  >
+                    <option value="">Sem categoria</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {transaction.type === "EXPENSE" && (
                 <button
                   type="button"
                   title={
@@ -1026,28 +1059,12 @@ function TransactionRow({
                 >
                   <Repeat className="h-3.5 w-3.5" />
                 </button>
-              </>
-            )}
-
-            <span className={`font-medium tabular-nums shrink-0 ${meta.amountClass}`}>
-              {meta.sign}
-              {formatBRL(transaction.amount)}
-            </span>
-
-            <button
-              aria-label="Excluir"
-              className="text-onbrand/35 hover:text-danger-300 transition-colors shrink-0"
-              onClick={() => startTransition(() => deleteTransactionAction(transaction.id))}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
+              )}
+            </div>
+          )}
 
           {showRule && (
-            <div
-              className="col-start-2 col-span-4 flex items-center gap-2 mt-2.5 pt-2.5 border-t border-white/10"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="flex items-center gap-2 mt-2.5 pl-8" onClick={(e) => e.stopPropagation()}>
               <input
                 autoFocus
                 type="text"
