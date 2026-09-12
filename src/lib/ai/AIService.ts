@@ -97,7 +97,13 @@ export const AIService = {
       images,
       jsonSchema: statementExtractionJsonSchema,
       zodSchema: statementExtractionSchema,
-      maxOutputTokens: 8192,
+      // Um extrato/fatura real pode ter dezenas de linhas — 8192 tokens
+      // truncava a resposta no meio do JSON antes de terminar de listar
+      // tudo (visto em produção: um extrato de ~30 transações cortou a
+      // string no meio). Bem mais folga aqui evita isso na grande maioria
+      // dos casos; ainda pode truncar num extrato excepcionalmente longo,
+      // mas não há como saber o tamanho antes de tentar.
+      maxOutputTokens: 32768,
     });
   },
 
