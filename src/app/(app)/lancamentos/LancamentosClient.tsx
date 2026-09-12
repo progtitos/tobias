@@ -50,6 +50,7 @@ import { Input, Label, FieldError } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { BankBadge } from "@/components/ui/BankBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
@@ -85,6 +86,7 @@ type Transaction = {
   goalTitle: string | null;
   bankAccountId: string | null;
   bankAccountName: string | null;
+  bankAccountBankName: string | null;
 };
 type BudgetRow = {
   id: string;
@@ -886,9 +888,18 @@ function TransactionRow({
           </div>
 
           {transaction.bankAccountName && (
-            <Badge tone="neutral" className="col-start-3 justify-self-center whitespace-nowrap">
-              {transaction.bankAccountName}
-            </Badge>
+            <div className="col-start-3 justify-self-center flex items-center gap-1.5 whitespace-nowrap">
+              {transaction.bankAccountBankName ? (
+                <>
+                  <BankBadge bankName={transaction.bankAccountBankName} />
+                  <span className="text-xs font-medium text-onbrand/75">{transaction.bankAccountBankName}</span>
+                </>
+              ) : (
+                <Badge tone="neutral" className="whitespace-nowrap">
+                  {transaction.bankAccountName}
+                </Badge>
+              )}
+            </div>
           )}
 
           <div className="col-start-5 flex items-center gap-3 justify-self-end" onClick={(e) => e.stopPropagation()}>

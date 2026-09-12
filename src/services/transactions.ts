@@ -225,6 +225,10 @@ export async function listTransactions(
       goalTitle: goals.title,
       bankAccountId: transactions.bankAccountId,
       bankAccountName: bankAccounts.name,
+      // O nome do BANCO (ex: "Bradesco"), separado do nome que a pessoa deu
+      // pra conta (ex: "Principal") — é o banco que decide a cor/logo do
+      // selo na linha, o nome da conta continua só como texto.
+      bankAccountBankName: bankAccounts.bankName,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))

@@ -163,14 +163,7 @@ function NewAccountForm({
                 selectedBank === bank.id && "border-gold-400 bg-gold-400/10"
               )}
             >
-              <span
-                className={cn(
-                  "h-10 w-10 rounded-[28%] flex items-center justify-center text-xs font-extrabold",
-                  bank.className
-                )}
-              >
-                {bank.initials}
-              </span>
+              <BankBadge bankName={bank.label} size="lg" />
               <span
                 className={cn(
                   "text-[11px] text-center leading-tight text-onbrand/65",
@@ -189,7 +182,7 @@ function NewAccountForm({
               isOther && "border-gold-400 bg-gold-400/10"
             )}
           >
-            <span className="h-10 w-10 rounded-[28%] flex items-center justify-center text-base font-extrabold bg-white/10 text-onbrand/60 border border-dashed border-white/25">
+            <span className="h-10 w-10 rounded-full flex items-center justify-center text-base font-extrabold bg-white/10 text-onbrand/60 border border-dashed border-white/25">
               +
             </span>
             <span className={cn("text-[11px] text-center leading-tight text-onbrand/65", isOther && "text-gold-400 font-medium")}>
