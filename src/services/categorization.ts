@@ -1,7 +1,7 @@
 import "server-only";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { categories, merchantCategoryMemories } from "@/lib/db/schema";
+import { categories, merchantCategoryMemories, recurringCategoryRules } from "@/lib/db/schema";
 import { AIService, isAIConfigured } from "@/lib/ai/AIService";
 
 function normalizeMerchant(merchant: string): string {
@@ -10,6 +10,21 @@ function normalizeMerchant(merchant: string): string {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9 ]/g, "")
+    .trim();
+}
+
+// Mesma normalização de merchantNormalized/normalizeMerchant, mas sem tirar
+// espaço nenhum caractere específico a mais — é só pra deixar acento/caixa
+// consistentes tanto na hora de salvar a regra quanto na hora de comparar
+// contra a descrição inteira de uma linha do extrato (que essa, ao
+// contrário do nome de um merchant, pode ter números/pontuação que fazem
+// parte do texto e não devem sumir, senão "quinto andar" viraria
+// impossível de digitar errado mas também impossível de digitar certo).
+function normalizeForContains(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
     .trim();
 }
 
@@ -80,6 +95,56 @@ export function matchCategoryByGuess(
     (c) => c.name.toLowerCase().includes(normalized) || normalized.includes(c.name.toLowerCase())
   );
   return loose?.id ?? null;
+}
+
+/**
+ * Regras "contém" do usuário (ver recurringCategoryRules na schema) — busca
+ * uma vez só antes de rodar contra todas as linhas de um extrato, em vez de
+ * uma consulta por linha (mesmo motivo do userCategories em
+ * confirmStatementImport).
+ */
+export async function getRecurringCategoryRules(userId: string) {
+  return db.select().from(recurringCategoryRules).where(eq(recurringCategoryRules.userId, userId));
+}
+
+/**
+ * Casa a descrição de uma linha do extrato contra as regras "contém" já
+ * carregadas. Primeira regra que bater vence — na prática cada pessoa só
+ * cadastra um punhado de regras (aluguel, mensalidade da escola...), então
+ * colisão entre duas regras é improvável, mas se acontecer, a mais antiga
+ * (ordem de criação) prevalece.
+ */
+export function matchRecurringCategoryRule(
+  rules: { keywordNormalized: string; categoryId: string }[],
+  description: string
+): string | null {
+  const normalizedDescription = normalizeForContains(description);
+  if (!normalizedDescription) return null;
+  const match = rules.find((r) => r.keywordNormalized && normalizedDescription.includes(r.keywordNormalized));
+  return match?.categoryId ?? null;
+}
+
+/**
+ * Salva (ou atualiza a categoria de) uma regra "contém" — chamado quando a
+ * pessoa marca "categorizar automaticamente sempre" na Revisão de um
+ * extrato/fatura, pra um gasto fixo mensal (aluguel, mensalidade) que
+ * aparece em todo extrato com uma descrição levemente diferente.
+ */
+export async function saveRecurringCategoryRule(userId: string, keyword: string, categoryId: string) {
+  const keywordNormalized = normalizeForContains(keyword);
+  if (!keywordNormalized) return;
+
+  const [existing] = await db
+    .select()
+    .from(recurringCategoryRules)
+    .where(and(eq(recurringCategoryRules.userId, userId), eq(recurringCategoryRules.keywordNormalized, keywordNormalized)))
+    .limit(1);
+
+  if (existing) {
+    await db.update(recurringCategoryRules).set({ categoryId, keyword }).where(eq(recurringCategoryRules.id, existing.id));
+  } else {
+    await db.insert(recurringCategoryRules).values({ userId, keyword, keywordNormalized, categoryId });
+  }
 }
 
 /** Called whenever a user confirms or corrects a category — this is what makes Tobias "learn" (spec §11). */

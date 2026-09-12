@@ -52,7 +52,20 @@ export async function confirmStatementImportAction(
   const user = await requireOnboardedUser();
   const selectedIds = formData.getAll("itemId").map(String);
 
-  const { count } = await confirmStatementImport(user.id, documentId, selectedIds);
+  // A categoria de cada linha vem explícita do formulário agora (a Revisão
+  // já mostra um seletor por linha, pré-preenchido com a melhor sugestão) —
+  // e `keyword_<id>` só existe pras linhas marcadas "categorizar assim
+  // sempre", virando uma regra permanente (ver recurringCategoryRules).
+  const categoryByItem: Record<string, string> = {};
+  const keywordByItem: Record<string, string> = {};
+  for (const id of selectedIds) {
+    const categoryId = formData.get(`category_${id}`);
+    if (typeof categoryId === "string" && categoryId) categoryByItem[id] = categoryId;
+    const keyword = formData.get(`keyword_${id}`);
+    if (typeof keyword === "string" && keyword.trim()) keywordByItem[id] = keyword.trim();
+  }
+
+  const { count } = await confirmStatementImport(user.id, documentId, selectedIds, categoryByItem, keywordByItem);
 
   revalidatePath("/conta");
   revalidatePath("/lancamentos");

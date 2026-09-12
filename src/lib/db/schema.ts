@@ -437,6 +437,28 @@ export const merchantCategoryMemories = pgTable(
   (t) => [uniqueIndex("merchant_memory_user_merchant_idx").on(t.userId, t.merchantNormalized)]
 );
 
+// Regra "se a descrição do extrato/fatura CONTÉM esse texto, categoriza como
+// X" — diferente de merchantCategoryMemories (que casa o nome LIMPO de um
+// merchant digitado à mão, comparação exata). A descrição crua de uma linha
+// de extrato ("PIX ENVIADO QUINTO ANDAR ADMIN 05/09") muda de mês pra mês
+// (data, número de referência...), então nunca bateria de novo por
+// igualdade exata — daí o match ser por "contém", com uma palavra-chave
+// curta que a própria pessoa escolhe (ex: "quinto andar"). Pensado pro caso
+// de um gasto fixo mensal (aluguel, mensalidade) que aparece em todo
+// extrato importado com uma descrição levemente diferente cada vez.
+export const recurringCategoryRules = pgTable(
+  "recurring_category_rules",
+  {
+    id: id(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    keyword: text("keyword").notNull(),
+    keywordNormalized: text("keyword_normalized").notNull(),
+    categoryId: text("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("recurring_rule_user_keyword_idx").on(t.userId, t.keywordNormalized)]
+);
+
 // ----------------------------------------------------------------------------
 // ACCOUNTS, CARDS, INVOICES
 // ----------------------------------------------------------------------------

@@ -5,7 +5,7 @@ import { documents, documentItems, transactions, bankAccounts, creditCards } fro
 import { AIService, isAIConfigured } from "@/lib/ai/AIService";
 import { saveDocumentFile } from "@/lib/storage";
 import { parseCsvStatement } from "@/lib/utils/csvStatement";
-import { getUserCategories, matchCategoryByGuess } from "./categorization";
+import { getUserCategories, matchCategoryByGuess, matchRecurringCategoryRule, getRecurringCategoryRules, saveRecurringCategoryRule } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { adjustBankAccountBalance } from "./bankAccounts";
 import { parseDateOnly } from "@/lib/utils/dates";
@@ -185,7 +185,17 @@ export async function getStatementDocument(userId: string, documentId: string) {
 export async function confirmStatementImport(
   userId: string,
   documentId: string,
-  selectedItemIds: string[]
+  selectedItemIds: string[],
+  // Categoria escolhida na tela de Revisão para cada linha (id -> categoryId)
+  // — a Revisão já mostra um seletor por linha, pré-preenchido com a melhor
+  // sugestão disponível (regra "contém" ou palpite da IA), então o valor que
+  // chega aqui é sempre a categoria final, não mais um palpite a reconferir.
+  categoryByItem: Record<string, string> = {},
+  // Palavra-chave só presente nas linhas marcadas "categorizar assim
+  // sempre" na Revisão — vira uma regra permanente (ver
+  // recurringCategoryRules) pra um gasto fixo mensal (aluguel, mensalidade)
+  // que aparece em todo extrato com uma descrição levemente diferente.
+  keywordByItem: Record<string, string> = {}
 ): Promise<{ count: number }> {
   const existing = await getStatementDocument(userId, documentId);
   if (!existing) throw new Error("Documento não encontrado");
@@ -196,18 +206,24 @@ export async function confirmStatementImport(
   const selectedIds = new Set(selectedItemIds);
   const toInsert = items.filter((it) => selectedIds.has(it.id));
 
-  // Categoriza casando o `categoryGuess` (texto) que a IA já produziu na
-  // hora de LER o extrato/fatura com as categorias reais do usuário — sem
-  // nenhuma chamada de IA nova aqui. Uma importação pode ter 100+ linhas de
-  // uma vez; chamar a IA de novo por linha (como antes, via suggestCategory)
-  // estourava o tempo limite da função serverless da Vercel e travava a
-  // confirmação sem erro visível. Uma única leitura das categorias antes do
-  // loop, em vez de uma consulta por linha.
+  // Fallback só entra em jogo se por algum motivo a linha chegar sem
+  // categoria escolhida no formulário (ex: chamada antiga/direta da action).
+  // Casa o `categoryGuess` (texto) que a IA já produziu na hora de LER o
+  // extrato/fatura com as categorias reais do usuário — sem nenhuma chamada
+  // de IA nova aqui. Uma importação pode ter 100+ linhas de uma vez; chamar
+  // a IA de novo por linha (como antes, via suggestCategory) estourava o
+  // tempo limite da função serverless da Vercel e travava a confirmação sem
+  // erro visível. Uma única leitura das categorias antes do loop, em vez de
+  // uma consulta por linha.
   const userCategories = await getUserCategories(userId);
+  let recurringRules = await getRecurringCategoryRules(userId);
 
   let insertedCount = 0;
   for (const item of toInsert) {
-    const categoryId = matchCategoryByGuess(userCategories, item.categoryGuess);
+    const categoryId =
+      categoryByItem[item.id] ||
+      matchRecurringCategoryRule(recurringRules, item.description) ||
+      matchCategoryByGuess(userCategories, item.categoryGuess);
 
     const [inserted] = await db
       .insert(transactions)
@@ -233,6 +249,16 @@ export async function confirmStatementImport(
     // *TRIP SAO PAULO 09/09") é ruidosa demais pra virar memória confiável
     // de categorização, ao contrário do nome limpo que a pessoa digita à
     // mão — aprender com isso faria mais mal que bem a lançamentos futuros.
+    // A regra explícita "categorizar assim sempre" (abaixo) é o jeito
+    // pensado pra isso em extrato/fatura, com uma palavra-chave escolhida à
+    // mão em vez de aprendida automaticamente do texto cru.
+    const keyword = keywordByItem[item.id];
+    if (keyword && categoryId) {
+      await saveRecurringCategoryRule(userId, keyword, categoryId);
+      // Atualiza a lista em memória pra já valer pras próximas linhas deste
+      // mesmo lote (ex: o mesmo aluguel aparecendo duas vezes no extrato).
+      recurringRules = await getRecurringCategoryRules(userId);
+    }
 
     // Só extrato de CONTA move o saldo dela (mesma regra do lançamento
     // manual) — compra de cartão só afeta a conta quando a fatura for paga,

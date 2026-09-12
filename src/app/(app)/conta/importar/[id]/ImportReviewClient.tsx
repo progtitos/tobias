@@ -2,13 +2,14 @@
 
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { FieldError } from "@/components/ui/Input";
 import { formatBRL } from "@/lib/utils/money";
 import { confirmStatementImportAction, type ConfirmImportState } from "../../importActions";
 
+type Category = { id: string; name: string };
 type Item = {
   id: string;
   date: string;
@@ -16,6 +17,7 @@ type Item = {
   amount: number;
   type: string;
   categoryGuess: string | null;
+  suggestedCategoryId: string | null;
   installmentNumber: number | null;
   installmentTotal: number | null;
   isDuplicate: boolean;
@@ -30,6 +32,7 @@ export function ImportReviewClient({
   kind,
   periodStart,
   periodEnd,
+  categories,
   items,
 }: {
   documentId: string;
@@ -39,11 +42,34 @@ export function ImportReviewClient({
   kind: string;
   periodStart: string | null;
   periodEnd: string | null;
+  categories: Category[];
   items: Item[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(items.filter((i) => i.isSelected).map((i) => i.id)));
+  // Categoria de cada linha (pré-preenchida com a sugestão vinda do server —
+  // regra "contém" já cadastrada ou palpite da IA), editável antes de
+  // confirmar. `always` guarda, pra cada linha marcada "categorizar sempre",
+  // a palavra-chave que vai virar uma regra permanente (ver
+  // recurringCategoryRules) — a pessoa pode encurtar a descrição inteira até
+  // sobrar só o pedaço que identifica o gasto (ex: "quinto andar").
+  const [categoryByItem, setCategoryByItem] = useState<Record<string, string>>(() =>
+    Object.fromEntries(items.map((i) => [i.id, i.suggestedCategoryId ?? ""]))
+  );
+  const [always, setAlways] = useState<Record<string, string>>({});
   const boundAction = confirmStatementImportAction.bind(null, documentId);
   const [state, formAction, pending] = useActionState<ConfirmImportState, FormData>(boundAction, undefined);
+
+  function toggleAlways(item: Item) {
+    setAlways((prev) => {
+      const next = { ...prev };
+      if (item.id in next) {
+        delete next[item.id];
+      } else {
+        next[item.id] = item.description;
+      }
+      return next;
+    });
+  }
 
   const periodLabel = useMemo(() => {
     if (!periodStart || !periodEnd) return null;
@@ -106,42 +132,96 @@ export function ImportReviewClient({
 
                 <div className="divide-y divide-white/10">
                   {items.map((item) => (
-                    <label
+                    <div
                       key={item.id}
-                      className={`flex items-center gap-3 py-2.5 cursor-pointer ${item.isDuplicate ? "bg-warn-100/5 -mx-2 px-2 rounded-lg" : ""}`}
+                      className={`py-2.5 ${item.isDuplicate ? "bg-warn-100/5 -mx-2 px-2 rounded-lg" : ""}`}
                     >
-                      <input
-                        type="checkbox"
-                        name="itemId"
-                        value={item.id}
-                        checked={selected.has(item.id)}
-                        onChange={() => toggle(item.id)}
-                        className="h-4 w-4 rounded accent-gold-400 shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-onbrand truncate flex items-center gap-1.5">
-                          {item.description}
-                          {item.installmentTotal && item.installmentTotal > 1 && (
-                            <span className="text-[10px] font-semibold text-onbrand/55 shrink-0">
-                              {item.installmentNumber}/{item.installmentTotal}
-                            </span>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="itemId"
+                          value={item.id}
+                          checked={selected.has(item.id)}
+                          onChange={() => toggle(item.id)}
+                          className="h-4 w-4 rounded accent-gold-400 shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-onbrand truncate flex items-center gap-1.5">
+                            {item.description}
+                            {item.installmentTotal && item.installmentTotal > 1 && (
+                              <span className="text-[10px] font-semibold text-onbrand/55 shrink-0">
+                                {item.installmentNumber}/{item.installmentTotal}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-onbrand/50 flex items-center gap-1.5">
+                            {new Date(item.date).toLocaleDateString("pt-BR")}
+                            {!item.suggestedCategoryId && item.categoryGuess && <span>· {item.categoryGuess}</span>}
+                            {item.isDuplicate && (
+                              <span className="text-warn-600 font-semibold">⚠ parece duplicada</span>
+                            )}
+                          </p>
+                        </div>
+                        <span
+                          className={`text-sm font-medium tabular-nums shrink-0 ${item.type === "INCOME" ? "text-ok-400" : "text-onbrand/85"}`}
+                        >
+                          {item.type === "INCOME" ? "+" : "-"}
+                          {formatBRL(item.amount)}
+                        </span>
+                      </label>
+
+                      {/* Categoria + "sempre categorizar assim" só faz sentido pra gasto
+                          (INCOME/aporte não têm categoria própria no app, mesma regra do
+                          Lançamentos). Isso é o que faltava pra dar pra corrigir um palpite
+                          errado da IA ANTES de confirmar, e pra ensinar o Tobias sobre um
+                          gasto fixo mensal (ex: "quinto andar" -> Moradia) que aparece em
+                          todo extrato com uma descrição levemente diferente. */}
+                      {item.type === "EXPENSE" && (
+                        <div className="flex items-center gap-2 mt-2 pl-7 flex-wrap">
+                          <select
+                            name={`category_${item.id}`}
+                            value={categoryByItem[item.id] ?? ""}
+                            onChange={(e) => setCategoryByItem((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                            className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5"
+                          >
+                            <option value="">Sem categoria</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <label className="flex items-center gap-1.5 text-xs text-onbrand/60 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={item.id in always}
+                              onChange={() => toggleAlways(item)}
+                              className="h-3.5 w-3.5 rounded accent-gold-400"
+                            />
+                            <Repeat className="h-3 w-3 shrink-0" /> Categorizar assim sempre
+                          </label>
+
+                          {item.id in always && (
+                            <div className="w-full pl-0">
+                              <input
+                                type="text"
+                                name={`keyword_${item.id}`}
+                                value={always[item.id] ?? ""}
+                                onChange={(e) => setAlways((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                                placeholder='Trecho que se repete, ex: "quinto andar"'
+                                className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 w-full min-w-[160px]"
+                              />
+                              <p className="text-[11px] text-onbrand/45 mt-1">
+                                Apague a data/número e deixe só a parte fixa da descrição. Qualquer
+                                transação (deste extrato ou de um futuro) com esse trecho vai
+                                cair direto em <b>{categories.find((c) => c.id === categoryByItem[item.id])?.name ?? "categoria selecionada"}</b>.
+                              </p>
+                            </div>
                           )}
-                        </p>
-                        <p className="text-xs text-onbrand/50 flex items-center gap-1.5">
-                          {new Date(item.date).toLocaleDateString("pt-BR")}
-                          {item.categoryGuess && <span>· {item.categoryGuess}</span>}
-                          {item.isDuplicate && (
-                            <span className="text-warn-600 font-semibold">⚠ parece duplicada</span>
-                          )}
-                        </p>
-                      </div>
-                      <span
-                        className={`text-sm font-medium tabular-nums shrink-0 ${item.type === "INCOME" ? "text-ok-400" : "text-onbrand/85"}`}
-                      >
-                        {item.type === "INCOME" ? "+" : "-"}
-                        {formatBRL(item.amount)}
-                      </span>
-                    </label>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
 

@@ -910,18 +910,15 @@ function TransactionRow({
   return (
     <li>
       <Card className="cursor-pointer hover:bg-white/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
-        {/* 5-track grid: icon | main (1fr) | bank chip (auto) | empty spacer
-            (1fr) | right cluster (fixed width). The two 1fr tracks stay equal
-            to each other no matter how long the description gets, so the
-            bank chip in the middle track sits at the true geometric center
-            between them. The right cluster MUST be a fixed width, not auto:
-            it only shows the category <select> for EXPENSE rows, so an auto
-            track would be narrower on income/investment/transfer rows and
-            shove the 1fr tracks (and the bank chip) sideways between row
-            types — that was the remaining misalignment even after the grid
-            was introduced. A fixed width keeps every row's math identical
-            regardless of which controls that row happens to render. */}
-        <CardContent className="py-3.5 grid grid-cols-[20px_1fr_auto_1fr_260px] items-center gap-x-3">
+        {/* 4-track grid: icon | main (1fr) | selo do banco + categoria juntos
+            (auto) | valor + excluir (largura fixa). O seletor de categoria
+            ficava sozinho lá na ponta direita, longe do selo do banco, com um
+            vão vazio enorme entre os dois — visualmente esquisito. Juntando
+            os dois no mesmo grupo (o selo já diz de qual conta veio a
+            transação, a categoria diz pra onde ela foi) o olho lê os dois
+            junto, e sobra só valor/excluir isolados na ponta, que é o par que
+            faz sentido ficar sempre no mesmo lugar em toda linha. */}
+        <CardContent className="py-3.5 grid grid-cols-[20px_1fr_auto_auto] items-center gap-x-3">
           <Icon className={`col-start-1 h-5 w-5 shrink-0 ${meta.amountClass}`} aria-hidden />
 
           <div className="col-start-2 min-w-0">
@@ -946,9 +943,9 @@ function TransactionRow({
             </p>
           </div>
 
-          {transaction.bankAccountName && (
-            <div className="col-start-3 justify-self-center flex items-center gap-1.5 whitespace-nowrap">
-              {transaction.bankAccountBankName ? (
+          <div className="col-start-3 flex items-center gap-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+            {transaction.bankAccountName &&
+              (transaction.bankAccountBankName ? (
                 <>
                   <BankBadge bankName={transaction.bankAccountBankName} />
                   <span className="text-xs font-medium text-onbrand/75">{transaction.bankAccountBankName}</span>
@@ -957,11 +954,8 @@ function TransactionRow({
                 <Badge tone="neutral" className="whitespace-nowrap">
                   {transaction.bankAccountName}
                 </Badge>
-              )}
-            </div>
-          )}
+              ))}
 
-          <div className="col-start-5 flex items-center gap-3 justify-self-end" onClick={(e) => e.stopPropagation()}>
             {transaction.type === "EXPENSE" && (
               <select
                 className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[130px]"
@@ -981,7 +975,9 @@ function TransactionRow({
                 ))}
               </select>
             )}
+          </div>
 
+          <div className="col-start-4 flex items-center gap-3 justify-self-end" onClick={(e) => e.stopPropagation()}>
             <span className={`font-medium tabular-nums ${meta.amountClass}`}>
               {meta.sign}
               {formatBRL(transaction.amount)}
