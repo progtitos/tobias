@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { ShoppingBag, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatBRL } from "@/lib/utils/money";
@@ -40,7 +41,7 @@ export function DecideClient() {
             </div>
             <div>
               <Label htmlFor="amount">Quanto custa?</Label>
-              <Input id="amount" name="amount" type="number" step="0.01" placeholder="0,00" required />
+              <CurrencyInput id="amount" name="amount" required />
             </div>
             <FieldError>{state?.error}</FieldError>
             <Button type="submit" loading={pending} className="w-full">

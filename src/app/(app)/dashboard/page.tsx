@@ -1,9 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { requireOnboardedUser } from "@/lib/auth/guards";
 import { getDashboardData } from "@/services/dashboard";
-import { runBehaviorChecks } from "@/services/insights";
 import type { CompassDimensionResult } from "@/services/compass";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -22,7 +21,6 @@ const CHIP_DOT_TONE: Record<CompassDimensionResult["status"], string> = {
 
 export default async function DashboardPage() {
   const user = await requireOnboardedUser();
-  await runBehaviorChecks(user.id);
   const data = await getDashboardData(user.id);
   const firstName = user.name.split(" ")[0];
 
@@ -70,21 +68,6 @@ export default async function DashboardPage() {
           </Card>
           <StatCard label="Saúde financeira" value={`${data.healthScore}/100`} accent />
         </div>
-
-        {data.alerts.length > 0 && (
-          <Card className="border-warn-600/40 bg-warn-100/10">
-            <CardContent className="py-4 space-y-2">
-              <p className="text-xs font-medium text-warn-600 flex items-center gap-1.5">
-                <AlertTriangle className="h-3.5 w-3.5" /> Atenção
-              </p>
-              {data.alerts.map((a) => (
-                <p key={a.id} className="text-sm text-onbrand/80">
-                  {a.message}
-                </p>
-              ))}
-            </CardContent>
-          </Card>
-        )}
 
         {/* Hero: Bússola + curva de aposentadoria + o Tobias, unificados e logo de cara. */}
         <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-4">

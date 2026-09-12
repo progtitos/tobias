@@ -9,6 +9,7 @@ import { trackEvent, logFinancialEvent } from "./analytics";
 import { monthRange } from "./aggregations";
 import { applyGoalContribution, reverseGoalContribution } from "./goals";
 import { adjustBankAccountBalance } from "./bankAccounts";
+import { addMonthsClamped } from "@/lib/utils/dates";
 
 // A transaction only moves a bank account's balance for these types — an
 // EXPENSE pulls money out, an INCOME puts it in, and an
@@ -58,17 +59,27 @@ export async function createManualTransaction(userId: string, input: CreateTrans
   const installmentTotal = input.installmentTotal && input.installmentTotal > 1 ? input.installmentTotal : 1;
   const baseDate = new Date(input.date);
   const groupId = installmentTotal > 1 ? createId() : null;
-  const perInstallment = Math.round((input.amount / installmentTotal) * 100) / 100;
-  const rounding = Math.round((input.amount - perInstallment * installmentTotal) * 100) / 100;
+
+  // Cartão de crédito parcela o valor (compra de R$1.200 em 12x = R$100/mês);
+  // qualquer outra forma de pagamento com installmentTotal > 1 é "gasto fixo
+  // mensal" — o mesmo valor total se repete em cada mês (aluguel, mensalidade
+  // etc.), sem dividir. Mesmas colunas (installmentGroupId/Number/Total) pros
+  // dois casos, só muda a conta do valor.
+  const isCreditCardInstallment = input.paymentMethod === "CREDIT_CARD" && installmentTotal > 1;
+  const perInstallment = isCreditCardInstallment ? Math.round((input.amount / installmentTotal) * 100) / 100 : input.amount;
+  const rounding = isCreditCardInstallment ? Math.round((input.amount - perInstallment * installmentTotal) * 100) / 100 : 0;
 
   const rows: (typeof transactions.$inferInsert)[] = [];
   for (let i = 0; i < installmentTotal; i++) {
-    const date = new Date(baseDate);
-    date.setMonth(date.getMonth() + i);
+    // addMonthsClamped em vez de date.setMonth(date.getMonth() + i): uma
+    // parcela lançada num dia 29/30/31 não pode "vazar" pro mês seguinte só
+    // porque fevereiro (ou outro mês curto) não tem esse dia.
+    const date = addMonthsClamped(baseDate, i);
     rows.push({
       userId,
       date,
-      amount: i === installmentTotal - 1 ? perInstallment + rounding : perInstallment,
+      amount:
+        isCreditCardInstallment && i === installmentTotal - 1 ? perInstallment + rounding : perInstallment,
       type: input.type,
       categoryId,
       description: input.description,

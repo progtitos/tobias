@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { Plus, PlusCircle, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -150,7 +151,7 @@ function GoalsSection({ goals }: { goals: Goal[] }) {
               </div>
               <div>
                 <Label htmlFor="targetAmount">Quanto custa? (opcional)</Label>
-                <Input id="targetAmount" name="targetAmount" type="number" step="0.01" placeholder="0,00" />
+                <CurrencyInput id="targetAmount" name="targetAmount" />
               </div>
               <div>
                 <Label htmlFor="targetDate">Prazo (opcional)</Label>
@@ -158,7 +159,7 @@ function GoalsSection({ goals }: { goals: Goal[] }) {
               </div>
               <div>
                 <Label htmlFor="monthlyContribution">Quanto guardar por mês (opcional)</Label>
-                <Input id="monthlyContribution" name="monthlyContribution" type="number" step="0.01" placeholder="0,00" />
+                <CurrencyInput id="monthlyContribution" name="monthlyContribution" />
               </div>
               <div className="col-span-2">
                 <FieldError>{state?.error}</FieldError>
@@ -201,7 +202,10 @@ function GoalsSection({ goals }: { goals: Goal[] }) {
 
 function GoalCard({ goal }: { goal: Goal }) {
   const [pending, startTransition] = useTransition();
-  const [contribution, setContribution] = useState("");
+  const [contribution, setContribution] = useState(0);
+  // CurrencyInput não aceita `value` controlado (ver componente); mudar essa
+  // key força ele a remontar em branco depois de um aporte confirmado.
+  const [contributionKey, setContributionKey] = useState(0);
   const pct = goal.targetAmount ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100)) : null;
 
   return (
@@ -244,12 +248,10 @@ function GoalCard({ goal }: { goal: Goal }) {
             </p>
           ) : (
             <div className="mt-3 flex items-center gap-2">
-              <Input
-                type="number"
-                step="0.01"
+              <CurrencyInput
+                key={contributionKey}
                 placeholder="Registrar aporte (R$)"
-                value={contribution}
-                onChange={(e) => setContribution(e.target.value)}
+                onValueChange={setContribution}
                 className="h-9 max-w-[180px]"
               />
               <Button
@@ -257,10 +259,10 @@ function GoalCard({ goal }: { goal: Goal }) {
                 variant="outline"
                 disabled={!contribution || pending}
                 onClick={() => {
-                  const amount = Number(contribution);
-                  if (amount > 0) {
-                    startTransition(() => addContributionAction(goal.id, amount));
-                    setContribution("");
+                  if (contribution > 0) {
+                    startTransition(() => addContributionAction(goal.id, contribution));
+                    setContribution(0);
+                    setContributionKey((k) => k + 1);
                   }
                 }}
               >

@@ -463,6 +463,11 @@ export const creditCards = pgTable(
   {
     id: id(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    // Qual conta paga a fatura deste cartão — nullable porque um cartão pode
+    // existir sem já ter sido ligado a uma conta específica (ex: cadastro
+    // rápido), mas a tela Contas sempre cria o cartão a partir de uma conta
+    // já aberta (ver ContaClient), então isso normalmente vem preenchido.
+    bankAccountId: text("bank_account_id").references(() => bankAccounts.id, { onDelete: "set null" }),
     nickname: text("nickname").notNull(),
     brand: text("brand"),
     lastFourDigits: text("last_four_digits"),
@@ -473,7 +478,7 @@ export const creditCards = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("credit_cards_user_idx").on(t.userId)]
+  (t) => [index("credit_cards_user_idx").on(t.userId), index("credit_cards_bank_account_idx").on(t.bankAccountId)]
 );
 
 export const invoices = pgTable(
@@ -680,20 +685,63 @@ export const receiptItems = pgTable(
   (t) => [index("receipt_items_receipt_idx").on(t.receiptId)]
 );
 
+// Extrato bancário (BANK_STATEMENT) ou fatura de cartão (INVOICE_STATEMENT)
+// enviado pra leitura — usa o mesmo pipeline de IA de visão do recibo
+// (services/statementImport.ts), só que produz VÁRIAS transações de uma vez
+// em vez de uma só, guardadas em documentItems até a pessoa confirmar na
+// tela de Revisão (nada vira Transaction real antes disso).
 export const documents = pgTable(
   "documents",
   {
     id: id(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    // Exatamente um dos dois deve estar preenchido: extrato de conta usa
+    // bankAccountId, fatura de cartão usa creditCardId.
+    bankAccountId: text("bank_account_id").references(() => bankAccounts.id, { onDelete: "cascade" }),
+    creditCardId: text("credit_card_id").references(() => creditCards.id, { onDelete: "cascade" }),
     fileUrl: text("file_url").notNull(),
     fileName: text("file_name").notNull(),
     mimeType: text("mime_type").notNull(),
     kind: documentKindEnum("kind").notNull().default("OTHER"),
     status: receiptStatusEnum("status").notNull().default("PROCESSING"),
+    periodStart: timestamp("period_start", { withTimezone: true }),
+    periodEnd: timestamp("period_end", { withTimezone: true }),
     extractedSummary: text("extracted_summary"),
+    errorMessage: text("error_message"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("documents_user_idx").on(t.userId)]
+  (t) => [
+    index("documents_user_idx").on(t.userId),
+    index("documents_bank_account_idx").on(t.bankAccountId),
+    index("documents_credit_card_idx").on(t.creditCardId),
+  ]
+);
+
+// Uma linha lida do extrato/fatura, antes de virar Transaction de verdade —
+// o equivalente de receiptItems, mas pro fluxo de importação em lote. Fica
+// editável/selecionável na tela de Revisão; confirmar cria uma Transaction
+// por linha selecionada (services/statementImport.ts) e o resto é
+// descartado (não vira "rejeitado" permanente, é só descartado mesmo).
+export const documentItems = pgTable(
+  "document_items",
+  {
+    id: id(),
+    documentId: text("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+    date: timestamp("date", { withTimezone: true }).notNull(),
+    description: text("description").notNull(),
+    amount: money("amount").notNull(),
+    type: transactionTypeEnum("type").notNull(),
+    merchant: text("merchant"),
+    installmentNumber: integer("installment_number"),
+    installmentTotal: integer("installment_total"),
+    categoryGuess: text("category_guess"),
+    // true quando bate (mesma data+valor+descrição parecida) com uma
+    // Transaction que já existe nessa conta/cartão — chega desmarcada por
+    // padrão na Revisão, pra não duplicar quem já lança à mão.
+    isDuplicate: boolean("is_duplicate").notNull().default(false),
+    isSelected: boolean("is_selected").notNull().default(true),
+  },
+  (t) => [index("document_items_document_idx").on(t.documentId)]
 );
 
 // ----------------------------------------------------------------------------

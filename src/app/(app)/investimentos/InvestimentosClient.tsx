@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { Plus, Trash2, Pencil, Check, X, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -110,17 +111,11 @@ function InvestmentsSection({ investments, goals }: { investments: Investment[];
               </div>
               <div>
                 <Label htmlFor="investedAmount">Valor investido (R$)</Label>
-                <Input id="investedAmount" name="investedAmount" type="number" step="0.01" placeholder="0,00" required />
+                <CurrencyInput id="investedAmount" name="investedAmount" required />
               </div>
               <div>
                 <Label htmlFor="currentAmount">Valor atual (opcional)</Label>
-                <Input
-                  id="currentAmount"
-                  name="currentAmount"
-                  type="number"
-                  step="0.01"
-                  placeholder="Igual ao investido, se vazio"
-                />
+                <CurrencyInput id="currentAmount" name="currentAmount" placeholder="Igual ao investido, se vazio" />
               </div>
               <div>
                 <Label htmlFor="liquidity">Liquidez (opcional)</Label>
@@ -172,8 +167,12 @@ function InvestmentsSection({ investments, goals }: { investments: Investment[];
 function InvestmentRow({ investment }: { investment: Investment }) {
   const [pending, startTransition] = useTransition();
   const [editingValue, setEditingValue] = useState(false);
-  const [valueInput, setValueInput] = useState(String(investment.currentAmount));
-  const [contribution, setContribution] = useState("");
+  const [valueInput, setValueInput] = useState(investment.currentAmount);
+  const [contribution, setContribution] = useState(0);
+  // Muda a key do CurrencyInput de aporte pra forçar ele a remontar (e
+  // limpar o texto) depois de um aporte confirmado — CurrencyInput não
+  // aceita um `value` controlado por fora (ver comentário no componente).
+  const [contributionKey, setContributionKey] = useState(0);
 
   const gain = investment.currentAmount - investment.investedAmount;
   const gainPct = investment.investedAmount > 0 ? (gain / investment.investedAmount) * 100 : 0;
@@ -197,22 +196,12 @@ function InvestmentRow({ investment }: { investment: Investment }) {
 
           {editingValue ? (
             <div className="flex items-center gap-1.5 shrink-0">
-              <Input
-                type="number"
-                step="0.01"
-                value={valueInput}
-                onChange={(e) => setValueInput(e.target.value)}
-                className="h-9 w-28"
-                autoFocus
-              />
+              <CurrencyInput defaultValue={investment.currentAmount} onValueChange={setValueInput} className="h-9 w-28" autoFocus />
               <button
                 className="text-ok-400 hover:opacity-80 disabled:opacity-40"
                 disabled={pending}
                 onClick={() => {
-                  const value = Number(valueInput);
-                  if (!Number.isNaN(value)) {
-                    startTransition(() => updateInvestmentValueAction(investment.id, value));
-                  }
+                  startTransition(() => updateInvestmentValueAction(investment.id, valueInput));
                   setEditingValue(false);
                 }}
               >
@@ -227,7 +216,7 @@ function InvestmentRow({ investment }: { investment: Investment }) {
               <button
                 className="flex items-center gap-1.5 group justify-end"
                 onClick={() => {
-                  setValueInput(String(investment.currentAmount));
+                  setValueInput(investment.currentAmount);
                   setEditingValue(true);
                 }}
                 title="Atualizar valor atual"
@@ -248,12 +237,10 @@ function InvestmentRow({ investment }: { investment: Investment }) {
 
         <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              step="0.01"
+            <CurrencyInput
+              key={contributionKey}
               placeholder="Registrar aporte (R$)"
-              value={contribution}
-              onChange={(e) => setContribution(e.target.value)}
+              onValueChange={setContribution}
               className="h-9 max-w-[180px]"
             />
             <Button
@@ -261,10 +248,10 @@ function InvestmentRow({ investment }: { investment: Investment }) {
               variant="outline"
               disabled={!contribution || pending}
               onClick={() => {
-                const amount = Number(contribution);
-                if (amount > 0) {
-                  startTransition(() => addInvestmentContributionAction(investment.id, amount));
-                  setContribution("");
+                if (contribution > 0) {
+                  startTransition(() => addInvestmentContributionAction(investment.id, contribution));
+                  setContribution(0);
+                  setContributionKey((k) => k + 1);
                 }
               }}
             >

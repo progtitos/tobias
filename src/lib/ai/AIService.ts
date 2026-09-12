@@ -11,6 +11,9 @@ import {
   receiptExtractionSchema,
   receiptExtractionJsonSchema,
   type ReceiptExtraction,
+  statementExtractionSchema,
+  statementExtractionJsonSchema,
+  type StatementExtraction,
   classificationSchema,
   classificationJsonSchema,
   type Classification,
@@ -68,6 +71,33 @@ export const AIService = {
       images,
       jsonSchema: receiptExtractionJsonSchema,
       zodSchema: receiptExtractionSchema,
+    });
+  },
+
+  /**
+   * Document Agent: extracts every transaction from a bank statement or
+   * credit card invoice (PDF or foto/print) as a batch, instead of the one
+   * purchase `extractReceipt` reads. `kind` only changes the prompt framing
+   * (whose money is moving) — the schema and confirmation flow are the same
+   * either way.
+   */
+  async extractStatement(
+    images: { mimeType: string; base64: string }[],
+    kind: "BANK_STATEMENT" | "INVOICE_STATEMENT"
+  ): Promise<StatementExtraction> {
+    const framing =
+      kind === "BANK_STATEMENT"
+        ? "um extrato de conta bancária. Cada linha é um débito (dinheiro saindo, ex: compra no débito, Pix enviado, tarifa) ou crédito (dinheiro entrando, ex: salário, Pix recebido, estorno) na conta."
+        : "uma fatura de cartão de crédito. Cada linha é uma compra feita no cartão (EXPENSE); um estorno/crédito na fatura é INCOME. Ignore a linha de 'pagamento da fatura anterior', ela não é uma compra.";
+
+    return generateVisionJSON({
+      system: `${TOBIAS_PERSONA}\n\nVocê está extraindo as transações de ${framing} Retorne TODAS as linhas de movimentação que conseguir ler, na ordem em que aparecem. Nunca invente uma transação que não está no documento, e nunca invente um número de parcela (ex: "2/12") que o documento não mostrar explicitamente — se não tiver certeza, deixe installmentNumber/installmentTotal como null. Se houver várias páginas/fotos, consolide como um único extrato contínuo, sem repetir transações que aparecem em mais de uma página.`,
+      message:
+        "Extraia todas as transações deste documento: data, descrição, valor, direção (EXPENSE/INCOME), categoria provável e número de parcela quando o documento mostrar isso. Retorne também o período coberto (primeira e última data) e uma confiança geral de 0 a 1.",
+      images,
+      jsonSchema: statementExtractionJsonSchema,
+      zodSchema: statementExtractionSchema,
+      maxOutputTokens: 8192,
     });
   },
 

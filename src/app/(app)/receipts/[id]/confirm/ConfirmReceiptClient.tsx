@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { formatBRL } from "@/lib/utils/money";
@@ -62,7 +63,7 @@ export function ConfirmReceiptClient({
           </div>
           <div>
             <Label htmlFor="totalAmount">Valor total (R$)</Label>
-            <Input id="totalAmount" name="totalAmount" type="number" step="0.01" defaultValue={receipt.totalAmount ?? ""} required />
+            <CurrencyInput id="totalAmount" name="totalAmount" defaultValue={receipt.totalAmount ?? undefined} required />
           </div>
         </div>
         <div>

@@ -204,6 +204,60 @@ export const receiptExtractionJsonSchema = {
 };
 
 // ----------------------------------------------------------------------------
+// Extrato bancário / fatura de cartão — Document Agent, mesma família do
+// recibo acima, mas devolvendo VÁRIAS transações de uma vez em vez de uma só.
+// ----------------------------------------------------------------------------
+
+export const statementExtractionSchema = z.object({
+  periodStart: z.string().nullable().describe("ISO 8601 date, primeira transação do período"),
+  periodEnd: z.string().nullable().describe("ISO 8601 date, última transação do período"),
+  confidence: z.number().min(0).max(1),
+  transactions: z.array(
+    z.object({
+      date: z.string().describe("ISO 8601 date"),
+      description: z.string(),
+      amount: z.number().positive(),
+      // Sempre do ponto de vista de quem é dono da conta/cartão: dinheiro
+      // saindo (compra, pagamento, tarifa) é EXPENSE; entrando (salário,
+      // transferência recebida, estorno) é INCOME.
+      type: z.enum(["EXPENSE", "INCOME"]),
+      categoryGuess: z.string().nullable(),
+      // Só preenchido quando o extrato/fatura já MOSTRA a parcela (ex: "2/5"
+      // impresso na linha) — nunca inventado a partir do valor sozinho.
+      installmentNumber: z.number().int().positive().nullable(),
+      installmentTotal: z.number().int().positive().nullable(),
+    })
+  ),
+});
+export type StatementExtraction = z.infer<typeof statementExtractionSchema>;
+
+export const statementExtractionJsonSchema = {
+  type: "object",
+  properties: {
+    periodStart: { type: ["string", "null"] },
+    periodEnd: { type: ["string", "null"] },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    transactions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          date: { type: "string" },
+          description: { type: "string" },
+          amount: { type: "number" },
+          type: { type: "string", enum: ["EXPENSE", "INCOME"] },
+          categoryGuess: { type: ["string", "null"] },
+          installmentNumber: { type: ["number", "null"] },
+          installmentTotal: { type: ["number", "null"] },
+        },
+        required: ["date", "description", "amount", "type"],
+      },
+    },
+  },
+  required: ["confidence", "transactions"],
+};
+
+// ----------------------------------------------------------------------------
 // Transaction classification
 // ----------------------------------------------------------------------------
 

@@ -22,6 +22,20 @@
       "when": 1789139617871,
       "tag": "0002_workable_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789229150945,
+      "tag": "0003_lowly_peter_quill",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789229256069,
+      "tag": "0004_wonderful_apocalypse",
+      "breakpoints": true
     }
   ]
 }

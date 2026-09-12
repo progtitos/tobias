@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -499,6 +500,24 @@ function TransactionFields({
   defaults?: Partial<Transaction>;
   showInstallments: boolean;
 }) {
+  const [paymentMethod, setPaymentMethod] = useState(defaults?.paymentMethod ?? "");
+  const [amount, setAmount] = useState(defaults?.amount ?? 0);
+  // "Parcelas" (cartão de crédito) e "gasto fixo mensal" (qualquer outra
+  // forma de pagamento) usam o mesmo campo installmentTotal por trás — só um
+  // dos dois blocos abaixo fica montado por vez, então nunca colidem.
+  const [installments, setInstallments] = useState(2);
+  const [fixedExpense, setFixedExpense] = useState(false);
+  const [fixedMonths, setFixedMonths] = useState(2);
+  const isCreditCard = paymentMethod === "CREDIT_CARD";
+
+  const amountLabel = !showInstallments
+    ? "Valor (R$)"
+    : isCreditCard
+      ? "Valor total da compra (R$)"
+      : fixedExpense
+        ? "Valor mensal (R$)"
+        : "Valor (R$)";
+
   return (
     <>
       <div>
@@ -512,17 +531,8 @@ function TransactionFields({
         />
       </div>
       <div>
-        <Label htmlFor="amount">{showInstallments ? "Valor total (R$)" : "Valor (R$)"}</Label>
-        <Input
-          id="amount"
-          name="amount"
-          type="number"
-          step="0.01"
-          min="0.01"
-          placeholder="0,00"
-          defaultValue={defaults?.amount ?? undefined}
-          required
-        />
+        <Label htmlFor="amount">{amountLabel}</Label>
+        <CurrencyInput id="amount" name="amount" defaultValue={defaults?.amount} onValueChange={setAmount} required />
       </div>
       <div className="col-span-2">
         <Label htmlFor="description">Descrição</Label>
@@ -574,7 +584,12 @@ function TransactionFields({
       )}
       <div>
         <Label htmlFor="paymentMethod">Forma de pagamento</Label>
-        <Select id="paymentMethod" name="paymentMethod" defaultValue={defaults?.paymentMethod ?? ""}>
+        <Select
+          id="paymentMethod"
+          name="paymentMethod"
+          value={paymentMethod}
+          onChange={(e) => setPaymentMethod(e.target.value)}
+        >
           <option value="">Não informar</option>
           {Object.entries(PAYMENT_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
@@ -583,12 +598,56 @@ function TransactionFields({
           ))}
         </Select>
       </div>
-      {showInstallments && (
-        <div>
-          <Label htmlFor="installmentTotal">Parcelas</Label>
-          <Input id="installmentTotal" name="installmentTotal" type="number" min="1" max="48" defaultValue="1" />
-        </div>
-      )}
+      {showInstallments &&
+        (isCreditCard ? (
+          <div>
+            <Label htmlFor="installmentTotal">Parcelas</Label>
+            <Input
+              id="installmentTotal"
+              name="installmentTotal"
+              type="number"
+              min="1"
+              max="48"
+              value={installments}
+              onChange={(e) => setInstallments(Math.max(1, Number(e.target.value) || 1))}
+            />
+            {installments > 1 && amount > 0 && (
+              <p className="text-xs text-onbrand/50 mt-1.5">
+                {installments}x de {formatBRL(amount / installments)}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <label className="flex items-center gap-2 h-11 text-sm text-onbrand/80 cursor-pointer">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded accent-gold-400"
+                checked={fixedExpense}
+                onChange={(e) => setFixedExpense(e.target.checked)}
+              />
+              Gasto fixo mensal
+            </label>
+            {fixedExpense && (
+              <>
+                <Input
+                  id="installmentTotal"
+                  name="installmentTotal"
+                  type="number"
+                  min="2"
+                  max="48"
+                  value={fixedMonths}
+                  onChange={(e) => setFixedMonths(Math.max(2, Number(e.target.value) || 2))}
+                  placeholder="Por quantos meses"
+                />
+                <p className="text-xs text-onbrand/50 mt-1.5">
+                  Lança {amount > 0 ? formatBRL(amount) : "esse valor"} todo mês, por {fixedMonths} meses seguidos a
+                  partir desta data.
+                </p>
+              </>
+            )}
+          </div>
+        ))}
       <div className={showInstallments ? "col-span-2" : ""}>
         <Label htmlFor="bankAccountId">Conta (opcional)</Label>
         <Select id="bankAccountId" name="bankAccountId" defaultValue={defaults?.bankAccountId ?? ""}>
@@ -979,15 +1038,14 @@ function BudgetTab({ budgets }: { budgets: BudgetRow[] }) {
 
 function BudgetRowCard({ budget }: { budget: BudgetRow }) {
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(String(budget.limitAmount));
+  const [newLimit, setNewLimit] = useState(budget.limitAmount);
   const [pending, startTransition] = useTransition();
   const pct = Math.round(budget.pctUsed * 100);
 
   function save() {
-    const amount = Number(value);
-    if (amount >= 0) {
+    if (newLimit >= 0) {
       startTransition(async () => {
-        await updateBudgetLimitAction(budget.id, amount);
+        await updateBudgetLimitAction(budget.id, newLimit);
         setEditing(false);
       });
     }
@@ -1005,12 +1063,10 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
 
           {editing ? (
             <div className="flex items-center gap-1.5">
-              <Input
-                type="number"
-                step="0.01"
+              <CurrencyInput
                 autoFocus
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
+                defaultValue={budget.limitAmount}
+                onValueChange={setNewLimit}
                 className="h-8 w-28 text-sm"
               />
               <button className="text-ok-400 disabled:opacity-50" disabled={pending} onClick={save} title="Salvar">
@@ -1020,7 +1076,7 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
                 className="text-onbrand/40"
                 onClick={() => {
                   setEditing(false);
-                  setValue(String(budget.limitAmount));
+                  setNewLimit(budget.limitAmount);
                 }}
                 title="Cancelar"
               >
