@@ -10,6 +10,7 @@ import {
   deleteTransaction,
 } from "@/services/transactions";
 import { generateInitialBudget, setBudgetLimit } from "@/services/budget";
+import { learnRecurringCategoryRule } from "@/services/categorization";
 
 export type LancamentosFormState = { error?: string; success?: boolean } | undefined;
 
@@ -98,6 +99,22 @@ export async function deleteTransactionAction(transactionId: string) {
   const user = await requireOnboardedUser();
   await deleteTransaction(user.id, transactionId);
   revalidateAll();
+}
+
+/**
+ * "Categorizar assim sempre" direto da lista de Transações (não só na
+ * Revisão de um extrato importado, onde a ideia nasceu) — pra um gasto fixo
+ * mensal (ex: aluguel via Pix) cuja descrição muda um pouco a cada mês, mas
+ * sempre contém o mesmo trecho. Além de valer pra futuras transações
+ * (importadas ou lançadas à mão), já corrige na hora qualquer transação
+ * "Sem categoria" existente cuja descrição bata com a palavra-chave —
+ * retorna quantas foram corrigidas, pra tela poder avisar.
+ */
+export async function saveRecurringRuleAction(keyword: string, categoryId: string): Promise<number> {
+  const user = await requireOnboardedUser();
+  const appliedCount = await learnRecurringCategoryRule(user.id, keyword, categoryId);
+  revalidateAll();
+  return appliedCount;
 }
 
 // ---------------------------------------------------------------------------

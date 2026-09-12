@@ -5,7 +5,7 @@ import { documents, documentItems, transactions, bankAccounts, creditCards } fro
 import { AIService, isAIConfigured } from "@/lib/ai/AIService";
 import { saveDocumentFile } from "@/lib/storage";
 import { parseCsvStatement } from "@/lib/utils/csvStatement";
-import { getUserCategories, matchCategoryByGuess, matchRecurringCategoryRule, getRecurringCategoryRules, saveRecurringCategoryRule } from "./categorization";
+import { getUserCategories, matchCategoryByGuess, matchRecurringCategoryRule, getRecurringCategoryRules, learnRecurringCategoryRule } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { adjustBankAccountBalance } from "./bankAccounts";
 import { parseDateOnly } from "@/lib/utils/dates";
@@ -254,7 +254,7 @@ export async function confirmStatementImport(
     // mão em vez de aprendida automaticamente do texto cru.
     const keyword = keywordByItem[item.id];
     if (keyword && categoryId) {
-      await saveRecurringCategoryRule(userId, keyword, categoryId);
+      await learnRecurringCategoryRule(userId, keyword, categoryId);
       // Atualiza a lista em memória pra já valer pras próximas linhas deste
       // mesmo lote (ex: o mesmo aluguel aparecendo duas vezes no extrato).
       recurringRules = await getRecurringCategoryRules(userId);

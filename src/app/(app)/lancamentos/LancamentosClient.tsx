@@ -55,6 +55,7 @@ import { BankBadge } from "@/components/ui/BankBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
+import { toast } from "sonner";
 import {
   createTransactionAction,
   updateTransactionAction,
@@ -62,6 +63,7 @@ import {
   deleteTransactionAction,
   recalculateBudgetAction,
   updateBudgetLimitAction,
+  saveRecurringRuleAction,
   type LancamentosFormState,
 } from "./actions";
 
@@ -898,6 +900,14 @@ function TransactionRow({
   onEdit: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  // Espelha transaction.categoryId em vez de ler só a prop: o <select> muda
+  // na hora (otimista), e o botão "sempre categorizar assim" precisa saber
+  // JÁ qual categoria foi escolhida, sem esperar o round-trip do servidor +
+  // revalidação terminar (a pessoa pode escolher a categoria e clicar em
+  // "sempre" quase junto).
+  const [categoryId, setCategoryId] = useState(transaction.categoryId ?? "");
+  const [showRule, setShowRule] = useState(false);
+  const [keyword, setKeyword] = useState(transaction.description);
   const lowConfidence = transaction.categoryId && transaction.confidence < 0.7;
   const meta = TYPE_META[transaction.type] ?? TYPE_META.EXPENSE;
   // Um gasto categorizado mostra o ícone da própria categoria (Moradia,
@@ -907,18 +917,34 @@ function TransactionRow({
   const categoryIcon = transaction.categoryIcon ? CATEGORY_ICON_MAP[transaction.categoryIcon] : undefined;
   const Icon = transaction.type === "EXPENSE" ? categoryIcon ?? Tag : meta.icon;
 
+  function saveRule() {
+    if (!categoryId || !keyword.trim()) return;
+    startTransition(async () => {
+      const appliedCount = await saveRecurringRuleAction(keyword.trim(), categoryId);
+      setShowRule(false);
+      const categoryName = categories.find((c) => c.id === categoryId)?.name ?? "essa categoria";
+      toast.success(
+        appliedCount > 0
+          ? `Regra salva. ${appliedCount} transação${appliedCount > 1 ? "ões" : ""} antiga${appliedCount > 1 ? "s" : ""} sem categoria também ${appliedCount > 1 ? "foram" : "foi"} marcada${appliedCount > 1 ? "s" : ""} como ${categoryName}.`
+          : `Regra salva — daqui pra frente, "${keyword.trim()}" cai direto em ${categoryName}.`
+      );
+    });
+  }
+
   return (
     <li>
       <Card className="cursor-pointer hover:bg-white/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
         {/* 4-track grid: icon | main (1fr) | selo do banco + categoria juntos
-            (auto) | valor + excluir (largura fixa). O seletor de categoria
-            ficava sozinho lá na ponta direita, longe do selo do banco, com um
-            vão vazio enorme entre os dois — visualmente esquisito. Juntando
-            os dois no mesmo grupo (o selo já diz de qual conta veio a
-            transação, a categoria diz pra onde ela foi) o olho lê os dois
-            junto, e sobra só valor/excluir isolados na ponta, que é o par que
-            faz sentido ficar sempre no mesmo lugar em toda linha. */}
-        <CardContent className="py-3.5 grid grid-cols-[20px_1fr_auto_auto] items-center gap-x-3">
+            (auto) | valor + excluir (largura FIXA). O valor precisa de
+            largura fixa nessa última coluna — cada linha é um grid
+            independente, então se essa coluna também fosse "auto" (como a
+            anterior tentou), a largura dela varia com o número de dígitos do
+            valor e a coluna de valores fica torta, sem alinhar entre as
+            linhas (foi exatamente isso que ficou pior). Com largura fixa
+            aqui, a coluna 1fr (descrição) absorve a diferença e o valor
+            sempre começa no mesmo x, não importa a largura do selo+seletor
+            no meio. */}
+        <CardContent className="py-3.5 grid grid-cols-[20px_1fr_auto_112px] items-center gap-x-3">
           <Icon className={`col-start-1 h-5 w-5 shrink-0 ${meta.amountClass}`} aria-hidden />
 
           <div className="col-start-2 min-w-0">
@@ -957,23 +983,44 @@ function TransactionRow({
               ))}
 
             {transaction.type === "EXPENSE" && (
-              <select
-                className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[130px]"
-                value={transaction.categoryId ?? ""}
-                disabled={pending}
-                onChange={(e) => {
-                  const categoryId = e.target.value;
-                  if (!categoryId) return;
-                  startTransition(() => updateCategoryAction(transaction.id, categoryId));
-                }}
-              >
-                <option value="">Sem categoria</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[130px]"
+                  value={categoryId}
+                  disabled={pending}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (!next) return;
+                    setCategoryId(next);
+                    setShowRule(false);
+                    startTransition(() => updateCategoryAction(transaction.id, next));
+                  }}
+                >
+                  <option value="">Sem categoria</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  title={
+                    categoryId
+                      ? "Categorizar assim sempre (inclusive transações antigas parecidas)"
+                      : "Escolha uma categoria primeiro"
+                  }
+                  disabled={!categoryId}
+                  className={cn(
+                    "shrink-0 transition-colors",
+                    categoryId ? "text-onbrand/40 hover:text-gold-400" : "text-onbrand/15 cursor-not-allowed"
+                  )}
+                  onClick={() => setShowRule((v) => !v)}
+                >
+                  <Repeat className="h-3.5 w-3.5" />
+                </button>
+              </>
             )}
           </div>
 
@@ -991,6 +1038,33 @@ function TransactionRow({
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
+
+          {showRule && (
+            <div
+              className="col-start-2 col-span-3 flex items-center gap-2 mt-2.5 pt-2.5 border-t border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                autoFocus
+                type="text"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder='Trecho que se repete, ex: "quinto andar"'
+                className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 flex-1 min-w-0"
+              />
+              <button
+                className="text-ok-400 disabled:opacity-40 shrink-0"
+                title="Salvar regra"
+                disabled={pending || !keyword.trim()}
+                onClick={saveRule}
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button className="text-onbrand/40 shrink-0" title="Cancelar" onClick={() => setShowRule(false)}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </li>

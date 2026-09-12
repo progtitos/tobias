@@ -1,7 +1,7 @@
 import "server-only";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { categories, merchantCategoryMemories, recurringCategoryRules } from "@/lib/db/schema";
+import { categories, merchantCategoryMemories, recurringCategoryRules, transactions } from "@/lib/db/schema";
 import { AIService, isAIConfigured } from "@/lib/ai/AIService";
 
 function normalizeMerchant(merchant: string): string {
@@ -145,6 +145,49 @@ export async function saveRecurringCategoryRule(userId: string, keyword: string,
   } else {
     await db.insert(recurringCategoryRules).values({ userId, keyword, keywordNormalized, categoryId });
   }
+}
+
+/**
+ * Aplica uma regra "contém" retroativamente às transações que já existem —
+ * chamado logo depois de criar/atualizar a regra. Só preenche LACUNAS
+ * (categoryId nulo): nunca troca uma categoria que a pessoa já escolheu de
+ * propósito pra uma transação específica, mesmo que a descrição bata com a
+ * palavra-chave nova. Compara em memória (não com ILIKE no SQL) porque a
+ * normalização tira acento — "Condomínio" só bate com a regra "condominio"
+ * assim, e o volume de transações sem categoria de uma pessoa é pequeno o
+ * bastante pra isso não pesar.
+ */
+async function applyRecurringRuleToExisting(userId: string, keywordNormalized: string, categoryId: string): Promise<number> {
+  if (!keywordNormalized) return 0;
+
+  const candidates = await db
+    .select({ id: transactions.id, description: transactions.description })
+    .from(transactions)
+    .where(and(eq(transactions.userId, userId), eq(transactions.type, "EXPENSE"), isNull(transactions.categoryId)));
+
+  const matchIds = candidates.filter((t) => normalizeForContains(t.description).includes(keywordNormalized)).map((t) => t.id);
+  if (matchIds.length === 0) return 0;
+
+  await db
+    .update(transactions)
+    .set({ categoryId, source: "MANUAL", confidence: 1.0, updatedAt: new Date() })
+    .where(inArray(transactions.id, matchIds));
+  return matchIds.length;
+}
+
+/**
+ * Ponto de entrada único pra "categorizar assim sempre": salva a regra e já
+ * aplica pras transações sem categoria que já existem (não só pras
+ * futuras) — pra alguém que só percebeu o padrão depois de já ter várias
+ * ocorrências soltas na lista (ex: aluguel dos últimos meses todos "Sem
+ * categoria"), marcar a regra uma vez resolve o passado junto, não só o que
+ * vier depois. Retorna quantas transações antigas foram corrigidas, pra tela
+ * poder avisar.
+ */
+export async function learnRecurringCategoryRule(userId: string, keyword: string, categoryId: string): Promise<number> {
+  await saveRecurringCategoryRule(userId, keyword, categoryId);
+  const keywordNormalized = normalizeForContains(keyword);
+  return applyRecurringRuleToExisting(userId, keywordNormalized, categoryId);
 }
 
 /** Called whenever a user confirms or corrects a category — this is what makes Tobias "learn" (spec §11). */
