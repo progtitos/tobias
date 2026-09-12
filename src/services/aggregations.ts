@@ -10,8 +10,13 @@ import {
   goals,
   categories,
 } from "@/lib/db/schema";
+import { nowInBrazil } from "@/lib/utils/dates";
 
-export function monthRange(date = new Date()) {
+// `nowInBrazil()`, não `new Date()`: o servidor (Vercel) roda em UTC, e sem
+// isso o "mês atual" virava setembro ~3h antes da meia-noite de verdade no
+// Brasil (21h-23h59 em Brasília já é dia seguinte em UTC) — transações do
+// fim do mês apareciam agrupadas no mês seguinte por causa disso.
+export function monthRange(date = nowInBrazil()) {
   const start = new Date(date.getFullYear(), date.getMonth(), 1);
   const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
   return { start, end };

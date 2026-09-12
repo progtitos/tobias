@@ -5,6 +5,7 @@ import { getCurrentBudgetsWithActuals, generateInitialBudget } from "@/services/
 import { listGoals } from "@/services/goals";
 import { listBankAccounts } from "@/services/bankAccounts";
 import { monthRange } from "@/services/aggregations";
+import { nowInBrazil } from "@/lib/utils/dates";
 import { LancamentosClient } from "./LancamentosClient";
 
 // "2026-09" -> 1º de setembro de 2026. Qualquer coisa que não bata nesse
@@ -20,7 +21,9 @@ function parseMonthParam(month: string | undefined): Date {
       if (!Number.isNaN(date.getTime()) && date.getMonth() === monthIndex) return date;
     }
   }
-  return new Date();
+  // nowInBrazil(), não new Date(): o servidor roda em UTC, e new Date() aqui
+  // já mostrava setembro ~3h antes da meia-noite de verdade no Brasil.
+  return nowInBrazil();
 }
 
 export default async function LancamentosPage({

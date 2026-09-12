@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { budgets, categories, financialProfiles, goals } from "@/lib/db/schema";
 import { monthRange, sumIncome, expensesByCategory } from "./aggregations";
+import { nowInBrazil } from "@/lib/utils/dates";
 
 // ----------------------------------------------------------------------------
 // Dynamic budget engine (spec §18).
@@ -109,7 +110,7 @@ export async function setBudgetLimit(userId: string, budgetId: string, limitAmou
 // the limit itself isn't month-scoped (it's the current standing guideline,
 // see generateInitialBudget), so browsing to a past month in Lançamentos
 // shows that month's real spend against today's limit, not a historical one.
-export async function getCurrentBudgetsWithActuals(userId: string, referenceDate = new Date()) {
+export async function getCurrentBudgetsWithActuals(userId: string, referenceDate = nowInBrazil()) {
   const active = await db
     .select({
       id: budgets.id,

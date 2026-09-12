@@ -6,6 +6,7 @@ import { monthRange, computeEmergencyReserve, activeGoals } from "./aggregations
 import { getCurrentBudgetsWithActuals } from "./budget";
 import { trackEvent } from "./analytics";
 import { formatBRL } from "@/lib/utils/money";
+import { nowInBrazil } from "@/lib/utils/dates";
 
 // ============================================================================
 // Notification Agent — rule-based behavior checks (spec §21/§29).
@@ -31,7 +32,7 @@ type AlertType =
 
 type Severity = "INFO" | "WARNING" | "CRITICAL";
 
-function monthKey(date = new Date()) {
+function monthKey(date = nowInBrazil()) {
   return `${date.getFullYear()}-${date.getMonth() + 1}`;
 }
 
