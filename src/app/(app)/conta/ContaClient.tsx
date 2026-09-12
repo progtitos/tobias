@@ -1,13 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
-import { Plus, Trash2, Pencil, Check, X, Pause, Play, Wallet } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Pause, Play, Wallet, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { BankBadge } from "@/components/ui/BankBadge";
 import { formatBRL } from "@/lib/utils/money";
+import { cn } from "@/lib/utils/cn";
+import { BANKS, OTHER_BANK_ID } from "@/lib/utils/banks";
 import {
   createBankAccountAction,
   updateBankAccountBalanceAction,
@@ -32,7 +36,7 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   WALLET: "Carteira digital",
 };
 
-export function ContaClient({ accounts }: { accounts: BankAccount[] }) {
+export function ContaClient({ accounts, totalInvested }: { accounts: BankAccount[]; totalInvested: number }) {
   const [showForm, setShowForm] = useState(false);
   const [state, formAction, pending] = useActionState<ContaFormState, FormData>(createBankAccountAction, undefined);
   const active = accounts.filter((a) => a.isActive);
@@ -49,63 +53,45 @@ export function ContaClient({ accounts }: { accounts: BankAccount[] }) {
         </p>
 
         <Card className="mb-6">
-          <CardContent className="py-5 flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-0.5">Saldo em contas</p>
-              <p className="font-sans font-medium text-3xl tracking-tight tabular-nums text-onbrand">
-                {formatBRL(totalBalance)}
-              </p>
+          <CardContent className="py-5">
+            <div className="flex items-end justify-between flex-wrap gap-3 mb-1">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-0.5">Seu dinheiro, no total</p>
+                <p className="font-sans font-medium text-3xl tracking-tight tabular-nums text-onbrand">
+                  {formatBRL(totalBalance + totalInvested)}
+                </p>
+              </div>
+              <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+                <Plus className="h-4 w-4" /> Nova conta
+              </Button>
             </div>
-            <Button size="sm" onClick={() => setShowForm((v) => !v)}>
-              <Plus className="h-4 w-4" /> Nova conta
-            </Button>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/10">
+              <div>
+                <p className="text-[11px] text-onbrand/50 mb-0.5">Em contas</p>
+                <p className="text-sm font-medium tabular-nums text-onbrand/85">{formatBRL(totalBalance)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-onbrand/50 mb-0.5">Investido</p>
+                <p className="text-sm font-medium tabular-nums text-onbrand/85">{formatBRL(totalInvested)}</p>
+              </div>
+              <Link href="/investimentos" className="flex items-end">
+                <span className="text-xs text-gold-400 hover:underline flex items-center gap-1">
+                  Ver investimentos <ArrowRight className="h-3 w-3" />
+                </span>
+              </Link>
+            </div>
           </CardContent>
         </Card>
 
         {showForm && (
           <Card className="mb-5">
             <CardContent className="pt-5">
-              <form
-                action={async (fd) => {
-                  await formAction(fd);
-                  setShowForm(false);
-                }}
-                className="grid grid-cols-2 gap-4"
-              >
-                <div className="col-span-2">
-                  <Label htmlFor="name">Nome da conta</Label>
-                  <Input id="name" name="name" placeholder="Ex: Conta corrente principal" required />
-                </div>
-                <div>
-                  <Label htmlFor="bankName">Banco (opcional)</Label>
-                  <Input id="bankName" name="bankName" placeholder="Ex: Nubank" />
-                </div>
-                <div>
-                  <Label htmlFor="type">Tipo</Label>
-                  <Select id="type" name="type" defaultValue="CHECKING">
-                    {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="balance">Saldo atual (R$)</Label>
-                  <Input id="balance" name="balance" type="number" step="0.01" placeholder="0,00" required />
-                </div>
-                <div className="col-span-2">
-                  <FieldError>{state?.error}</FieldError>
-                  <div className="flex gap-2 mt-1">
-                    <Button type="submit" loading={pending}>
-                      Salvar conta
-                    </Button>
-                    <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
-                      Cancelar
-                    </Button>
-                  </div>
-                </div>
-              </form>
+              <NewAccountForm
+                formAction={formAction}
+                pending={pending}
+                error={state?.error}
+                onDone={() => setShowForm(false)}
+              />
             </CardContent>
           </Card>
         )}
@@ -135,6 +121,125 @@ export function ContaClient({ accounts }: { accounts: BankAccount[] }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Nova conta — nome pré-setado com marca (cor + iniciais, quadrado
+// arredondado), em vez de digitar o nome do banco.
+// ---------------------------------------------------------------------------
+
+function NewAccountForm({
+  formAction,
+  pending,
+  error,
+  onDone,
+}: {
+  formAction: (formData: FormData) => void;
+  pending: boolean;
+  error?: string;
+  onDone: () => void;
+}) {
+  const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  const [customBank, setCustomBank] = useState("");
+  const isOther = selectedBank === OTHER_BANK_ID;
+  const bankNameValue = isOther ? customBank : (BANKS.find((b) => b.id === selectedBank)?.label ?? "");
+
+  return (
+    <form
+      action={async (fd) => {
+        await formAction(fd);
+        onDone();
+      }}
+      className="grid grid-cols-2 gap-4"
+    >
+      <div className="col-span-2">
+        <Label>Banco (opcional)</Label>
+        <div className="flex flex-wrap justify-center gap-3 py-1">
+          {BANKS.map((bank) => (
+            <button
+              type="button"
+              key={bank.id}
+              onClick={() => setSelectedBank(bank.id === selectedBank ? null : bank.id)}
+              className={cn(
+                "flex flex-col items-center gap-1.5 w-[70px] py-2 px-1 rounded-xl border-[1.5px] border-transparent",
+                selectedBank === bank.id && "border-gold-400 bg-gold-400/10"
+              )}
+            >
+              <span
+                className={cn(
+                  "h-10 w-10 rounded-[28%] flex items-center justify-center text-xs font-extrabold",
+                  bank.className
+                )}
+              >
+                {bank.initials}
+              </span>
+              <span
+                className={cn(
+                  "text-[11px] text-center leading-tight text-onbrand/65",
+                  selectedBank === bank.id && "text-gold-400 font-medium"
+                )}
+              >
+                {bank.label}
+              </span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setSelectedBank(selectedBank === OTHER_BANK_ID ? null : OTHER_BANK_ID)}
+            className={cn(
+              "flex flex-col items-center gap-1.5 w-[70px] py-2 px-1 rounded-xl border-[1.5px] border-transparent",
+              isOther && "border-gold-400 bg-gold-400/10"
+            )}
+          >
+            <span className="h-10 w-10 rounded-[28%] flex items-center justify-center text-base font-extrabold bg-white/10 text-onbrand/60 border border-dashed border-white/25">
+              +
+            </span>
+            <span className={cn("text-[11px] text-center leading-tight text-onbrand/65", isOther && "text-gold-400 font-medium")}>
+              Outro banco
+            </span>
+          </button>
+        </div>
+        {isOther && (
+          <Input
+            className="mt-2"
+            placeholder="Nome do banco"
+            value={customBank}
+            onChange={(e) => setCustomBank(e.target.value)}
+          />
+        )}
+        <input type="hidden" name="bankName" value={bankNameValue} />
+      </div>
+      <div className="col-span-2">
+        <Label htmlFor="name">Nome da conta</Label>
+        <Input id="name" name="name" placeholder="Ex: Conta corrente principal" required />
+      </div>
+      <div>
+        <Label htmlFor="type">Tipo</Label>
+        <Select id="type" name="type" defaultValue="CHECKING">
+          {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="balance">Saldo atual (R$)</Label>
+        <Input id="balance" name="balance" type="number" step="0.01" placeholder="0,00" required />
+      </div>
+      <div className="col-span-2">
+        <FieldError>{error}</FieldError>
+        <div className="flex gap-2 mt-1">
+          <Button type="submit" loading={pending}>
+            Salvar conta
+          </Button>
+          <Button type="button" variant="ghost" onClick={onDone}>
+            Cancelar
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
 function AccountRow({ account }: { account: BankAccount }) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -146,11 +251,11 @@ function AccountRow({ account }: { account: BankAccount }) {
         <Wallet className="h-5 w-5 shrink-0 text-onbrand/45" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {account.bankName && <BankBadge bankName={account.bankName} />}
             <p className="font-medium text-onbrand truncate">{account.name}</p>
             <Badge tone="brand">{ACCOUNT_TYPE_LABELS[account.type]}</Badge>
             {!account.isActive && <Badge tone="neutral">Desativada</Badge>}
           </div>
-          {account.bankName && <p className="text-xs text-onbrand/55 mt-0.5">{account.bankName}</p>}
         </div>
 
         {editing ? (

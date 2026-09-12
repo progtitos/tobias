@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { requireOnboardedUser } from "@/lib/auth/guards";
 import { createTransactionSchema } from "@/lib/validations/transaction";
-import { createManualTransaction, updateTransactionCategory, deleteTransaction } from "@/services/transactions";
+import {
+  createManualTransaction,
+  updateTransaction,
+  updateTransactionCategory,
+  deleteTransaction,
+} from "@/services/transactions";
 import { generateInitialBudget, setBudgetLimit } from "@/services/budget";
 
 export type LancamentosFormState = { error?: string; success?: boolean } | undefined;
@@ -48,6 +53,37 @@ export async function createTransactionAction(
   }
 
   await createManualTransaction(user.id, parsed.data);
+  revalidateAll();
+  return { success: true };
+}
+
+export async function updateTransactionAction(
+  _prev: LancamentosFormState,
+  formData: FormData
+): Promise<LancamentosFormState> {
+  const user = await requireOnboardedUser();
+  const transactionId = String(formData.get("id") ?? "");
+  if (!transactionId) return { error: "Transação inválida" };
+
+  const raw = {
+    date: String(formData.get("date") ?? ""),
+    amount: Number(formData.get("amount") ?? 0),
+    type: String(formData.get("type") ?? "EXPENSE"),
+    categoryId: (formData.get("categoryId") as string) || null,
+    goalId: (formData.get("goalId") as string) || null,
+    bankAccountId: (formData.get("bankAccountId") as string) || null,
+    description: String(formData.get("description") ?? ""),
+    merchant: (formData.get("merchant") as string) || null,
+    paymentMethod: (formData.get("paymentMethod") as string) || null,
+    notes: null,
+  };
+
+  const parsed = createTransactionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  }
+
+  await updateTransaction(user.id, transactionId, parsed.data);
   revalidateAll();
   return { success: true };
 }

@@ -26,10 +26,10 @@ function parseMonthParam(month: string | undefined): Date {
 export default async function LancamentosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; q?: string; conta?: string; tipo?: string; categoria?: string }>;
 }) {
   const user = await requireOnboardedUser();
-  const { month } = await searchParams;
+  const { month, q, conta, tipo, categoria } = await searchParams;
   const referenceDate = parseMonthParam(month);
   const { start, end } = monthRange(referenceDate);
 
@@ -43,7 +43,15 @@ export default async function LancamentosPage({
   }
 
   const [transactions, categories, goals, accounts] = await Promise.all([
-    listTransactions(user.id, { start, end, limit: 200 }),
+    listTransactions(user.id, {
+      start,
+      end,
+      limit: 200,
+      search: q || undefined,
+      bankAccountId: conta || undefined,
+      type: tipo || undefined,
+      categoryId: categoria || undefined,
+    }),
     getUserCategories(user.id),
     listGoals(user.id),
     listBankAccounts(user.id),
@@ -52,6 +60,7 @@ export default async function LancamentosPage({
   return (
     <LancamentosClient
       month={`${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`}
+      filters={{ q: q ?? "", conta: conta ?? "", tipo: tipo ?? "", categoria: categoria ?? "" }}
       transactions={transactions.map((t) => ({ ...t, date: t.date.toISOString() }))}
       categories={categories
         .filter((c) => !c.parentId)

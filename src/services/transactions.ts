@@ -1,6 +1,6 @@
 import "server-only";
 import { createId } from "@paralleldrive/cuid2";
-import { and, eq, gte, lte, desc } from "drizzle-orm";
+import { and, eq, gte, lte, desc, ilike, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { transactions, categories, goals, bankAccounts } from "@/lib/db/schema";
 import type { CreateTransactionInput } from "@/lib/validations/transaction";
@@ -110,15 +110,100 @@ export async function createManualTransaction(userId: string, input: CreateTrans
   return inserted;
 }
 
+/**
+ * Edits a single existing transaction row in place — used by "clicar na
+ * linha pra editar" in Transações. Deliberately does NOT touch installments:
+ * it edits the one row that was clicked, it never re-splits it into a new
+ * group. To keep goal progress and bank balances correct even when amount,
+ * type, goal or account changed, it reverses this row's old side effects
+ * first (same math as deleteTransaction) and then reapplies new ones (same
+ * math as createManualTransaction) instead of trying to diff the two.
+ */
+export async function updateTransaction(userId: string, transactionId: string, input: CreateTransactionInput) {
+  const [existing] = await db
+    .select()
+    .from(transactions)
+    .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)))
+    .limit(1);
+  if (!existing) throw new Error("Transação não encontrada");
+
+  const isPrimaryInstallment = !existing.installmentNumber || existing.installmentNumber === 1;
+
+  if (existing.type === "INVESTMENT_CONTRIBUTION" && existing.goalId) {
+    await reverseGoalContribution(userId, existing.goalId, existing.amount);
+  }
+  if (existing.bankAccountId && isPrimaryInstallment && BALANCE_AFFECTING_TYPES.has(existing.type)) {
+    await adjustBankAccountBalance(userId, existing.bankAccountId, -balanceDelta(existing.type, existing.amount));
+  }
+
+  let bankAccountId: string | null = null;
+  if (input.bankAccountId) {
+    const [account] = await db
+      .select({ id: bankAccounts.id })
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.id, input.bankAccountId), eq(bankAccounts.userId, userId)))
+      .limit(1);
+    if (!account) throw new Error("Conta não encontrada");
+    bankAccountId = account.id;
+  }
+  const goalId = input.type === "INVESTMENT_CONTRIBUTION" ? (input.goalId ?? null) : null;
+
+  const [updated] = await db
+    .update(transactions)
+    .set({
+      date: new Date(input.date),
+      amount: input.amount,
+      type: input.type,
+      categoryId: input.categoryId ?? null,
+      description: input.description,
+      merchant: input.merchant ?? null,
+      paymentMethod: input.paymentMethod ?? null,
+      goalId,
+      bankAccountId,
+      source: "MANUAL",
+      confidence: 1.0,
+      updatedAt: new Date(),
+    })
+    .where(eq(transactions.id, transactionId))
+    .returning();
+
+  if (goalId) {
+    await applyGoalContribution(userId, goalId, input.amount);
+  }
+  if (bankAccountId && isPrimaryInstallment && BALANCE_AFFECTING_TYPES.has(input.type)) {
+    await adjustBankAccountBalance(userId, bankAccountId, balanceDelta(input.type, input.amount));
+  }
+
+  await logFinancialEvent(userId, "transaction_updated", { transactionId });
+  return updated;
+}
+
 export async function listTransactions(
   userId: string,
-  filters: { start?: Date; end?: Date; categoryId?: string; limit?: number } = {}
+  filters: {
+    start?: Date;
+    end?: Date;
+    categoryId?: string;
+    bankAccountId?: string;
+    // Aceita o valor cru vindo da URL/formulário — um tipo desconhecido
+    // simplesmente não bate com nenhuma linha em vez de quebrar a consulta.
+    type?: string;
+    search?: string;
+    limit?: number;
+  } = {}
 ) {
   const defaultRange = monthRange();
   const start = filters.start ?? defaultRange.start;
   const end = filters.end ?? defaultRange.end;
   const conditions = [eq(transactions.userId, userId), gte(transactions.date, start), lte(transactions.date, end)];
   if (filters.categoryId) conditions.push(eq(transactions.categoryId, filters.categoryId));
+  if (filters.bankAccountId) conditions.push(eq(transactions.bankAccountId, filters.bankAccountId));
+  if (filters.type) conditions.push(eq(transactions.type, filters.type as never));
+  if (filters.search) {
+    const term = `%${filters.search.trim()}%`;
+    const searchCondition = or(ilike(transactions.description, term), ilike(transactions.merchant, term));
+    if (searchCondition) conditions.push(searchCondition);
+  }
 
   return db
     .select({

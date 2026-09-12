@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import {
   Plus,
   Trash2,
@@ -40,6 +41,8 @@ import {
   Key,
   LineChart,
   Tag,
+  Search,
+  Merge,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -52,6 +55,7 @@ import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import {
   createTransactionAction,
+  updateTransactionAction,
   updateCategoryAction,
   deleteTransactionAction,
   recalculateBudgetAction,
@@ -92,6 +96,7 @@ type BudgetRow = {
   pctUsed: number;
   isOverrun: boolean;
 };
+type Filters = { q: string; conta: string; tipo: string; categoria: string };
 
 const PAYMENT_LABELS: Record<string, string> = {
   CASH: "Dinheiro",
@@ -150,8 +155,22 @@ function shiftMonth(month: string, delta: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// Uma única função pra montar a URL de /lancamentos a partir do mês + filtros
+// — usada tanto pelas setas de mês quanto pela barra de busca/filtros, pra
+// nenhuma das duas derrubar o que a outra já tinha selecionado.
+function buildLancamentosUrl(month: string, filters: Partial<Filters> & { month?: never }): string {
+  const params = new URLSearchParams();
+  params.set("month", month);
+  if (filters.q) params.set("q", filters.q);
+  if (filters.conta) params.set("conta", filters.conta);
+  if (filters.tipo) params.set("tipo", filters.tipo);
+  if (filters.categoria) params.set("categoria", filters.categoria);
+  return `/lancamentos?${params.toString()}`;
+}
+
 export function LancamentosClient({
   month,
+  filters,
   transactions,
   categories,
   goals,
@@ -161,6 +180,7 @@ export function LancamentosClient({
   totalActual,
 }: {
   month: string;
+  filters: Filters;
   transactions: Transaction[];
   categories: Category[];
   goals: Goal[];
@@ -184,7 +204,7 @@ export function LancamentosClient({
           <h1 className="font-sans font-bold text-2xl text-onbrand">Transações</h1>
           <div className="flex items-center gap-1">
             <Link
-              href={`/lancamentos?month=${shiftMonth(month, -1)}`}
+              href={buildLancamentosUrl(shiftMonth(month, -1), filters)}
               className="p-1.5 rounded-lg text-onbrand/55 hover:bg-white/5 hover:text-onbrand"
               aria-label="Mês anterior"
             >
@@ -194,7 +214,7 @@ export function LancamentosClient({
               {monthLabel}
             </span>
             <Link
-              href={`/lancamentos?month=${shiftMonth(month, 1)}`}
+              href={buildLancamentosUrl(shiftMonth(month, 1), filters)}
               className={cn(
                 "p-1.5 rounded-lg hover:bg-white/5",
                 isCurrentMonth ? "text-onbrand/20 pointer-events-none" : "text-onbrand/55 hover:text-onbrand"
@@ -234,7 +254,14 @@ export function LancamentosClient({
         </div>
 
         {tab === "transacoes" ? (
-          <TransactionsTab transactions={transactions} categories={categories} goals={goals} accounts={accounts} />
+          <TransactionsTab
+            month={month}
+            filters={filters}
+            transactions={transactions}
+            categories={categories}
+            goals={goals}
+            accounts={accounts}
+          />
         ) : (
           <BudgetTab budgets={budgets} />
         )}
@@ -272,143 +299,89 @@ function TabButton({
 // ---------------------------------------------------------------------------
 
 function TransactionsTab({
+  month,
+  filters,
   transactions,
   categories,
   goals,
   accounts,
 }: {
+  month: string;
+  filters: Filters;
   transactions: Transaction[];
   categories: Category[];
   goals: Goal[];
   accounts: Account[];
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [type, setType] = useState("EXPENSE");
-  const [state, formAction, pending] = useActionState<LancamentosFormState, FormData>(createTransactionAction, undefined);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [showMerge, setShowMerge] = useState(false);
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
 
-  useEffect(() => {
-    if (state?.success) setShowForm(false);
-  }, [state]);
+  const hasFilters = Boolean(filters.q || filters.conta || filters.tipo || filters.categoria);
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
-        <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+      <div className="flex justify-end gap-2 mb-4">
+        <Button variant="ghost" size="sm" onClick={() => setShowMerge(true)}>
+          <Merge className="h-4 w-4" /> Mesclar duplicadas
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditingTransaction(null);
+            setShowForm((v) => !v);
+          }}
+        >
           <Plus className="h-4 w-4" /> Nova transação
         </Button>
       </div>
 
+      <FilterBar month={month} filters={filters} accounts={accounts} categories={categories} />
+
       {showForm && (
         <Card className="mb-6">
           <CardContent className="pt-5">
-            <form action={formAction} className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="date">Data</Label>
-                <Input id="date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
-              </div>
-              <div>
-                <Label htmlFor="amount">Valor total (R$)</Label>
-                <Input id="amount" name="amount" type="number" step="0.01" min="0.01" placeholder="0,00" required />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Input id="description" name="description" placeholder="Ex: Mercado, Uber, Aluguel..." required />
-              </div>
-              <div>
-                <Label htmlFor="merchant">Estabelecimento (opcional)</Label>
-                <Input id="merchant" name="merchant" placeholder="Ex: Pão de Açúcar" />
-              </div>
-              <div>
-                <Label htmlFor="type">Tipo</Label>
-                <Select id="type" name="type" value={type} onChange={(e) => setType(e.target.value)}>
-                  <option value="EXPENSE">Saída (gasto)</option>
-                  <option value="INCOME">Entrada (receita)</option>
-                  <option value="INVESTMENT_CONTRIBUTION">Investimento / aporte</option>
-                </Select>
-              </div>
-              {type === "EXPENSE" && (
-                <div>
-                  <Label htmlFor="categoryId">Categoria</Label>
-                  <Select id="categoryId" name="categoryId" defaultValue="">
-                    <option value="">Deixar o Tobias categorizar</option>
-                    {expenseCategories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              )}
-              {type === "INVESTMENT_CONTRIBUTION" && (
-                <div>
-                  <Label htmlFor="goalId">Destino (opcional)</Label>
-                  <Select id="goalId" name="goalId" defaultValue="">
-                    <option value="">Não ligar a um objetivo</option>
-                    {goals.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.title}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              )}
-              <div>
-                <Label htmlFor="paymentMethod">Forma de pagamento</Label>
-                <Select id="paymentMethod" name="paymentMethod" defaultValue="">
-                  <option value="">Não informar</option>
-                  {Object.entries(PAYMENT_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="installmentTotal">Parcelas</Label>
-                <Input id="installmentTotal" name="installmentTotal" type="number" min="1" max="48" defaultValue="1" />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="bankAccountId">Conta (opcional)</Label>
-                <Select id="bankAccountId" name="bankAccountId" defaultValue="">
-                  <option value="">Não afetar nenhuma conta</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                      {a.bankName ? ` · ${a.bankName}` : ""}
-                    </option>
-                  ))}
-                </Select>
-                {accounts.length === 0 && (
-                  <p className="text-xs text-onbrand/45 mt-1">
-                    Nenhuma conta cadastrada ainda. Adicione uma em Conta para o saldo dela mudar sozinho aqui.
-                  </p>
-                )}
-              </div>
-              <div className="col-span-2">
-                <FieldError>{state?.error}</FieldError>
-                <div className="flex gap-2 mt-1">
-                  <Button type="submit" loading={pending}>
-                    Salvar transação
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            </form>
+            <NewTransactionForm
+              categories={expenseCategories}
+              goals={goals}
+              accounts={accounts}
+              onDone={() => setShowForm(false)}
+            />
           </CardContent>
         </Card>
       )}
 
+      {editingTransaction && (
+        <EditTransactionModal
+          transaction={editingTransaction}
+          categories={expenseCategories}
+          goals={goals}
+          accounts={accounts}
+          onClose={() => setEditingTransaction(null)}
+        />
+      )}
+
+      {showMerge && <MergeDuplicatesModal transactions={transactions} onClose={() => setShowMerge(false)} />}
+
       {transactions.length === 0 ? (
         <p className="text-onbrand/55 text-sm py-12 text-center">
-          Nenhuma transação registrada neste mês ainda. Adicione uma ou conte pro Tobias no chat.
+          {hasFilters
+            ? "Nenhuma transação encontrada com esses filtros neste mês."
+            : "Nenhuma transação registrada neste mês ainda. Adicione uma ou conte pro Tobias no chat."}
         </p>
       ) : (
         <ul className="space-y-2">
           {transactions.map((t) => (
-            <TransactionRow key={t.id} transaction={t} categories={expenseCategories} />
+            <TransactionRow
+              key={t.id}
+              transaction={t}
+              categories={expenseCategories}
+              onEdit={() => {
+                setShowForm(false);
+                setEditingTransaction(t);
+              }}
+            />
           ))}
         </ul>
       )}
@@ -416,7 +389,453 @@ function TransactionsTab({
   );
 }
 
-function TransactionRow({ transaction, categories }: { transaction: Transaction; categories: Category[] }) {
+// ---------------------------------------------------------------------------
+// Busca + filtros — recarrega a lista via URL (server-side), não filtra no
+// navegador, pra sempre bater com o que uma nova consulta traria.
+// ---------------------------------------------------------------------------
+
+function FilterBar({
+  month,
+  filters,
+  accounts,
+  categories,
+}: {
+  month: string;
+  filters: Filters;
+  accounts: Account[];
+  categories: Category[];
+}) {
+  const router = useRouter();
+
+  function go(next: Partial<Filters>) {
+    router.push(buildLancamentosUrl(month, { ...filters, ...next }));
+  }
+
+  function commitSearch(value: string) {
+    if (value !== filters.q) go({ q: value });
+  }
+
+  return (
+    <Card className="mb-3">
+      <CardContent className="py-4 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-onbrand/40 pointer-events-none" />
+          {/* Não-controlado (defaultValue), remontado via `key` quando o
+              filtro muda por fora (navegação de mês, por exemplo) — evita
+              precisar de um useEffect só pra sincronizar estado derivado de
+              props, que o React recomenda evitar. */}
+          <Input
+            key={filters.q}
+            className="pl-9"
+            placeholder="Buscar por descrição ou estabelecimento..."
+            defaultValue={filters.q}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitSearch(e.currentTarget.value);
+            }}
+            onBlur={(e) => commitSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Select
+            className="w-auto min-w-[140px]"
+            value={filters.conta}
+            onChange={(e) => go({ conta: e.target.value })}
+          >
+            <option value="">Conta: Todas</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+          <Select className="w-auto min-w-[140px]" value={filters.tipo} onChange={(e) => go({ tipo: e.target.value })}>
+            <option value="">Tipo: Todos</option>
+            {Object.entries(TYPE_META).map(([value, meta]) => (
+              <option key={value} value={value}>
+                {meta.label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            className="w-auto min-w-[140px]"
+            value={filters.categoria}
+            onChange={(e) => go({ categoria: e.target.value })}
+          >
+            <option value="">Categoria: Todas</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Formulário de transação — campos compartilhados entre "Nova transação" e a
+// edição pela linha. A edição não mostra "Parcelas": ela muda a linha que já
+// existe, nunca a recria como um grupo parcelado novo.
+// ---------------------------------------------------------------------------
+
+function TransactionFields({
+  type,
+  setType,
+  categories,
+  goals,
+  accounts,
+  defaults,
+  showInstallments,
+}: {
+  type: string;
+  setType: (t: string) => void;
+  categories: Category[];
+  goals: Goal[];
+  accounts: Account[];
+  defaults?: Partial<Transaction>;
+  showInstallments: boolean;
+}) {
+  return (
+    <>
+      <div>
+        <Label htmlFor="date">Data</Label>
+        <Input
+          id="date"
+          name="date"
+          type="date"
+          defaultValue={defaults?.date ? defaults.date.slice(0, 10) : new Date().toISOString().slice(0, 10)}
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="amount">{showInstallments ? "Valor total (R$)" : "Valor (R$)"}</Label>
+        <Input
+          id="amount"
+          name="amount"
+          type="number"
+          step="0.01"
+          min="0.01"
+          placeholder="0,00"
+          defaultValue={defaults?.amount ?? undefined}
+          required
+        />
+      </div>
+      <div className="col-span-2">
+        <Label htmlFor="description">Descrição</Label>
+        <Input
+          id="description"
+          name="description"
+          placeholder="Ex: Mercado, Uber, Aluguel..."
+          defaultValue={defaults?.description ?? undefined}
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="merchant">Estabelecimento (opcional)</Label>
+        <Input id="merchant" name="merchant" placeholder="Ex: Pão de Açúcar" defaultValue={defaults?.merchant ?? undefined} />
+      </div>
+      <div>
+        <Label htmlFor="type">Tipo</Label>
+        <Select id="type" name="type" value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="EXPENSE">Saída (gasto)</option>
+          <option value="INCOME">Entrada (receita)</option>
+          <option value="INVESTMENT_CONTRIBUTION">Investimento / aporte</option>
+        </Select>
+      </div>
+      {type === "EXPENSE" && (
+        <div>
+          <Label htmlFor="categoryId">Categoria</Label>
+          <Select id="categoryId" name="categoryId" defaultValue={defaults?.categoryId ?? ""}>
+            <option value="">Deixar o Tobias categorizar</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+      {type === "INVESTMENT_CONTRIBUTION" && (
+        <div>
+          <Label htmlFor="goalId">Destino (opcional)</Label>
+          <Select id="goalId" name="goalId" defaultValue={defaults?.goalId ?? ""}>
+            <option value="">Não ligar a um objetivo</option>
+            {goals.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.title}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+      <div>
+        <Label htmlFor="paymentMethod">Forma de pagamento</Label>
+        <Select id="paymentMethod" name="paymentMethod" defaultValue={defaults?.paymentMethod ?? ""}>
+          <option value="">Não informar</option>
+          {Object.entries(PAYMENT_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      {showInstallments && (
+        <div>
+          <Label htmlFor="installmentTotal">Parcelas</Label>
+          <Input id="installmentTotal" name="installmentTotal" type="number" min="1" max="48" defaultValue="1" />
+        </div>
+      )}
+      <div className={showInstallments ? "col-span-2" : ""}>
+        <Label htmlFor="bankAccountId">Conta (opcional)</Label>
+        <Select id="bankAccountId" name="bankAccountId" defaultValue={defaults?.bankAccountId ?? ""}>
+          <option value="">Não afetar nenhuma conta</option>
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+              {a.bankName ? ` · ${a.bankName}` : ""}
+            </option>
+          ))}
+        </Select>
+        {accounts.length === 0 && (
+          <p className="text-xs text-onbrand/45 mt-1">
+            Nenhuma conta cadastrada ainda. Adicione uma em Conta para o saldo dela mudar sozinho aqui.
+          </p>
+        )}
+      </div>
+    </>
+  );
+}
+
+function NewTransactionForm({
+  categories,
+  goals,
+  accounts,
+  onDone,
+}: {
+  categories: Category[];
+  goals: Goal[];
+  accounts: Account[];
+  onDone: () => void;
+}) {
+  const [type, setType] = useState("EXPENSE");
+  const [state, formAction, pending] = useActionState<LancamentosFormState, FormData>(createTransactionAction, undefined);
+
+  useEffect(() => {
+    if (state?.success) onDone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  return (
+    <form action={formAction} className="grid grid-cols-2 gap-4">
+      <TransactionFields
+        type={type}
+        setType={setType}
+        categories={categories}
+        goals={goals}
+        accounts={accounts}
+        showInstallments
+      />
+      <div className="col-span-2">
+        <FieldError>{state?.error}</FieldError>
+        <div className="flex gap-2 mt-1">
+          <Button type="submit" loading={pending}>
+            Salvar transação
+          </Button>
+          <Button type="button" variant="ghost" onClick={onDone}>
+            Cancelar
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function EditTransactionModal({
+  transaction,
+  categories,
+  goals,
+  accounts,
+  onClose,
+}: {
+  transaction: Transaction;
+  categories: Category[];
+  goals: Goal[];
+  accounts: Account[];
+  onClose: () => void;
+}) {
+  const [type, setType] = useState(transaction.type);
+  const [state, formAction, pending] = useActionState<LancamentosFormState, FormData>(updateTransactionAction, undefined);
+
+  useEffect(() => {
+    if (state?.success) onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  return (
+    <div
+      className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-10"
+      onClick={onClose}
+    >
+      <Card className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <CardContent className="pt-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-sans font-semibold text-lg text-onbrand">Editar transação</h3>
+            <button className="text-onbrand/40 hover:text-onbrand/70" onClick={onClose} aria-label="Fechar">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <form action={formAction} className="grid grid-cols-2 gap-4">
+            <input type="hidden" name="id" value={transaction.id} />
+            <TransactionFields
+              type={type}
+              setType={setType}
+              categories={categories}
+              goals={goals}
+              accounts={accounts}
+              defaults={transaction}
+              showInstallments={false}
+            />
+            <div className="col-span-2">
+              <FieldError>{state?.error}</FieldError>
+              <div className="flex gap-2 mt-1">
+                <Button type="submit" loading={pending}>
+                  Salvar alterações
+                </Button>
+                <Button type="button" variant="ghost" onClick={onClose}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Mesclar duplicadas — checa o mês visível (mesma data, valor e descrição
+// parecida) e deixa você decidir manter ou descartar cada suspeita, em vez de
+// apagar automaticamente (o Tobias pode estar errado).
+// ---------------------------------------------------------------------------
+
+function normalizeForCompare(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function findDuplicateGroups(transactions: Transaction[]): Transaction[][] {
+  const groups: Transaction[][] = [];
+  const used = new Set<string>();
+
+  for (let i = 0; i < transactions.length; i++) {
+    if (used.has(transactions[i].id)) continue;
+    const group = [transactions[i]];
+    const dayA = transactions[i].date.slice(0, 10);
+    const descA = normalizeForCompare(transactions[i].description);
+
+    for (let j = i + 1; j < transactions.length; j++) {
+      if (used.has(transactions[j].id)) continue;
+      const sameDay = transactions[j].date.slice(0, 10) === dayA;
+      const sameAmount = transactions[j].amount === transactions[i].amount;
+      const sameType = transactions[j].type === transactions[i].type;
+      const similarDesc = normalizeForCompare(transactions[j].description) === descA;
+      if (sameDay && sameAmount && sameType && similarDesc) {
+        group.push(transactions[j]);
+        used.add(transactions[j].id);
+      }
+    }
+
+    if (group.length > 1) {
+      groups.push(group);
+      used.add(transactions[i].id);
+    }
+  }
+
+  return groups;
+}
+
+function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transaction[]; onClose: () => void }) {
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [pending, startTransition] = useTransition();
+  const groups = useMemo(
+    () => findDuplicateGroups(transactions).filter((g) => !dismissed.has(g[0].id)),
+    [transactions, dismissed]
+  );
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-10" onClick={onClose}>
+      <Card className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <CardContent className="pt-5">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-sans font-semibold text-lg text-onbrand">Mesclar duplicadas</h3>
+            <button className="text-onbrand/40 hover:text-onbrand/70" onClick={onClose} aria-label="Fechar">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <p className="text-xs text-onbrand/55 mb-4">
+            Mesma data, valor e descrição parecida no mês visível — confira antes de excluir, o Tobias pode estar
+            errado.
+          </p>
+
+          {groups.length === 0 ? (
+            <p className="text-sm text-onbrand/55 py-8 text-center">Nenhuma duplicata encontrada neste mês. 🎉</p>
+          ) : (
+            <div className="space-y-4">
+              {groups.map((group) => (
+                <div key={group[0].id} className="rounded-xl border border-white/10 p-3">
+                  <div className="space-y-2 mb-2">
+                    {group.map((t) => (
+                      <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="text-onbrand truncate">{t.description}</p>
+                          <p className="text-xs text-onbrand/50">
+                            {new Date(t.date).toLocaleDateString("pt-BR")} · {formatBRL(t.amount)}
+                            {t.merchant ? ` · ${t.merchant}` : ""}
+                          </p>
+                        </div>
+                        <button
+                          className="text-onbrand/40 hover:text-danger-300 shrink-0"
+                          title="Excluir esta"
+                          disabled={pending}
+                          onClick={() => startTransition(() => deleteTransactionAction(t.id))}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDismissed((prev) => new Set(prev).add(group[0].id))}
+                  >
+                    Manter as duas
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function TransactionRow({
+  transaction,
+  categories,
+  onEdit,
+}: {
+  transaction: Transaction;
+  categories: Category[];
+  onEdit: () => void;
+}) {
   const [pending, startTransition] = useTransition();
   const lowConfidence = transaction.categoryId && transaction.confidence < 0.7;
   const meta = TYPE_META[transaction.type] ?? TYPE_META.EXPENSE;
@@ -429,7 +848,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
 
   return (
     <li>
-      <Card>
+      <Card className="cursor-pointer hover:bg-white/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
         {/* 5-track grid: icon | main (1fr) | bank chip (auto) | empty spacer
             (1fr) | right cluster (fixed width). The two 1fr tracks stay equal
             to each other no matter how long the description gets, so the
@@ -472,7 +891,7 @@ function TransactionRow({ transaction, categories }: { transaction: Transaction;
             </Badge>
           )}
 
-          <div className="col-start-5 flex items-center gap-3 justify-self-end">
+          <div className="col-start-5 flex items-center gap-3 justify-self-end" onClick={(e) => e.stopPropagation()}>
             {transaction.type === "EXPENSE" && (
               <select
                 className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[130px]"
