@@ -934,17 +934,20 @@ function TransactionRow({
   return (
     <li>
       <Card className="cursor-pointer hover:bg-white/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
-        {/* 4-track grid: icon | main (1fr) | selo do banco + categoria juntos
-            (auto) | valor + excluir (largura FIXA). O valor precisa de
-            largura fixa nessa última coluna — cada linha é um grid
-            independente, então se essa coluna também fosse "auto" (como a
-            anterior tentou), a largura dela varia com o número de dígitos do
-            valor e a coluna de valores fica torta, sem alinhar entre as
-            linhas (foi exatamente isso que ficou pior). Com largura fixa
-            aqui, a coluna 1fr (descrição) absorve a diferença e o valor
-            sempre começa no mesmo x, não importa a largura do selo+seletor
-            no meio. */}
-        <CardContent className="py-3.5 grid grid-cols-[20px_1fr_auto_112px] items-center gap-x-3">
+        {/* Voltou a ser o layout original de 5 colunas (icon | main 1fr |
+            selo do banco auto | espaçador 1fr | cluster direito largura
+            FIXA) — as duas tentativas de "aproximar categoria do banco"
+            (juntar os dois numa coluna "auto") pioraram duas coisas ao
+            mesmo tempo: sem largura fixa em NENHUMA coluna variável, o
+            valor ficava torto entre as linhas; e com o botão "sempre"
+            somado à seleça, a coluna do meio ficava larga demais e
+            espremia a descrição, cortando ela cedo demais. Largura fixa é
+            o que garante alinhamento entre linhas que são grids
+            independentes — por isso o cluster direito (agora com seletor +
+            botão "sempre" + valor + excluir, mais cheio que antes) preto no
+            branco continua sendo a única forma confiável de manter tudo no
+            lugar; só aumentei a largura fixa dele pra caber o botão novo. */}
+        <CardContent className="py-3.5 grid grid-cols-[20px_1fr_auto_1fr_300px] items-center gap-x-3">
           <Icon className={`col-start-1 h-5 w-5 shrink-0 ${meta.amountClass}`} aria-hidden />
 
           <div className="col-start-2 min-w-0">
@@ -969,9 +972,9 @@ function TransactionRow({
             </p>
           </div>
 
-          <div className="col-start-3 flex items-center gap-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-            {transaction.bankAccountName &&
-              (transaction.bankAccountBankName ? (
+          {transaction.bankAccountName && (
+            <div className="col-start-3 justify-self-center flex items-center gap-1.5 whitespace-nowrap">
+              {transaction.bankAccountBankName ? (
                 <>
                   <BankBadge bankName={transaction.bankAccountBankName} />
                   <span className="text-xs font-medium text-onbrand/75">{transaction.bankAccountBankName}</span>
@@ -980,12 +983,15 @@ function TransactionRow({
                 <Badge tone="neutral" className="whitespace-nowrap">
                   {transaction.bankAccountName}
                 </Badge>
-              ))}
+              )}
+            </div>
+          )}
 
+          <div className="col-start-5 flex items-center gap-2 justify-self-end" onClick={(e) => e.stopPropagation()}>
             {transaction.type === "EXPENSE" && (
               <>
                 <select
-                  className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[130px]"
+                  className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 max-w-[120px]"
                   value={categoryId}
                   disabled={pending}
                   onChange={(e) => {
@@ -1022,17 +1028,15 @@ function TransactionRow({
                 </button>
               </>
             )}
-          </div>
 
-          <div className="col-start-4 flex items-center gap-3 justify-self-end" onClick={(e) => e.stopPropagation()}>
-            <span className={`font-medium tabular-nums ${meta.amountClass}`}>
+            <span className={`font-medium tabular-nums shrink-0 ${meta.amountClass}`}>
               {meta.sign}
               {formatBRL(transaction.amount)}
             </span>
 
             <button
               aria-label="Excluir"
-              className="text-onbrand/35 hover:text-danger-300 transition-colors"
+              className="text-onbrand/35 hover:text-danger-300 transition-colors shrink-0"
               onClick={() => startTransition(() => deleteTransactionAction(transaction.id))}
             >
               <Trash2 className="h-4 w-4" />
@@ -1041,7 +1045,7 @@ function TransactionRow({
 
           {showRule && (
             <div
-              className="col-start-2 col-span-3 flex items-center gap-2 mt-2.5 pt-2.5 border-t border-white/10"
+              className="col-start-2 col-span-4 flex items-center gap-2 mt-2.5 pt-2.5 border-t border-white/10"
               onClick={(e) => e.stopPropagation()}
             >
               <input
