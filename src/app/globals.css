@@ -199,6 +199,104 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
+/* Tobias mascot — a big, "alive" avatar that leans into a hero card from
+   its top-right corner, breathing continuously so it reads as company
+   rather than static art, and reacting on hover/focus with a stronger
+   pulse plus a short mood line. The ring color is a fixed semantic color
+   (ok/warn), not a brand-* token, matching the "always the same accent"
+   rule for status colors. Colors used inside (brand-700, onbrand) ARE
+   theme tokens, so the bubble stays legible in both light and dark. */
+.tobias-mascot {
+  position: absolute;
+  top: -22px;
+  right: 18px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+.tobias-mascot-ring {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: tobias-breathe 3.2s ease-in-out infinite;
+}
+.tobias-mascot-ring img {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  object-fit: cover;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.tobias-mascot-mood-ok {
+  box-shadow: 0 0 0 3px rgba(94, 203, 184, 0.5), 0 0 22px 4px rgba(94, 203, 184, 0.35);
+}
+.tobias-mascot-mood-warn {
+  box-shadow: 0 0 0 3px rgba(240, 153, 47, 0.55), 0 0 22px 4px rgba(240, 153, 47, 0.4);
+}
+.tobias-mascot:hover .tobias-mascot-ring,
+.tobias-mascot:focus-visible .tobias-mascot-ring {
+  animation: tobias-pulse-big 0.9s ease-in-out infinite;
+}
+.tobias-mascot:hover .tobias-mascot-ring img,
+.tobias-mascot:focus-visible .tobias-mascot-ring img {
+  transform: scale(1.08);
+}
+.tobias-mascot-bubble {
+  position: absolute;
+  top: 78px;
+  right: 0;
+  background: var(--color-brand-700);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--color-onbrand);
+  opacity: 0;
+  transform: translateY(-6px) scale(0.94);
+  pointer-events: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.6);
+}
+.tobias-mascot:hover .tobias-mascot-bubble,
+.tobias-mascot:focus-visible .tobias-mascot-bubble {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+/* Softer, no-ring breathing loop for the mascot sitting inline in the
+   Tobias message bubble (not floating, so no mood ring makes sense there). */
+.tobias-mascot-soft {
+  animation: tobias-breathe-soft 3.6s ease-in-out infinite;
+  box-shadow: 0 0 0 3px rgba(240, 153, 47, 0.4), 0 0 18px 3px rgba(240, 153, 47, 0.28);
+  border-radius: 999px;
+}
+
+@keyframes tobias-breathe {
+  0%, 100% { transform: scale(0.92) rotate(-1.5deg); }
+  50% { transform: scale(1.12) rotate(1.5deg); }
+}
+@keyframes tobias-pulse-big {
+  0%, 100% { transform: scale(1.1); }
+  50% { transform: scale(1.28); }
+}
+@keyframes tobias-breathe-soft {
+  0%, 100% { transform: scale(0.96); }
+  50% { transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tobias-mascot-ring,
+  .tobias-mascot-soft {
+    animation: none;
+  }
+}
+
 /* Minimal, calm scrollbars — the product should feel quiet, not busy. */
 ::-webkit-scrollbar {
   width: 10px;

@@ -1,16 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Camera, MessageCircle } from "lucide-react";
+import { AlertTriangle, ArrowRight } from "lucide-react";
 import { requireOnboardedUser } from "@/lib/auth/guards";
 import { getDashboardData } from "@/services/dashboard";
 import { runBehaviorChecks } from "@/services/insights";
 import type { CompassDimensionResult } from "@/services/compass";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { formatBRL } from "@/lib/utils/money";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 import { CompassDial } from "@/components/dashboard/CompassDial";
+import { TobiasMascot } from "@/components/dashboard/TobiasMascot";
 
 const DARK_CARD = "bg-brand-800 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)]";
 const CHIP_DOT_TONE: Record<CompassDimensionResult["status"], string> = {
@@ -37,24 +37,23 @@ export default async function DashboardPage() {
         )
       : [];
 
+  // Drives the mood ring/message on each hero card's Tobias mascot — same
+  // status classification the compass already uses elsewhere on this page.
+  const compassMood: "ok" | "warn" =
+    data.healthStatus === "Excelente" || data.healthStatus === "Saudável" ? "ok" : "warn";
+  const compassMoodMessage =
+    compassMood === "ok" ? "Seu Ponteiro está indo bem!" : "Em construção, vamos evoluir juntos";
+  const retirementMood: "ok" | "warn" = data.retirementPreview?.base.onTrack ? "ok" : "warn";
+  const retirementMoodMessage = !data.retirementPreview
+    ? "Vamos montar seu plano juntos"
+    : data.retirementPreview.base.onTrack
+      ? "No alvo! Continue assim"
+      : "Vamos ajustar o plano juntos";
+
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6 space-y-6">
       <div className="max-w-5xl mx-auto w-full space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
-          <div className="flex gap-2">
-            <Link href="/receipts/new">
-              <Button variant="outline" size="sm" className="border-brand-700 text-onbrand hover:bg-white/5">
-                <Camera className="h-4 w-4" /> Fotografar nota
-              </Button>
-            </Link>
-            <Link href="/chat">
-              <Button size="sm" variant="secondary">
-                <MessageCircle className="h-4 w-4" /> Falar com o Tobias
-              </Button>
-            </Link>
-          </div>
-        </div>
+        <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard label="Seu patrimônio" value={formatBRL(data.netWorth.netWorth)} />
@@ -89,23 +88,16 @@ export default async function DashboardPage() {
 
         {/* Hero: Bússola + curva de aposentadoria + o Tobias, unificados e logo de cara. */}
         <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-4">
-          <Card className={DARK_CARD}>
+          <Card className={`${DARK_CARD} relative`}>
+            <TobiasMascot
+              src="/avatars/tobias-bussola-financeira.png"
+              mood={compassMood}
+              message={compassMoodMessage}
+            />
             <CardContent className="py-5">
-              <div className="flex items-center justify-between mb-1 gap-2.5">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Image
-                    src="/avatars/tobias-bussola-financeira.png"
-                    alt="Tobias"
-                    width={34}
-                    height={34}
-                    className="rounded-full shrink-0 shadow-[0_0_0_2px_rgba(240,153,47,0.35)]"
-                  />
-                  <h2 className="font-display font-semibold text-lg text-onbrand truncate">Seu Ponteiro</h2>
-                </div>
-                <Link
-                  href="/compass"
-                  className="text-xs text-gold-400 hover:underline flex items-center gap-1 shrink-0"
-                >
+              <div className="flex items-baseline gap-2.5 mb-1">
+                <h2 className="font-display font-semibold text-lg text-onbrand">Seu Ponteiro</h2>
+                <Link href="/compass" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                   Ver tudo <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
@@ -138,23 +130,16 @@ export default async function DashboardPage() {
           </Card>
 
           <div className="space-y-4">
-            <Card className={DARK_CARD}>
+            <Card className={`${DARK_CARD} relative`}>
+              <TobiasMascot
+                src="/avatars/tobias-curva-aposentadoria.png"
+                mood={retirementMood}
+                message={retirementMoodMessage}
+              />
               <CardContent className="py-5">
-                <div className="flex items-center justify-between mb-1 gap-2.5">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Image
-                      src="/avatars/tobias-curva-aposentadoria.png"
-                      alt="Tobias"
-                      width={34}
-                      height={34}
-                      className="rounded-full shrink-0 shadow-[0_0_0_2px_rgba(240,153,47,0.35)]"
-                    />
-                    <h2 className="font-display font-semibold text-lg text-onbrand truncate">Curva de aposentadoria</h2>
-                  </div>
-                  <Link
-                    href="/retirement"
-                    className="text-xs text-gold-400 hover:underline flex items-center gap-1 shrink-0"
-                  >
+                <div className="flex items-baseline gap-2.5 mb-1">
+                  <h2 className="font-display font-semibold text-lg text-onbrand">Curva de aposentadoria</h2>
+                  <Link href="/retirement" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                     Simular <ArrowRight className="h-3 w-3" />
                   </Link>
                 </div>
@@ -192,7 +177,7 @@ export default async function DashboardPage() {
                     alt="Tobias"
                     width={38}
                     height={38}
-                    className="rounded-full shrink-0 shadow-[0_0_0_2px_rgba(240,153,47,0.35)]"
+                    className="tobias-mascot-soft shrink-0"
                   />
                   <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400 mb-1">Tobias</p>

@@ -51,8 +51,8 @@ export function AppShell({
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:w-60 md:flex-col bg-brand-950 px-4 py-6">
         <Link href="/dashboard" className="flex items-center gap-2.5 px-2 mb-8">
-          <Image src="/logo-transparent.png" alt="Tobias" width={28} height={28} />
-          <span className="font-display text-lg text-onbrand">Tobias</span>
+          <Image src="/logo-transparent.png" alt="Tobias" width={40} height={40} />
+          <span className="font-display text-xl text-onbrand">Tobias</span>
         </Link>
         <nav className="flex flex-col gap-1 flex-1">
           {NAV_ITEMS.map((item) => {
@@ -79,8 +79,8 @@ export function AppShell({
       {/* Mobile header */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 bg-brand-950 sticky top-0 z-10">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <Image src="/logo-transparent.png" alt="Tobias" width={24} height={24} />
-          <span className="font-display text-base text-onbrand">Tobias</span>
+          <Image src="/logo-transparent.png" alt="Tobias" width={32} height={32} />
+          <span className="font-display text-lg text-onbrand">Tobias</span>
         </Link>
         <div className="flex items-center gap-2">
           <TrialBadge user={user} compact />
