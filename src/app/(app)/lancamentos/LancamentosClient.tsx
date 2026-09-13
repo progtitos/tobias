@@ -90,6 +90,9 @@ type Transaction = {
   bankAccountId: string | null;
   bankAccountName: string | null;
   bankAccountBankName: string | null;
+  creditCardId: string | null;
+  creditCardNickname: string | null;
+  cardBankName: string | null;
 };
 type BudgetRow = {
   id: string;
@@ -996,14 +999,14 @@ function TransactionRow({
             </div>
           </div>
 
-          {(transaction.bankAccountName || transaction.type === "EXPENSE") && (
+          {(transaction.bankAccountName || transaction.creditCardId || transaction.type === "EXPENSE") && (
             <div className="flex items-center gap-2 mt-2.5 pl-8" onClick={(e) => e.stopPropagation()}>
               {/* Banco + categoria juntos num "chip" destacado — os dois lidos
                   como um bloco só (de onde veio, pra onde foi), em vez de
                   duas informações soltas na linha. */}
               <div className="flex items-center gap-2 rounded-lg bg-white/[0.06] pl-1.5 pr-2 py-1">
-                {transaction.bankAccountName &&
-                  (transaction.bankAccountBankName ? (
+                {transaction.bankAccountName ? (
+                  transaction.bankAccountBankName ? (
                     <>
                       <BankBadge bankName={transaction.bankAccountBankName} />
                       <span className="text-xs font-medium text-onbrand/75 whitespace-nowrap">
@@ -1014,13 +1017,42 @@ function TransactionRow({
                     <Badge tone="neutral" className="whitespace-nowrap">
                       {transaction.bankAccountName}
                     </Badge>
-                  ))}
+                  )
+                ) : (
+                  transaction.creditCardId && (
+                    // Fatura de cartão: a transação não tem bankAccountId
+                    // direto (transactions.creditCardId é o vínculo aqui) —
+                    // mostra o banco da conta que paga essa fatura, quando o
+                    // cartão está ligado a uma (creditCards.bankAccountId),
+                    // senão só o apelido do cartão. O ícone de cartão logo
+                    // abaixo é quem sinaliza "foi no crédito", não este selo.
+                    (transaction.cardBankName ? (
+                      <>
+                        <BankBadge bankName={transaction.cardBankName} />
+                        <span className="text-xs font-medium text-onbrand/75 whitespace-nowrap">
+                          {transaction.cardBankName}
+                        </span>
+                      </>
+                    ) : (
+                      <Badge tone="neutral" className="whitespace-nowrap">
+                        {transaction.creditCardNickname}
+                      </Badge>
+                    ))
+                  )
+                )}
+
+                {(transaction.creditCardId || transaction.paymentMethod === "CREDIT_CARD") && (
+                  <CreditCard
+                    className="h-3 w-3 text-onbrand/50 shrink-0"
+                    aria-label="Pago no cartão de crédito"
+                  />
+                )}
 
                 {transaction.type === "EXPENSE" && (
                   <select
                     className={cn(
                       "text-xs rounded-lg border border-transparent bg-brand-900 text-onbrand px-2 py-1 max-w-[140px]",
-                      transaction.bankAccountName && "ml-1"
+                      (transaction.bankAccountName || transaction.creditCardId) && "ml-1"
                     )}
                     value={categoryId}
                     disabled={pending}

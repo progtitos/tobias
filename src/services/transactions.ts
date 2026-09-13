@@ -1,8 +1,9 @@
 import "server-only";
 import { createId } from "@paralleldrive/cuid2";
 import { and, eq, gte, lte, desc, ilike, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db/client";
-import { transactions, categories, goals, bankAccounts } from "@/lib/db/schema";
+import { transactions, categories, goals, bankAccounts, creditCards } from "@/lib/db/schema";
 import type { CreateTransactionInput } from "@/lib/validations/transaction";
 import { suggestCategory, learnMerchantCategory } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
@@ -216,6 +217,15 @@ export async function listTransactions(
     if (searchCondition) conditions.push(searchCondition);
   }
 
+  // Uma transação importada de FATURA de cartão (confirmStatementImport)
+  // grava creditCardId, não bankAccountId — o join direto em bankAccounts
+  // acima não acha nada pra ela. Pra ainda mostrar um selo de banco nesses
+  // casos (ex: fatura do cartão Nubank), busca o cartão e, através dele, a
+  // conta que paga essa fatura (creditCards.bankAccountId) — precisa de um
+  // segundo alias de bankAccounts porque a tabela já está joinada acima pro
+  // caminho direto (transação de conta).
+  const cardBankAccounts = alias(bankAccounts, "card_bank_accounts");
+
   return db
     .select({
       id: transactions.id,
@@ -240,11 +250,20 @@ export async function listTransactions(
       // pra conta (ex: "Principal") — é o banco que decide a cor/logo do
       // selo na linha, o nome da conta continua só como texto.
       bankAccountBankName: bankAccounts.bankName,
+      creditCardId: transactions.creditCardId,
+      creditCardNickname: creditCards.nickname,
+      // Nome do banco da conta que paga a fatura deste cartão (pode ser
+      // null se o cartão nunca foi ligado a uma conta) — usado só pra
+      // decidir o selo/logo quando a transação veio de uma fatura, nunca
+      // pro texto "conta" em si (esse continua sendo creditCardNickname).
+      cardBankName: cardBankAccounts.bankName,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .leftJoin(goals, eq(transactions.goalId, goals.id))
     .leftJoin(bankAccounts, eq(transactions.bankAccountId, bankAccounts.id))
+    .leftJoin(creditCards, eq(transactions.creditCardId, creditCards.id))
+    .leftJoin(cardBankAccounts, eq(creditCards.bankAccountId, cardBankAccounts.id))
     .where(and(...conditions))
     // Desempate por createdAt: várias transações no mesmo dia (comum numa
     // importação de extrato, onde todas ficam com a mesma data sem hora)
