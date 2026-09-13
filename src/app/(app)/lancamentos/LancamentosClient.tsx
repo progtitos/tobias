@@ -1001,7 +1001,7 @@ function TransactionRow({
               {/* Banco + categoria juntos num "chip" destacado — os dois lidos
                   como um bloco só (de onde veio, pra onde foi), em vez de
                   duas informações soltas na linha. */}
-              <div className="flex items-center gap-2 rounded-lg bg-white/[0.04] border border-white/10 pl-1.5 pr-2 py-1">
+              <div className="flex items-center gap-2 rounded-lg bg-white/[0.06] pl-1.5 pr-2 py-1">
                 {transaction.bankAccountName &&
                   (transaction.bankAccountBankName ? (
                     <>
@@ -1019,7 +1019,7 @@ function TransactionRow({
                 {transaction.type === "EXPENSE" && (
                   <select
                     className={cn(
-                      "text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1 max-w-[140px]",
+                      "text-xs rounded-lg border border-transparent bg-brand-900 text-onbrand px-2 py-1 max-w-[140px]",
                       transaction.bankAccountName && "ml-1"
                     )}
                     value={categoryId}
@@ -1071,7 +1071,7 @@ function TransactionRow({
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder='Trecho que se repete, ex: "quinto andar"'
-                className="text-xs rounded-lg border border-black/20 bg-brand-900 text-onbrand px-2 py-1.5 flex-1 min-w-0"
+                className="text-xs rounded-lg border border-transparent bg-brand-900 text-onbrand px-2 py-1.5 flex-1 min-w-0"
               />
               <button
                 className="text-ok-400 disabled:opacity-40 shrink-0"
