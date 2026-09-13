@@ -14,6 +14,7 @@ import {
   ArrowRight,
   ChevronDown,
   Upload,
+  CreditCard as CreditCardIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
@@ -273,9 +274,16 @@ function NewAccountForm({
 // Card de conta — maior e clicável: colapsado mostra o resumo (banco, nome,
 // tipo, saldo, quantos cartões estão ligados); aberto revela as ações
 // (atualizar saldo, pausar, excluir), os cartões de crédito vinculados (cada
-// um clicável pra importar a fatura) e os dois gatilhos de importação —
-// "Importar extrato" (da própria conta) e "+ Cartão de crédito" (cria um
-// cartão novo já ligado a essa conta).
+// um clicável só pra excluir — importar sobe pra cá) e os dois gatilhos: um
+// upload único (extrato da conta OU fatura de qualquer cartão dela, ver
+// ImportUploadPanel) e "+ Cartão de crédito" (cadastra um cartão novo).
+//
+// Antes existiam DOIS lugares pra subir arquivo (botão aqui + um escondido
+// dentro de cada cartão), visualmente idênticos e em profundidades
+// diferentes da árvore — já causou uma fatura de cartão entrar como extrato
+// de conta na prática (distorceu o saldo). Um botão só, com o destino
+// escolhido explicitamente dentro do próprio formulário, elimina essa classe
+// de erro em vez de só mitigar com rótulo melhor.
 // ---------------------------------------------------------------------------
 
 function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCard[] }) {
@@ -283,7 +291,7 @@ function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCa
   const [pending, startTransition] = useTransition();
   const [editingBalance, setEditingBalance] = useState(false);
   const [balanceInput, setBalanceInput] = useState(account.balance);
-  const [panel, setPanel] = useState<"extrato" | "cartao" | null>(null);
+  const [panel, setPanel] = useState<"upload" | "cartao" | null>(null);
 
   return (
     <Card className={cn(open && "ring-1 ring-gold-400/25")}>
@@ -359,7 +367,13 @@ function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCa
             <button
               className="flex items-center gap-1.5 text-onbrand/50 hover:text-danger-300"
               disabled={pending}
-              onClick={() => startTransition(() => deleteBankAccountAction(account.id))}
+              onClick={() => {
+                // Excluir sem confirmação nenhuma já causou um acidente real
+                // (o "Excluir cartão" logo abaixo, que tinha o mesmo
+                // problema) — conta é ainda mais grave de apagar sem querer.
+                if (!window.confirm(`Excluir a conta "${account.name}"? Isso não pode ser desfeito.`)) return;
+                startTransition(() => deleteBankAccountAction(account.id));
+              }}
             >
               <Trash2 className="h-3.5 w-3.5" /> Excluir conta
             </button>
@@ -374,26 +388,16 @@ function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCa
           )}
 
           <div className="flex flex-wrap gap-2 pt-3">
-            <Button size="sm" variant="outline" onClick={() => setPanel(panel === "extrato" ? null : "extrato")}>
-              {/* "da conta" explícito no rótulo — sem isso é fácil confundir
-                  com o botão "Fatura" de dentro de cada cartão (ver
-                  CreditCardTile) e acabar subindo a fatura do cartão aqui,
-                  o que faz a compra virar um débito direto na conta em vez
-                  de uma compra no crédito (aconteceu na prática). */}
-              <Upload className="h-3.5 w-3.5" /> Importar extrato da conta
+            <Button size="sm" variant="outline" onClick={() => setPanel(panel === "upload" ? null : "upload")}>
+              <Upload className="h-3.5 w-3.5" /> Importar extrato ou fatura
             </Button>
             <Button size="sm" variant="outline" onClick={() => setPanel(panel === "cartao" ? null : "cartao")}>
               <Plus className="h-3.5 w-3.5" /> Cartão de crédito
             </Button>
           </div>
 
-          {panel === "extrato" && (
-            <ImportUploadForm
-              target={{ bankAccountId: account.id }}
-              label="Extrato da CONTA (não a fatura do cartão) — PDF, foto/print ou CSV."
-              submitLabel="Enviar extrato"
-              onCancel={() => setPanel(null)}
-            />
+          {panel === "upload" && (
+            <ImportUploadPanel account={account} cards={cards} onCancel={() => setPanel(null)} />
           )}
           {panel === "cartao" && <NewCreditCardForm bankAccountId={account.id} onDone={() => setPanel(null)} />}
         </CardContent>
@@ -404,7 +408,10 @@ function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCa
 
 // ---------------------------------------------------------------------------
 // Cartão de crédito vinculado — retângulo clicável (CreditCardBadge); ao
-// clicar, abre embaixo dele o upload de fatura e o botão de excluir.
+// clicar, só revela o botão de excluir. Importar a fatura dele acontece pelo
+// upload único lá em cima na conta (ImportUploadPanel), não mais aqui — ver
+// o comentário em AccountCard sobre por que esses dois caminhos foram
+// unificados.
 // ---------------------------------------------------------------------------
 
 function CreditCardTile({ card }: { card: CreditCard }) {
@@ -421,64 +428,92 @@ function CreditCardTile({ card }: { card: CreditCard }) {
         onClick={() => setOpen((v) => !v)}
       />
       {open && (
-        <div className="w-[168px] flex flex-col gap-2">
-          <ImportUploadForm
-            target={{ creditCardId: card.id }}
-            label={`Fatura do ${card.nickname} (não o extrato da conta) — PDF, foto/print ou CSV.`}
-            submitLabel="Enviar fatura"
-            compact
-          />
-          <button
-            type="button"
-            className="text-[11px] text-onbrand/40 hover:text-danger-300 flex items-center justify-center gap-1 disabled:opacity-40"
-            disabled={pending}
-            onClick={() => startTransition(() => deleteCreditCardAction(card.id))}
-          >
-            <Trash2 className="h-3 w-3" /> Excluir cartão
-          </button>
-        </div>
+        <button
+          type="button"
+          className="text-[11px] text-onbrand/40 hover:text-danger-300 flex items-center justify-center gap-1 disabled:opacity-40"
+          disabled={pending}
+          onClick={() => {
+            // Sem essa confirmação, um clique em cima do que parecia ser só
+            // um retângulo decorativo já apagou um cartão de verdade (visto
+            // na prática) — nada avisava antes de excluir.
+            if (!window.confirm(`Excluir o cartão "${card.nickname}"? Isso não pode ser desfeito.`)) return;
+            startTransition(() => deleteCreditCardAction(card.id));
+          }}
+        >
+          <Trash2 className="h-3 w-3" /> Excluir cartão
+        </button>
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Upload de extrato/fatura — mesmo formulário serve pra conta e pra cartão,
-// diferindo só no hidden field que a action lê pra saber o alvo. Ao dar
-// certo a própria action redireciona pra tela de revisão; aqui só tratamos o
-// erro (arquivo ilegível, etc).
+// Upload único de extrato/fatura — um só formulário pra conta e todos os
+// cartões ligados a ela, com o destino escolhido explicitamente por um
+// seletor (não por "qual botão eu cliquei lá na árvore da tela"), pra não
+// repetir o erro de uma fatura de cartão entrar como extrato de conta (e
+// distorcer o saldo dela). O texto do botão de enviar e o hidden field que a
+// action usa pra saber o alvo mudam de acordo com a opção selecionada.
 // ---------------------------------------------------------------------------
 
-function ImportUploadForm({
-  target,
-  label,
-  submitLabel = "Enviar",
+type UploadDestination = { kind: "account" } | { kind: "card"; cardId: string };
+
+function ImportUploadPanel({
+  account,
+  cards,
   onCancel,
-  compact,
 }: {
-  target: { bankAccountId: string } | { creditCardId: string };
-  label: string;
-  // Texto do botão específico ("Enviar extrato" / "Enviar fatura") em vez
-  // de um "Enviar" genérico — os dois formulários (conta vs. cartão) ficam
-  // parecidos na tela, e já rolou de subir a fatura do cartão no formulário
-  // errado por não dar pra confirmar o destino só olhando o botão.
-  submitLabel?: string;
-  onCancel?: () => void;
-  compact?: boolean;
+  account: BankAccount;
+  cards: CreditCard[];
+  onCancel: () => void;
 }) {
+  const [destination, setDestination] = useState<UploadDestination>({ kind: "account" });
   const [state, formAction, pending] = useActionState<UploadStatementState, FormData>(uploadStatementAction, undefined);
 
+  const submitLabel = destination.kind === "account" ? "Enviar extrato" : "Enviar fatura";
+
   return (
-    <form
-      action={formAction}
-      className={cn("rounded-xl bg-brand-900/60 border border-white/10", compact ? "p-2.5 mt-1" : "p-3.5 mt-3")}
-    >
-      <p className="text-xs text-onbrand/60 mb-2">{label}</p>
-      {"bankAccountId" in target ? (
-        <input type="hidden" name="bankAccountId" value={target.bankAccountId} />
+    <form action={formAction} className="rounded-xl bg-brand-900/60 border border-white/10 p-3.5 mt-3">
+      <p className="text-xs text-onbrand/60 mb-2">Isso é o extrato de qual conta, ou a fatura de qual cartão?</p>
+
+      <div className="flex flex-wrap gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => setDestination({ kind: "account" })}
+          className={cn(
+            "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
+            destination.kind === "account"
+              ? "border-gold-400 bg-gold-400/10 text-gold-400"
+              : "border-white/10 text-onbrand/65 hover:border-white/25"
+          )}
+        >
+          {account.bankName && <BankBadge bankName={account.bankName} />}
+          Conta {account.name}
+        </button>
+        {cards.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => setDestination({ kind: "card", cardId: c.id })}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
+              destination.kind === "card" && destination.cardId === c.id
+                ? "border-gold-400 bg-gold-400/10 text-gold-400"
+                : "border-white/10 text-onbrand/65 hover:border-white/25"
+            )}
+          >
+            <CreditCardIcon className="h-3.5 w-3.5" />
+            Cartão {c.nickname}
+          </button>
+        ))}
+      </div>
+
+      {destination.kind === "account" ? (
+        <input type="hidden" name="bankAccountId" value={account.id} />
       ) : (
-        <input type="hidden" name="creditCardId" value={target.creditCardId} />
+        <input type="hidden" name="creditCardId" value={destination.cardId} />
       )}
+
       <input
         type="file"
         name="file"
@@ -491,11 +526,9 @@ function ImportUploadForm({
         <Button type="submit" size="sm" loading={pending}>
           {pending ? "Lendo..." : submitLabel}
         </Button>
-        {onCancel && (
-          <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-            Cancelar
-          </Button>
-        )}
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+          Cancelar
+        </Button>
       </div>
     </form>
   );
