@@ -70,6 +70,7 @@ import {
 type Category = { id: string; name: string; type: string; icon: string | null };
 type Goal = { id: string; title: string };
 type Account = { id: string; name: string; bankName: string | null };
+type CardOption = { id: string; nickname: string };
 type Transaction = {
   id: string;
   date: string;
@@ -104,7 +105,7 @@ type BudgetRow = {
   pctUsed: number;
   isOverrun: boolean;
 };
-type Filters = { q: string; conta: string; tipo: string; categoria: string };
+type Filters = { q: string; conta: string; cartao: string; tipo: string; categoria: string };
 
 const PAYMENT_LABELS: Record<string, string> = {
   CASH: "Dinheiro",
@@ -171,6 +172,7 @@ function buildLancamentosUrl(month: string, filters: Partial<Filters> & { month?
   params.set("month", month);
   if (filters.q) params.set("q", filters.q);
   if (filters.conta) params.set("conta", filters.conta);
+  if (filters.cartao) params.set("cartao", filters.cartao);
   if (filters.tipo) params.set("tipo", filters.tipo);
   if (filters.categoria) params.set("categoria", filters.categoria);
   return `/lancamentos?${params.toString()}`;
@@ -183,6 +185,7 @@ export function LancamentosClient({
   categories,
   goals,
   accounts,
+  cards,
   budgets,
   totalLimit,
   totalActual,
@@ -193,6 +196,7 @@ export function LancamentosClient({
   categories: Category[];
   goals: Goal[];
   accounts: Account[];
+  cards: CardOption[];
   budgets: BudgetRow[];
   totalLimit: number;
   totalActual: number;
@@ -273,6 +277,7 @@ export function LancamentosClient({
             categories={categories}
             goals={goals}
             accounts={accounts}
+            cards={cards}
           />
         ) : (
           <BudgetTab budgets={budgets} />
@@ -317,6 +322,7 @@ function TransactionsTab({
   categories,
   goals,
   accounts,
+  cards,
 }: {
   month: string;
   filters: Filters;
@@ -324,13 +330,14 @@ function TransactionsTab({
   categories: Category[];
   goals: Goal[];
   accounts: Account[];
+  cards: CardOption[];
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showMerge, setShowMerge] = useState(false);
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE");
 
-  const hasFilters = Boolean(filters.q || filters.conta || filters.tipo || filters.categoria);
+  const hasFilters = Boolean(filters.q || filters.conta || filters.cartao || filters.tipo || filters.categoria);
 
   return (
     <div>
@@ -349,7 +356,7 @@ function TransactionsTab({
         </Button>
       </div>
 
-      <FilterBar month={month} filters={filters} accounts={accounts} categories={categories} />
+      <FilterBar month={month} filters={filters} accounts={accounts} cards={cards} categories={categories} />
 
       {showForm && (
         <Card className="mb-6">
@@ -410,11 +417,13 @@ function FilterBar({
   month,
   filters,
   accounts,
+  cards,
   categories,
 }: {
   month: string;
   filters: Filters;
   accounts: Account[];
+  cards: CardOption[];
   categories: Category[];
 }) {
   const router = useRouter();
@@ -460,6 +469,24 @@ function FilterBar({
               </option>
             ))}
           </Select>
+          {cards.length > 0 && (
+            // Uma transação de fatura de cartão não tem bankAccountId (só
+            // creditCardId — ver listTransactions), então o filtro "Conta"
+            // acima nunca a pega. Sem isso não tinha como isolar só os
+            // gastos no crédito.
+            <Select
+              className="w-auto min-w-[140px]"
+              value={filters.cartao}
+              onChange={(e) => go({ cartao: e.target.value })}
+            >
+              <option value="">Cartão: Todos</option>
+              {cards.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nickname}
+                </option>
+              ))}
+            </Select>
+          )}
           <Select className="w-auto min-w-[140px]" value={filters.tipo} onChange={(e) => go({ tipo: e.target.value })}>
             <option value="">Tipo: Todos</option>
             {Object.entries(TYPE_META).map(([value, meta]) => (

@@ -4,6 +4,7 @@ import { getUserCategories } from "@/services/categorization";
 import { getCurrentBudgetsWithActuals, generateInitialBudget } from "@/services/budget";
 import { listGoals } from "@/services/goals";
 import { listBankAccounts } from "@/services/bankAccounts";
+import { listCreditCards } from "@/services/creditCards";
 import { monthRange } from "@/services/aggregations";
 import { nowInBrazil } from "@/lib/utils/dates";
 import { LancamentosClient } from "./LancamentosClient";
@@ -29,10 +30,17 @@ function parseMonthParam(month: string | undefined): Date {
 export default async function LancamentosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; q?: string; conta?: string; tipo?: string; categoria?: string }>;
+  searchParams: Promise<{
+    month?: string;
+    q?: string;
+    conta?: string;
+    cartao?: string;
+    tipo?: string;
+    categoria?: string;
+  }>;
 }) {
   const user = await requireOnboardedUser();
-  const { month, q, conta, tipo, categoria } = await searchParams;
+  const { month, q, conta, cartao, tipo, categoria } = await searchParams;
   const referenceDate = parseMonthParam(month);
   const { start, end } = monthRange(referenceDate);
 
@@ -45,25 +53,27 @@ export default async function LancamentosPage({
     budgets = await getCurrentBudgetsWithActuals(user.id, referenceDate);
   }
 
-  const [transactions, categories, goals, accounts] = await Promise.all([
+  const [transactions, categories, goals, accounts, creditCards] = await Promise.all([
     listTransactions(user.id, {
       start,
       end,
       limit: 200,
       search: q || undefined,
       bankAccountId: conta || undefined,
+      creditCardId: cartao || undefined,
       type: tipo || undefined,
       categoryId: categoria || undefined,
     }),
     getUserCategories(user.id),
     listGoals(user.id),
     listBankAccounts(user.id),
+    listCreditCards(user.id),
   ]);
 
   return (
     <LancamentosClient
       month={`${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`}
-      filters={{ q: q ?? "", conta: conta ?? "", tipo: tipo ?? "", categoria: categoria ?? "" }}
+      filters={{ q: q ?? "", conta: conta ?? "", cartao: cartao ?? "", tipo: tipo ?? "", categoria: categoria ?? "" }}
       transactions={transactions.map((t) => ({ ...t, date: t.date.toISOString() }))}
       categories={categories
         .filter((c) => !c.parentId)
@@ -80,6 +90,8 @@ export default async function LancamentosPage({
       accounts={accounts
         .filter((a) => a.isActive)
         .map((a) => ({ id: a.id, name: a.name, bankName: a.bankName }))}
+      // Idem pra cartões: só os ativos entram no filtro "Cartão".
+      cards={creditCards.filter((c) => c.isActive).map((c) => ({ id: c.id, nickname: c.nickname }))}
       budgets={budgets}
       totalLimit={budgets.reduce((s, b) => s + b.limitAmount, 0)}
       totalActual={budgets.reduce((s, b) => s + b.actual, 0)}

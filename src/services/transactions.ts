@@ -197,6 +197,7 @@ export async function listTransactions(
     end?: Date;
     categoryId?: string;
     bankAccountId?: string;
+    creditCardId?: string;
     // Aceita o valor cru vindo da URL/formulário — um tipo desconhecido
     // simplesmente não bate com nenhuma linha em vez de quebrar a consulta.
     type?: string;
@@ -210,6 +211,7 @@ export async function listTransactions(
   const conditions = [eq(transactions.userId, userId), gte(transactions.date, start), lte(transactions.date, end)];
   if (filters.categoryId) conditions.push(eq(transactions.categoryId, filters.categoryId));
   if (filters.bankAccountId) conditions.push(eq(transactions.bankAccountId, filters.bankAccountId));
+  if (filters.creditCardId) conditions.push(eq(transactions.creditCardId, filters.creditCardId));
   if (filters.type) conditions.push(eq(transactions.type, filters.type as never));
   if (filters.search) {
     const term = `%${filters.search.trim()}%`;
