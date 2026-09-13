@@ -375,7 +375,12 @@ function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCa
 
           <div className="flex flex-wrap gap-2 pt-3">
             <Button size="sm" variant="outline" onClick={() => setPanel(panel === "extrato" ? null : "extrato")}>
-              <Upload className="h-3.5 w-3.5" /> Importar extrato
+              {/* "da conta" explícito no rótulo — sem isso é fácil confundir
+                  com o botão "Fatura" de dentro de cada cartão (ver
+                  CreditCardTile) e acabar subindo a fatura do cartão aqui,
+                  o que faz a compra virar um débito direto na conta em vez
+                  de uma compra no crédito (aconteceu na prática). */}
+              <Upload className="h-3.5 w-3.5" /> Importar extrato da conta
             </Button>
             <Button size="sm" variant="outline" onClick={() => setPanel(panel === "cartao" ? null : "cartao")}>
               <Plus className="h-3.5 w-3.5" /> Cartão de crédito
@@ -385,7 +390,8 @@ function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCa
           {panel === "extrato" && (
             <ImportUploadForm
               target={{ bankAccountId: account.id }}
-              label="Extrato da conta — PDF, foto/print ou CSV."
+              label="Extrato da CONTA (não a fatura do cartão) — PDF, foto/print ou CSV."
+              submitLabel="Enviar extrato"
               onCancel={() => setPanel(null)}
             />
           )}
@@ -416,7 +422,12 @@ function CreditCardTile({ card }: { card: CreditCard }) {
       />
       {open && (
         <div className="w-[168px] flex flex-col gap-2">
-          <ImportUploadForm target={{ creditCardId: card.id }} label="Fatura — PDF, foto/print ou CSV." compact />
+          <ImportUploadForm
+            target={{ creditCardId: card.id }}
+            label={`Fatura do ${card.nickname} (não o extrato da conta) — PDF, foto/print ou CSV.`}
+            submitLabel="Enviar fatura"
+            compact
+          />
           <button
             type="button"
             className="text-[11px] text-onbrand/40 hover:text-danger-300 flex items-center justify-center gap-1 disabled:opacity-40"
@@ -441,11 +452,17 @@ function CreditCardTile({ card }: { card: CreditCard }) {
 function ImportUploadForm({
   target,
   label,
+  submitLabel = "Enviar",
   onCancel,
   compact,
 }: {
   target: { bankAccountId: string } | { creditCardId: string };
   label: string;
+  // Texto do botão específico ("Enviar extrato" / "Enviar fatura") em vez
+  // de um "Enviar" genérico — os dois formulários (conta vs. cartão) ficam
+  // parecidos na tela, e já rolou de subir a fatura do cartão no formulário
+  // errado por não dar pra confirmar o destino só olhando o botão.
+  submitLabel?: string;
   onCancel?: () => void;
   compact?: boolean;
 }) {
@@ -456,7 +473,7 @@ function ImportUploadForm({
       action={formAction}
       className={cn("rounded-xl bg-brand-900/60 border border-white/10", compact ? "p-2.5 mt-1" : "p-3.5 mt-3")}
     >
-      {!compact && <p className="text-xs text-onbrand/60 mb-2">{label}</p>}
+      <p className="text-xs text-onbrand/60 mb-2">{label}</p>
       {"bankAccountId" in target ? (
         <input type="hidden" name="bankAccountId" value={target.bankAccountId} />
       ) : (
@@ -472,7 +489,7 @@ function ImportUploadForm({
       <FieldError>{state?.error}</FieldError>
       <div className="flex gap-2 mt-2">
         <Button type="submit" size="sm" loading={pending}>
-          {pending ? "Lendo..." : "Enviar"}
+          {pending ? "Lendo..." : submitLabel}
         </Button>
         {onCancel && (
           <Button type="button" size="sm" variant="ghost" onClick={onCancel}>

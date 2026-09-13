@@ -39,7 +39,14 @@ function isRetryableError(err: unknown): boolean {
     (err as { status?: number; response?: { status?: number } })?.status ??
     (err as { response?: { status?: number } })?.response?.status;
   if (typeof status === "number") {
-    return status === 429 || status >= 500;
+    // 403 (PERMISSION_DENIED) entra aqui junto com 429/5xx: é um problema da
+    // CHAVE/projeto Google usada nessa tentativa (projeto suspenso, sem
+    // acesso ao modelo, etc.), não do pedido em si — visto em produção
+    // ("Your project has been denied access") derrubando a extração inteira
+    // mesmo havendo outras chaves em GEMINI_API_KEYS que talvez funcionem.
+    // Continua excluindo 400 (pedido malformado) e bloqueio de safety, que
+    // falham de novo com qualquer chave.
+    return status === 403 || status === 429 || status >= 500;
   }
   // Network-level failures (timeouts, DNS, etc.) are worth a retry too.
   const message = String((err as Error)?.message ?? err ?? "");
