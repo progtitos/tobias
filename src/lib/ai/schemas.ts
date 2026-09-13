@@ -208,26 +208,37 @@ export const receiptExtractionJsonSchema = {
 // recibo acima, mas devolvendo VÁRIAS transações de uma vez em vez de uma só.
 // ----------------------------------------------------------------------------
 
+const rawStatementTransactionSchema = z.object({
+  date: z.string().describe("ISO 8601 date"),
+  description: z.string(),
+  // Aceita 0/negativo aqui de propósito — ver o .transform abaixo. Se
+  // exigíssemos positive() diretamente neste item, UMA linha de "saldo
+  // restante"/"limite disponível" com valor 0 (não é uma transação real,
+  // é informativo) derrubava o array inteiro na validação e, com isso, a
+  // extração inteira (visto em produção: fatura com 5 linhas, 2 delas
+  // "Saldo restante da fatura anterior" com amount 0, fez o Zod rejeitar
+  // o lote todo e as outras 3 transações válidas se perderam junto).
+  amount: z.number(),
+  // Sempre do ponto de vista de quem é dono da conta/cartão: dinheiro
+  // saindo (compra, pagamento, tarifa) é EXPENSE; entrando (salário,
+  // transferência recebida, estorno) é INCOME.
+  type: z.enum(["EXPENSE", "INCOME"]),
+  categoryGuess: z.string().nullable(),
+  // Só preenchido quando o extrato/fatura já MOSTRA a parcela (ex: "2/5"
+  // impresso na linha) — nunca inventado a partir do valor sozinho.
+  installmentNumber: z.number().int().positive().nullable(),
+  installmentTotal: z.number().int().positive().nullable(),
+});
+
 export const statementExtractionSchema = z.object({
   periodStart: z.string().nullable().describe("ISO 8601 date, primeira transação do período"),
   periodEnd: z.string().nullable().describe("ISO 8601 date, última transação do período"),
   confidence: z.number().min(0).max(1),
-  transactions: z.array(
-    z.object({
-      date: z.string().describe("ISO 8601 date"),
-      description: z.string(),
-      amount: z.number().positive(),
-      // Sempre do ponto de vista de quem é dono da conta/cartão: dinheiro
-      // saindo (compra, pagamento, tarifa) é EXPENSE; entrando (salário,
-      // transferência recebida, estorno) é INCOME.
-      type: z.enum(["EXPENSE", "INCOME"]),
-      categoryGuess: z.string().nullable(),
-      // Só preenchido quando o extrato/fatura já MOSTRA a parcela (ex: "2/5"
-      // impresso na linha) — nunca inventado a partir do valor sozinho.
-      installmentNumber: z.number().int().positive().nullable(),
-      installmentTotal: z.number().int().positive().nullable(),
-    })
-  ),
+  transactions: z
+    .array(rawStatementTransactionSchema)
+    // Descarta linhas sem valor real (amount <= 0) em vez de derrubar o
+    // lote inteiro por causa delas — ver comentário acima.
+    .transform((txs) => txs.filter((t) => t.amount > 0)),
 });
 export type StatementExtraction = z.infer<typeof statementExtractionSchema>;
 
