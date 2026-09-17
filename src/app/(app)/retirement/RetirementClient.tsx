@@ -1,17 +1,26 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Save, Sparkles } from "lucide-react";
+import { Save, Sparkles, Info } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 import { formatBRL } from "@/lib/utils/money";
+import { parseDateOnly } from "@/lib/utils/dates";
 import { simulateRetirementCurve, requiredMonthlyContribution, type RetirementInputs } from "@/services/retirement";
+import { computeGuaranteedMonthlyIncome, type Gender } from "@/services/inss";
 import { saveRetirementPlanAction } from "./actions";
 
-type Defaults = Omit<RetirementInputs, "currentNetWorth">;
+type Defaults = Omit<RetirementInputs, "currentNetWorth" | "guaranteedMonthlyIncome"> & {
+  birthDate: Date | null;
+  gender: Gender | null;
+  contributionYearsToDate: number | null;
+  averageMonthlySalary: number | null;
+  guaranteedMonthlyIncomeOverride: number | null;
+};
 
 export function RetirementClient({
   defaults,
@@ -26,7 +35,27 @@ export function RetirementClient({
   const [saved, setSaved] = useState(hasPlan);
   const [pending, startTransition] = useTransition();
 
-  const fullInputs: RetirementInputs = { ...inputs, currentNetWorth };
+  const { guaranteedMonthlyIncome, inssEstimate } = useMemo(
+    () =>
+      computeGuaranteedMonthlyIncome({
+        targetRetirementAge: inputs.targetRetirementAge,
+        birthDate: inputs.birthDate,
+        gender: inputs.gender,
+        contributionYearsToDate: inputs.contributionYearsToDate,
+        averageMonthlySalary: inputs.averageMonthlySalary,
+        guaranteedMonthlyIncomeOverride: inputs.guaranteedMonthlyIncomeOverride,
+      }),
+    [
+      inputs.targetRetirementAge,
+      inputs.birthDate,
+      inputs.gender,
+      inputs.contributionYearsToDate,
+      inputs.averageMonthlySalary,
+      inputs.guaranteedMonthlyIncomeOverride,
+    ]
+  );
+
+  const fullInputs: RetirementInputs = { ...inputs, currentNetWorth, guaranteedMonthlyIncome };
 
   const simulation = useMemo(() => simulateRetirementCurve(fullInputs), [JSON.stringify(fullInputs)]);
   const suggestedContribution = useMemo(
@@ -34,7 +63,7 @@ export function RetirementClient({
     [JSON.stringify(fullInputs)]
   );
 
-  function set<K extends keyof Defaults>(key: K, value: number) {
+  function set<K extends keyof Defaults>(key: K, value: Defaults[K]) {
     setSaved(false);
     setInputs((prev) => ({ ...prev, [key]: value }));
   }
@@ -73,11 +102,30 @@ export function RetirementClient({
             <div className="mt-4 space-y-1.5 text-sm">
               <p className="text-onbrand/70">
                 Patrimônio necessário para viver de renda: <span className="font-medium text-onbrand">{formatBRL(simulation.requiredNetWorth)}</span>
+                {guaranteedMonthlyIncome > 0 && (
+                  <span className="text-onbrand/50">
+                    {" "}
+                    (já considerando {formatBRL(guaranteedMonthlyIncome)}/mês de renda garantida)
+                  </span>
+                )}
               </p>
               <p className="text-onbrand/70">
                 Projeção no cenário base aos {inputs.targetRetirementAge} anos:{" "}
                 <span className="font-medium text-onbrand">{formatBRL(simulation.base.finalValueAtTargetAge)}</span>
               </p>
+              {inssEstimate?.bestRule && (
+                <p className="text-onbrand/50 flex items-start gap-1.5">
+                  <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  Estimativa de INSS pela {inssEstimate.bestRule.label}: {formatBRL(inssEstimate.bestRule.monthlyBenefit ?? 0)}/mês
+                  {inssEstimate.bestRule.approximate ? " (aproximado — usa fator previdenciário)" : ""}. Confira o valor exato no Meu INSS antes de decidir algo com base nele.
+                </p>
+              )}
+              {!inssEstimate?.bestRule && inputs.birthDate && inputs.gender && inputs.contributionYearsToDate != null && inputs.averageMonthlySalary != null && (
+                <p className="text-onbrand/50 flex items-start gap-1.5">
+                  <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  Com esses dados, você ainda não teria direito ao INSS na idade-alvo escolhida — a renda garantida está zerada nesta simulação.
+                </p>
+              )}
               {!simulation.base.onTrack && (
                 <p className="text-gold-400 flex items-center gap-1.5">
                   <Sparkles className="h-3.5 w-3.5 shrink-0" />
@@ -134,6 +182,58 @@ export function RetirementClient({
             />
           </CardContent>
         </Card>
+
+        <Card className="h-fit lg:col-start-2">
+          <CardContent className="py-5 space-y-4">
+            <div>
+              <Label>Renda garantida (INSS)</Label>
+              <p className="text-xs text-onbrand/45 -mt-1">
+                Opcional. Preenchendo os 4 campos abaixo, calculamos uma estimativa do seu benefício do INSS pelas regras vigentes
+                e usamos só o que falta da renda desejada (o "gap essencial") como saída do patrimônio investido.
+              </p>
+            </div>
+            <div>
+              <Label>Data de nascimento</Label>
+              <Input
+                type="date"
+                value={inputs.birthDate ? inputs.birthDate.toISOString().slice(0, 10) : ""}
+                onChange={(e) => set("birthDate", e.target.value ? parseDateOnly(e.target.value) : null)}
+              />
+            </div>
+            <div>
+              <Label>Sexo (para as regras do INSS)</Label>
+              <Select
+                value={inputs.gender ?? ""}
+                onChange={(e) => set("gender", (e.target.value || null) as Gender | null)}
+              >
+                <option value="">Não informado</option>
+                <option value="F">Feminino</option>
+                <option value="M">Masculino</option>
+              </Select>
+            </div>
+            <NumberField
+              label="Anos de contribuição já acumulados"
+              value={inputs.contributionYearsToDate ?? 0}
+              onChange={(v) => set("contributionYearsToDate", v || null)}
+              step={0.5}
+            />
+            <NumberField
+              label="Média salarial de contribuição"
+              value={inputs.averageMonthlySalary ?? 0}
+              onChange={(v) => set("averageMonthlySalary", v || null)}
+              prefix="R$"
+            />
+            <NumberField
+              label="Já sabe o valor do seu benefício? (opcional)"
+              value={inputs.guaranteedMonthlyIncomeOverride ?? 0}
+              onChange={(v) => set("guaranteedMonthlyIncomeOverride", v || null)}
+              prefix="R$"
+            />
+            <p className="text-xs text-onbrand/40 -mt-3">
+              Preenchendo isso, ignoramos a estimativa e usamos direto o valor informado (ex.: você já consultou o Meu INSS).
+            </p>
+          </CardContent>
+        </Card>
       </div>
       </div>
     </div>
@@ -155,7 +255,7 @@ function NumberField({
   step = 0.01,
   prefix,
 }: {
-  label: string;
+  label?: string;
   value: number;
   onChange: (v: number) => void;
   step?: number;
@@ -163,7 +263,7 @@ function NumberField({
 }) {
   return (
     <div>
-      <Label>{label}</Label>
+      {label && <Label>{label}</Label>}
       <div className="relative">
         {prefix && <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-onbrand/40">{prefix}</span>}
         <Input

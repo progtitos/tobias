@@ -61,6 +61,30 @@ export function parseDateOnly(dateStr: string): Date {
  * mês seguinte. Usado nas parcelas (services/transactions.ts) — sem isso,
  * uma compra parcelada feita no dia 29/30/31 pulava ou duplicava meses.
  */
+/**
+ * Diferença entre duas datas em anos fracionários (365.25 dias/ano, o que
+ * já embute o ano bissexto médio — precisão de dias não importa aqui, só
+ * ordens de grandeza de meses/anos). Usado para idade e tempo de
+ * contribuição projetados no simulador de INSS (`services/inss.ts`): a
+ * regra de pontos e a de idade progressiva exigem meses, não só anos
+ * inteiros, e truncar cedo demais faz alguém "perder" elegibilidade por
+ * arredondamento.
+ */
+export function yearsBetween(from: Date, to: Date): number {
+  const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
+  return (to.getTime() - from.getTime()) / MS_PER_YEAR;
+}
+
+/**
+ * Idade fracionária de alguém nascido em `birthDate`, na data `atDate`
+ * (padrão: agora). Ex.: 34.5 = 34 anos e meio — a parte fracionária é o
+ * que permite comparar contra limites como "59 anos e 6 meses" sem
+ * converter tudo pra meses à mão em cada callsite.
+ */
+export function ageFromBirthDate(birthDate: Date, atDate: Date = new Date()): number {
+  return yearsBetween(birthDate, atDate);
+}
+
 export function addMonthsClamped(date: Date, months: number): Date {
   const day = date.getDate();
   // Dia 1 nunca estoura (todo mês tem um dia 1), então isto já cai no mês

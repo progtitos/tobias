@@ -5,6 +5,7 @@ import { alerts, retirementPlans, financialProfiles } from "@/lib/db/schema";
 import { computeNetWorth, monthRange, sumIncome, sumExpenses, sumInvestmentContributions, activeGoals } from "./aggregations";
 import { getLatestCompass, statusForScore } from "./compass";
 import { simulateRetirementCurve } from "./retirement";
+import { buildRetirementInputs } from "./retirementPlan";
 
 export async function getDashboardData(userId: string) {
   const { start, end } = monthRange();
@@ -45,17 +46,7 @@ export async function getDashboardData(userId: string) {
     financialProfile?.savingsCapacityPerMonth ?? Math.max(0, income - expenses);
 
   const retirementPreview = retirementPlan
-    ? simulateRetirementCurve({
-        currentAge: retirementPlan.currentAge,
-        targetRetirementAge: retirementPlan.targetRetirementAge,
-        currentNetWorth: retirementPlan.currentNetWorth,
-        monthlyContribution: retirementPlan.monthlyContribution,
-        desiredMonthlyIncome: retirementPlan.desiredMonthlyIncome,
-        expectedReturnConservative: retirementPlan.expectedReturnConservative,
-        expectedReturnBase: retirementPlan.expectedReturnBase,
-        expectedReturnAggressive: retirementPlan.expectedReturnAggressive,
-        expectedInflation: retirementPlan.expectedInflation,
-      })
+    ? simulateRetirementCurve(buildRetirementInputs(retirementPlan, retirementPlan.currentNetWorth))
     : null;
 
   return {

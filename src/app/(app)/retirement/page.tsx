@@ -24,6 +24,14 @@ export default async function RetirementPage() {
     expectedReturnBase: plan?.expectedReturnBase ?? 0.06,
     expectedReturnAggressive: plan?.expectedReturnAggressive ?? 0.09,
     expectedInflation: plan?.expectedInflation ?? 0.04,
+    // Renda garantida (INSS) — sem equivalente em financialProfiles hoje,
+    // então o único fallback é o próprio plano salvo, ou null (campo vazio
+    // no formulário, sem simulação de INSS até a pessoa preencher).
+    birthDate: plan?.birthDate ?? null,
+    gender: plan?.gender ?? null,
+    contributionYearsToDate: plan?.contributionYearsToDate ?? null,
+    averageMonthlySalary: plan?.averageMonthlySalary ?? null,
+    guaranteedMonthlyIncomeOverride: plan?.guaranteedMonthlyIncomeOverride ?? null,
   };
 
   return <RetirementClient defaults={defaults} currentNetWorth={netWorth.netWorth} hasPlan={Boolean(plan)} />;

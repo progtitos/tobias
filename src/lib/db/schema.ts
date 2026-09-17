@@ -82,6 +82,13 @@ export const riskProfileEnum = pgEnum("risk_profile", [
   "MODERATE",
   "AGGRESSIVE",
 ]);
+// Só para o cálculo do benefício do INSS (services/inss.ts) — algumas
+// regras de transição têm idade/tempo mínimo diferentes por sexo, uma
+// distinção da lei previdenciária, não uma escolha de produto. Opcional e
+// sem valor default: sem isso, o simulador de INSS simplesmente não roda
+// (ver retirementPlan.ts) e a curva volta a tratar 100% da renda desejada
+// como saindo do patrimônio investido, igual ao comportamento anterior.
+export const genderEnum = pgEnum("gender", ["M", "F"]);
 export const onboardingFocusEnum = pgEnum("onboarding_focus", [
   "RETIREMENT",
   "DEBT_RECOVERY",
@@ -830,6 +837,34 @@ export const retirementPlans = pgTable("retirement_plans", {
   expectedReturnBase: numeric("expected_return_base", { precision: 6, scale: 3, mode: "number" }).notNull().default(0.06),
   expectedReturnAggressive: numeric("expected_return_aggressive", { precision: 6, scale: 3, mode: "number" }).notNull().default(0.09),
   expectedInflation: numeric("expected_inflation", { precision: 6, scale: 3, mode: "number" }).notNull().default(0.04),
+
+  // --- Curva por pilares (Ameriprise) + simulação real de INSS ---------
+  // Todos nullable/sem default: um plano só ganha a "renda garantida" do
+  // INSS quando os 4 campos abaixo estiverem preenchidos (ver
+  // computeGuaranteedMonthlyIncome em services/retirementPlan.ts) — até lá
+  // requiredNetWorth continua tratando 100% de desiredMonthlyIncome como
+  // saindo do patrimônio, igual ao comportamento anterior a essa mudança.
+  // Ver services/inss.ts para a simulação das 5 regras e claude/backlog.md
+  // (item 1) e claude/analise-metodologia-ameriprise.md para o histórico
+  // da decisão.
+  birthDate: timestamp("birth_date", { withTimezone: true }),
+  gender: genderEnum("gender"),
+  // Anos de contribuição já acumulados na data abaixo (não recalculado
+  // automaticamente do zero — a pessoa informa um número e o simulador
+  // projeta a partir dele, assumindo contribuição contínua daqui pra
+  // frente; ver `contributionYearsAsOfDate`).
+  contributionYearsToDate: numeric("contribution_years_to_date", { precision: 5, scale: 2, mode: "number" }),
+  contributionYearsAsOfDate: timestamp("contribution_years_as_of_date", { withTimezone: true }),
+  // Média mensal (já corrigida) dos salários de contribuição — estimativa
+  // informada pelo usuário, não um histórico salarial mês a mês (ver aviso
+  // de escopo no topo de services/inss.ts).
+  averageMonthlySalary: money("average_monthly_salary"),
+  // Override manual: se preenchido, vence a estimativa calculada por
+  // services/inss.ts (ex.: a pessoa já sabe o valor exato do Meu INSS, ou
+  // tem uma previdência privada somando à renda garantida). Rota 2 do
+  // backlog, mantida como escape hatch dentro da Rota 1 escolhida.
+  guaranteedMonthlyIncomeOverride: money("guaranteed_monthly_income_override"),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

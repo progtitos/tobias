@@ -16,6 +16,19 @@ export async function saveRetirementPlanAction(input: RetirementPlanInput) {
     throw new Error("Valores inválidos para o plano de aposentadoria.");
   }
 
+  // Campos da renda garantida (INSS) são opcionais, mas se informados
+  // precisam fazer sentido — evita salvar um simulador quebrado (ex.:
+  // contribuição negativa) que geraria um requiredNetWorth sem significado.
+  if (input.contributionYearsToDate != null && !(input.contributionYearsToDate >= 0)) {
+    throw new Error("Anos de contribuição inválidos.");
+  }
+  if (input.averageMonthlySalary != null && !(input.averageMonthlySalary >= 0)) {
+    throw new Error("Média salarial inválida.");
+  }
+  if (input.guaranteedMonthlyIncomeOverride != null && !(input.guaranteedMonthlyIncomeOverride >= 0)) {
+    throw new Error("Renda garantida informada inválida.");
+  }
+
   await upsertRetirementPlan(user.id, input);
   revalidatePath("/retirement");
   revalidatePath("/dashboard");

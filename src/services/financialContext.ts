@@ -14,6 +14,7 @@ import {
   aiInsights,
 } from "@/lib/db/schema";
 import { monthRange, sumExpenses, sumIncome, computeNetWorth, computeEmergencyReserve, expensesByCategory } from "./aggregations";
+import { computeGuaranteedMonthlyIncome } from "./inss";
 import { formatBRL } from "@/lib/utils/money";
 
 /**
@@ -134,6 +135,14 @@ export async function buildFinancialContextText(userId: string): Promise<string>
     lines.push(
       `Idade atual ${retirementPlan.currentAge} → aposentadoria alvo aos ${retirementPlan.targetRetirementAge}. Renda mensal desejada: ${formatBRL(retirementPlan.desiredMonthlyIncome)}. Aporte mensal atual: ${formatBRL(retirementPlan.monthlyContribution)}. Patrimônio atual considerado: ${formatBRL(retirementPlan.currentNetWorth)}.`
     );
+    const { guaranteedMonthlyIncome, inssEstimate } = computeGuaranteedMonthlyIncome(retirementPlan);
+    if (guaranteedMonthlyIncome > 0) {
+      lines.push(
+        inssEstimate?.bestRule
+          ? `Renda garantida estimada (INSS, ${inssEstimate.bestRule.label}): ${formatBRL(guaranteedMonthlyIncome)}/mês — só o restante da renda desejada precisa sair do patrimônio investido.`
+          : `Renda garantida informada pelo usuário (INSS/previdência): ${formatBRL(guaranteedMonthlyIncome)}/mês.`
+      );
+    }
   }
 
   if (memories.length) {

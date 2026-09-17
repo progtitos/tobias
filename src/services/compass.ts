@@ -12,6 +12,7 @@ import {
 import { computeNetWorth, computeEmergencyReserve, monthRange, sumExpenses, sumIncome, activeGoals } from "./aggregations";
 import { getCurrentBudgetsWithActuals } from "./budget";
 import { simulateRetirementCurve } from "./retirement";
+import { buildRetirementInputs } from "./retirementPlan";
 import { formatBRL } from "@/lib/utils/money";
 
 export type CompassDimensionResult = {
@@ -163,17 +164,7 @@ export async function computeCompass(userId: string): Promise<CompassDimensionRe
   let retirementDiagnosis = "Você ainda não definiu um plano de aposentadoria com o Tobias.";
   let retirementAction = "Vamos conversar sobre quando você quer se aposentar e com que renda.";
   if (retirementPlan) {
-    const sim = simulateRetirementCurve({
-      currentAge: retirementPlan.currentAge,
-      targetRetirementAge: retirementPlan.targetRetirementAge,
-      currentNetWorth: retirementPlan.currentNetWorth,
-      monthlyContribution: retirementPlan.monthlyContribution,
-      desiredMonthlyIncome: retirementPlan.desiredMonthlyIncome,
-      expectedReturnConservative: retirementPlan.expectedReturnConservative,
-      expectedReturnBase: retirementPlan.expectedReturnBase,
-      expectedReturnAggressive: retirementPlan.expectedReturnAggressive,
-      expectedInflation: retirementPlan.expectedInflation,
-    });
+    const sim = simulateRetirementCurve(buildRetirementInputs(retirementPlan, retirementPlan.currentNetWorth));
     retirementScore = clamp((sim.base.finalValueAtTargetAge / sim.requiredNetWorth) * 100);
     retirementDiagnosis = sim.base.onTrack
       ? `No cenário base, você atinge o patrimônio necessário para se aposentar aos ${retirementPlan.targetRetirementAge} anos.`

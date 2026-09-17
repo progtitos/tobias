@@ -43,6 +43,13 @@
       "when": 1789240158968,
       "tag": "0005_lush_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789666250821,
+      "tag": "0006_luxuriant_hairball",
+      "breakpoints": true
     }
   ]
 }

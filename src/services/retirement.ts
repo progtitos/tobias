@@ -21,6 +21,16 @@ export type RetirementInputs = {
   expectedReturnBase: number;
   expectedReturnAggressive: number;
   expectedInflation: number; // nominal annual, e.g. 0.04
+  /**
+   * Renda garantida mensal (INSS/previdência privada) que cobre parte da
+   * renda desejada sem depender do patrimônio investido — metodologia dos
+   * "4 pilares" (ver claude/analise-metodologia-ameriprise.md, "cobrir o
+   * essencial com renda garantida"). Opcional e default 0 (mantém o
+   * comportamento anterior a essa mudança: 100% de `desiredMonthlyIncome`
+   * tratado como saindo do patrimônio). Calculada por
+   * services/inss.ts + retirementPlan.ts, nunca estimada aqui.
+   */
+  guaranteedMonthlyIncome?: number;
 };
 
 export type ScenarioPoint = { age: number; value: number };
@@ -48,6 +58,21 @@ function realReturn(nominal: number, inflation: number): number {
   return (1 + nominal) / (1 + inflation) - 1;
 }
 
+/**
+ * Único lugar onde `requiredNetWorth` é calculado — antes desta mudança
+ * essa mesma linha estava duplicada em `simulateRetirementCurve`,
+ * `estimateTargetAge` e `requiredMonthlyContribution`, o que já causou uma
+ * regra ficar desatualizada em relação às outras duas ao mudar só uma.
+ *
+ * gapEssencial = max(0, rendaDesejada − rendaGarantida): só a parte da
+ * renda desejada que NÃO é coberta por INSS/previdência precisa sair do
+ * patrimônio investido a uma taxa de retirada segura de 4%/ano.
+ */
+function computeRequiredNetWorth(desiredMonthlyIncome: number, guaranteedMonthlyIncome: number): number {
+  const monthlyGap = Math.max(0, desiredMonthlyIncome - guaranteedMonthlyIncome);
+  return (monthlyGap * 12) / SAFE_WITHDRAWAL_RATE;
+}
+
 function projectScenario(
   label: ScenarioResult["label"],
   currentAge: number,
@@ -56,7 +81,7 @@ function projectScenario(
   monthlyContribution: number,
   annualReal: number,
   requiredNetWorth: number,
-  desiredMonthlyIncome: number
+  monthlyDrawdown: number
 ): ScenarioResult {
   const monthlyRate = Math.pow(1 + annualReal, 1 / 12) - 1;
   const monthsToTarget = Math.max(0, Math.round((targetAge - currentAge) * 12));
@@ -74,7 +99,7 @@ function projectScenario(
   // showing "Requer ajuste".
   const maxMonths = MAX_PROJECTION_YEARS * 12;
   for (let m = 1; m <= maxMonths; m++) {
-    value = m <= monthsToTarget ? value * (1 + monthlyRate) + monthlyContribution : value * (1 + monthlyRate) - desiredMonthlyIncome;
+    value = m <= monthsToTarget ? value * (1 + monthlyRate) + monthlyContribution : value * (1 + monthlyRate) - monthlyDrawdown;
     if (m % 12 === 0) {
       series.push({ age: currentAge + m / 12, value });
     }
@@ -101,7 +126,9 @@ function projectScenario(
 }
 
 export function simulateRetirementCurve(inputs: RetirementInputs): RetirementSimulation {
-  const requiredNetWorth = (inputs.desiredMonthlyIncome * 12) / SAFE_WITHDRAWAL_RATE;
+  const guaranteedMonthlyIncome = inputs.guaranteedMonthlyIncome ?? 0;
+  const requiredNetWorth = computeRequiredNetWorth(inputs.desiredMonthlyIncome, guaranteedMonthlyIncome);
+  const monthlyDrawdown = Math.max(0, inputs.desiredMonthlyIncome - guaranteedMonthlyIncome);
 
   const scenarios: [ScenarioResult["label"], number][] = [
     ["conservador", realReturn(inputs.expectedReturnConservative, inputs.expectedInflation)],
@@ -118,7 +145,7 @@ export function simulateRetirementCurve(inputs: RetirementInputs): RetirementSim
       inputs.monthlyContribution,
       annualReal,
       requiredNetWorth,
-      inputs.desiredMonthlyIncome
+      monthlyDrawdown
     )
   );
 
@@ -145,12 +172,14 @@ export function estimateTargetAge(
     RetirementInputs,
     "currentAge" | "currentNetWorth" | "monthlyContribution" | "desiredMonthlyIncome"
   > &
-    Partial<Pick<RetirementInputs, "expectedReturnBase" | "expectedInflation">>
+    Partial<Pick<RetirementInputs, "expectedReturnBase" | "expectedInflation" | "guaranteedMonthlyIncome">>
 ): number {
   const expectedReturnBase = inputs.expectedReturnBase ?? 0.06;
   const expectedInflation = inputs.expectedInflation ?? 0.04;
+  const guaranteedMonthlyIncome = inputs.guaranteedMonthlyIncome ?? 0;
   const horizonAge = inputs.currentAge + MAX_PROJECTION_YEARS;
-  const requiredNetWorth = (inputs.desiredMonthlyIncome * 12) / SAFE_WITHDRAWAL_RATE;
+  const requiredNetWorth = computeRequiredNetWorth(inputs.desiredMonthlyIncome, guaranteedMonthlyIncome);
+  const monthlyDrawdown = Math.max(0, inputs.desiredMonthlyIncome - guaranteedMonthlyIncome);
   const annualReal = realReturn(expectedReturnBase, expectedInflation);
 
   const projection = projectScenario(
@@ -161,7 +190,7 @@ export function estimateTargetAge(
     inputs.monthlyContribution,
     annualReal,
     requiredNetWorth,
-    inputs.desiredMonthlyIncome
+    monthlyDrawdown
   );
 
   if (projection.yearsToTarget !== null) {
@@ -181,7 +210,7 @@ export function requiredMonthlyContribution(inputs: RetirementInputs, scenario: 
   const annualReal = realReturn(rate, inputs.expectedInflation);
   const monthlyRate = Math.pow(1 + annualReal, 1 / 12) - 1;
   const months = Math.max(1, Math.round((inputs.targetRetirementAge - inputs.currentAge) * 12));
-  const requiredNetWorth = (inputs.desiredMonthlyIncome * 12) / SAFE_WITHDRAWAL_RATE;
+  const requiredNetWorth = computeRequiredNetWorth(inputs.desiredMonthlyIncome, inputs.guaranteedMonthlyIncome ?? 0);
 
   // Future value of a lump sum + an annuity of contribution C:
   // FV = PV*(1+r)^n + C * (((1+r)^n - 1) / r)

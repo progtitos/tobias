@@ -172,6 +172,9 @@ async function main() {
   // above exist, from the same computeNetWorth used everywhere else).
   // --------------------------------------------------------------------
   const netWorth = await computeNetWorth(user.id);
+  const now = new Date();
+  const birthDate = new Date(now);
+  birthDate.setFullYear(birthDate.getFullYear() - 38);
   await db.insert(retirementPlans).values({
     userId: user.id,
     currentAge: 38,
@@ -183,6 +186,13 @@ async function main() {
     expectedReturnBase: 0.06,
     expectedReturnAggressive: 0.09,
     expectedInflation: 0.04,
+    // Dados de exemplo pra demonstrar o simulador de INSS (services/inss.ts):
+    // João começou a contribuir aos 22 (16 anos de contribuição aos 38).
+    birthDate,
+    gender: "M",
+    contributionYearsToDate: 16,
+    contributionYearsAsOfDate: now,
+    averageMonthlySalary: 9500,
   });
 
   // --------------------------------------------------------------------
