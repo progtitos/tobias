@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { investments, transactions, bankAccounts } from "@/lib/db/schema";
 import { trackEvent, logFinancialEvent } from "./analytics";
@@ -17,6 +17,26 @@ export async function listInvestmentAccounts(userId: string) {
     .from(bankAccounts)
     .where(and(eq(bankAccounts.userId, userId), eq(bankAccounts.type, "INVESTMENT")))
     .orderBy(bankAccounts.createdAt);
+}
+
+/**
+ * Total investido (currentAmount) por conta — usado na tela Contas pra
+ * mostrar "Investimentos: R$X" embaixo de cada conta-corretora, sem duplicar
+ * o conceito: o número vem de somar as posições reais em Investimentos, não
+ * de um saldo digitado à parte.
+ */
+export async function sumInvestmentsByAccount(userId: string): Promise<Record<string, number>> {
+  const rows = await db
+    .select({ bankAccountId: investments.bankAccountId, total: sql<string>`coalesce(sum(${investments.currentAmount}), 0)` })
+    .from(investments)
+    .where(eq(investments.userId, userId))
+    .groupBy(investments.bankAccountId);
+
+  const result: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.bankAccountId) result[row.bankAccountId] = Number(row.total);
+  }
+  return result;
 }
 
 export async function createInvestment(userId: string, input: CreateInvestmentInput) {

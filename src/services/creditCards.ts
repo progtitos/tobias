@@ -4,7 +4,7 @@ import { db } from "@/lib/db/client";
 import { creditCards, bankAccounts, transactions } from "@/lib/db/schema";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { nowInBrazil } from "@/lib/utils/dates";
-import type { CreateCreditCardInput } from "@/lib/validations/creditCard";
+import type { CreateCreditCardInput, UpdateCreditCardInput } from "@/lib/validations/creditCard";
 
 export async function listCreditCards(userId: string) {
   return db.select().from(creditCards).where(eq(creditCards.userId, userId)).orderBy(creditCards.createdAt);
@@ -121,6 +121,33 @@ export async function createCreditCard(userId: string, input: CreateCreditCardIn
 
   await trackEvent(userId, "credit_card_created", { bankAccountId: account.id });
   await logFinancialEvent(userId, "credit_card_created", { creditCardId: card.id, nickname: card.nickname });
+  return card;
+}
+
+/**
+ * Edita apelido/bandeira/dígitos/limite/datas de um cartão já cadastrado —
+ * o motivo mais comum de precisar disso é justamente preencher o limite
+ * depois: sem ele, o cartão não entra no ranking de "cartão em atenção" do
+ * Dashboard nem mostra barra de uso em Contas (ver pickCardNeedingAttention).
+ */
+export async function updateCreditCard(userId: string, creditCardId: string, input: UpdateCreditCardInput) {
+  const [card] = await db
+    .update(creditCards)
+    .set({
+      nickname: input.nickname,
+      brand: input.brand || null,
+      lastFourDigits: input.lastFourDigits || null,
+      limitAmount: input.limitAmount ?? null,
+      closingDay: input.closingDay ?? null,
+      dueDay: input.dueDay ?? null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(creditCards.id, creditCardId), eq(creditCards.userId, userId)))
+    .returning();
+
+  if (card) {
+    await trackEvent(userId, "credit_card_updated", { creditCardId });
+  }
   return card;
 }
 

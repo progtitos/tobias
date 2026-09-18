@@ -22,6 +22,7 @@ export type AnalyticsEventName =
   | "bank_account_created"
   | "bank_account_updated"
   | "credit_card_created"
+  | "credit_card_updated"
   | "statement_uploaded"
   | "statement_import_confirmed"
   | "investment_created"

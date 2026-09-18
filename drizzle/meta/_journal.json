@@ -64,6 +64,13 @@
       "when": 1789744425027,
       "tag": "0008_adiciona_extrato_investimentos_e_conta_corretora",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789754044400,
+      "tag": "0009_adiciona_proprietario_conta",
+      "breakpoints": true
     }
   ]
 }

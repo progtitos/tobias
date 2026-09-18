@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { bankAccounts } from "@/lib/db/schema";
 import { trackEvent, logFinancialEvent } from "./analytics";
-import type { CreateBankAccountInput } from "@/lib/validations/bankAccount";
+import type { CreateBankAccountInput, UpdateBankAccountDetailsInput } from "@/lib/validations/bankAccount";
 
 export async function listBankAccounts(userId: string) {
   return db.select().from(bankAccounts).where(eq(bankAccounts.userId, userId)).orderBy(bankAccounts.createdAt);
@@ -16,6 +16,7 @@ export async function createBankAccount(userId: string, input: CreateBankAccount
       userId,
       name: input.name,
       bankName: input.bankName || null,
+      ownerName: input.ownerName || null,
       type: input.type,
       balance: input.balance,
     })
@@ -23,6 +24,34 @@ export async function createBankAccount(userId: string, input: CreateBankAccount
 
   await trackEvent(userId, "bank_account_created", { type: input.type });
   await logFinancialEvent(userId, "bank_account_created", { accountId: account.id, name: input.name });
+  return account;
+}
+
+/**
+ * Edita os dados "de cadastro" da conta (nome, banco, dono, tipo) — separado
+ * do saldo, que tem seu próprio fluxo rápido (updateBankAccountBalance,
+ * usado direto na linha da conta em Contas).
+ */
+export async function updateBankAccountDetails(
+  userId: string,
+  accountId: string,
+  input: UpdateBankAccountDetailsInput
+) {
+  const [account] = await db
+    .update(bankAccounts)
+    .set({
+      name: input.name,
+      bankName: input.bankName || null,
+      ownerName: input.ownerName || null,
+      type: input.type,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(bankAccounts.id, accountId), eq(bankAccounts.userId, userId)))
+    .returning();
+
+  if (account) {
+    await trackEvent(userId, "bank_account_updated", { accountId });
+  }
   return account;
 }
 

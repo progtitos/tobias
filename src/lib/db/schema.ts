@@ -538,6 +538,10 @@ export const bankAccounts = pgTable(
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     bankName: text("bank_name"),
+    // De quem é a conta, quando a família compartilha o mesmo Tobias (ex:
+    // "Luísa", "Genilson") — puramente informativo, não afeta cálculo
+    // nenhum. Opcional: quem usa o app sozinho não precisa preencher.
+    ownerName: text("owner_name"),
     type: bankAccountTypeEnum("type").notNull().default("CHECKING"),
     balance: money("balance").notNull().default(0),
     currency: text("currency").notNull().default("BRL"),

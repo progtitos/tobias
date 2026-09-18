@@ -2,15 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOnboardedUser } from "@/lib/auth/guards";
-import { createBankAccountSchema, updateBankAccountBalanceSchema } from "@/lib/validations/bankAccount";
-import { createCreditCardSchema } from "@/lib/validations/creditCard";
+import {
+  createBankAccountSchema,
+  updateBankAccountBalanceSchema,
+  updateBankAccountDetailsSchema,
+} from "@/lib/validations/bankAccount";
+import { createCreditCardSchema, updateCreditCardSchema } from "@/lib/validations/creditCard";
 import {
   createBankAccount,
   updateBankAccountBalance,
+  updateBankAccountDetails,
   toggleBankAccountActive,
   deleteBankAccount,
 } from "@/services/bankAccounts";
-import { createCreditCard, deleteCreditCard } from "@/services/creditCards";
+import { createCreditCard, updateCreditCard, deleteCreditCard } from "@/services/creditCards";
 
 export type ContaFormState = { error?: string; success?: boolean; accountId?: string } | undefined;
 
@@ -34,6 +39,7 @@ export async function createBankAccountAction(
   const parsed = createBankAccountSchema.safeParse({
     name: String(formData.get("name") ?? ""),
     bankName: (formData.get("bankName") as string) || null,
+    ownerName: (formData.get("ownerName") as string) || null,
     type: String(formData.get("type") ?? "CHECKING"),
     balance: Number(formData.get("balance") ?? 0),
   });
@@ -42,6 +48,27 @@ export async function createBankAccountAction(
   const account = await createBankAccount(user.id, parsed.data);
   revalidateAll();
   return { success: true, accountId: account.id };
+}
+
+export async function updateBankAccountDetailsAction(
+  _prev: ContaFormState,
+  formData: FormData
+): Promise<ContaFormState> {
+  const user = await requireOnboardedUser();
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!accountId) return { error: "Conta não encontrada" };
+
+  const parsed = updateBankAccountDetailsSchema.safeParse({
+    name: String(formData.get("name") ?? ""),
+    bankName: (formData.get("bankName") as string) || null,
+    ownerName: (formData.get("ownerName") as string) || null,
+    type: String(formData.get("type") ?? "CHECKING"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+
+  await updateBankAccountDetails(user.id, accountId, parsed.data);
+  revalidateAll();
+  return { success: true, accountId };
 }
 
 export async function updateBankAccountBalanceAction(accountId: string, balance: number) {
@@ -89,6 +116,29 @@ export async function createCreditCardAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
 
   await createCreditCard(user.id, parsed.data);
+  revalidateAll();
+  return { success: true };
+}
+
+export async function updateCreditCardAction(
+  _prev: CreditCardFormState,
+  formData: FormData
+): Promise<CreditCardFormState> {
+  const user = await requireOnboardedUser();
+  const creditCardId = String(formData.get("creditCardId") ?? "");
+  if (!creditCardId) return { error: "Cartão não encontrado" };
+
+  const parsed = updateCreditCardSchema.safeParse({
+    nickname: String(formData.get("nickname") ?? ""),
+    brand: (formData.get("brand") as string) || null,
+    lastFourDigits: (formData.get("lastFourDigits") as string) || null,
+    limitAmount: formData.get("limitAmount") ? Number(formData.get("limitAmount")) : null,
+    closingDay: formData.get("closingDay") ? Number(formData.get("closingDay")) : null,
+    dueDay: formData.get("dueDay") ? Number(formData.get("dueDay")) : null,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+
+  await updateCreditCard(user.id, creditCardId, parsed.data);
   revalidateAll();
   return { success: true };
 }
