@@ -71,18 +71,6 @@
   --color-gold-400: #ffb648;
   --color-gold-100: #ffe7c4;
 
-  /* Segundo acento, FIXO nos dois temas como o gold-* — não substitui o
-     dourado, é usado só na "energia tipo Pierre" (hero do Dashboard,
-     streak/nível, CTA de chat flutuante): ver design-system-tobias.md
-     quando essa direção for formalizada por lá. limechip-ink é o par de
-     texto escuro pra ficar em cima de um preenchimento lime-400/500, do
-     mesmo jeito que brandchip-900 existe pro par do Badge tone="brand". */
-  --color-lime-600: #6b9a2f;
-  --color-lime-500: #8fc93f;
-  --color-lime-400: #c8f169;
-  --color-lime-100: #eef9d1;
-  --color-limechip-ink: #16210a;
-
   --color-cream-50: #f5f6f5;
   --color-cream-100: #eef0ef;
   --color-cream-200: #e2e5e3;
@@ -159,12 +147,6 @@
   --color-gold-500: var(--color-gold-500);
   --color-gold-400: var(--color-gold-400);
   --color-gold-100: var(--color-gold-100);
-
-  --color-lime-600: var(--color-lime-600);
-  --color-lime-500: var(--color-lime-500);
-  --color-lime-400: var(--color-lime-400);
-  --color-lime-100: var(--color-lime-100);
-  --color-limechip-ink: var(--color-limechip-ink);
 
   --color-cream-50: var(--color-cream-50);
   --color-cream-100: var(--color-cream-100);

@@ -6,47 +6,31 @@ import { computeNetWorth, monthRange, sumIncome, sumExpenses, sumInvestmentContr
 import { getLatestCompass, statusForScore } from "./compass";
 import { simulateRetirementCurve } from "./retirement";
 import { buildRetirementInputs } from "./retirementPlan";
-import { computeStreakDays, levelForScore } from "./gamification";
 
 export async function getDashboardData(userId: string) {
   const { start, end } = monthRange();
 
-  const [
-    netWorth,
-    income,
-    expenses,
-    investmentContributions,
-    compass,
-    goals,
-    activeAlerts,
-    retirementPlan,
-    financialProfile,
-    streakDays,
-  ] = await Promise.all([
-    computeNetWorth(userId),
-    sumIncome(userId, start, end),
-    sumExpenses(userId, start, end),
-    sumInvestmentContributions(userId, start, end),
-    getLatestCompass(userId),
-    activeGoals(userId),
-    db
-      .select()
-      .from(alerts)
-      .where(and(eq(alerts.userId, userId), eq(alerts.isDismissed, false)))
-      .orderBy(desc(alerts.createdAt))
-      .limit(3),
-    db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).then((r) => r[0] ?? null),
-    db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).then((r) => r[0] ?? null),
-    computeStreakDays(userId),
-  ]);
+  const [netWorth, income, expenses, investmentContributions, compass, goals, activeAlerts, retirementPlan, financialProfile] =
+    await Promise.all([
+      computeNetWorth(userId),
+      sumIncome(userId, start, end),
+      sumExpenses(userId, start, end),
+      sumInvestmentContributions(userId, start, end),
+      getLatestCompass(userId),
+      activeGoals(userId),
+      db
+        .select()
+        .from(alerts)
+        .where(and(eq(alerts.userId, userId), eq(alerts.isDismissed, false)))
+        .orderBy(desc(alerts.createdAt))
+        .limit(3),
+      db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).then((r) => r[0] ?? null),
+      db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).then((r) => r[0] ?? null),
+    ]);
 
   const healthScore =
     compass.length > 0 ? Math.round(compass.reduce((s, c) => s + c.score, 0) / compass.length) : 0;
   const healthStatus = statusForScore(healthScore);
-  // Sem Ponteiro calculado ainda (compass vazio), não existe "nível" —
-  // mostrar Bronze pra quem acabou de chegar seria um julgamento que a
-  // gente ainda não tem dado pra fazer, não um começo motivador.
-  const level = compass.length > 0 ? levelForScore(healthScore) : null;
 
   // A proactive nudge for the dashboard's "Tobias" card. Deliberately rule-based
   // like the rest of the Bússola: it's just the weakest dimension's own
@@ -78,7 +62,5 @@ export async function getDashboardData(userId: string) {
     retirementTargetAge: retirementPlan?.targetRetirementAge ?? null,
     tobiasMessage,
     tobiasFocusLabel,
-    streakDays,
-    level,
   };
 }

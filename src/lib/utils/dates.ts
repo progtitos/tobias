@@ -85,19 +85,6 @@ export function ageFromBirthDate(birthDate: Date, atDate: Date = new Date()): nu
   return yearsBetween(birthDate, atDate);
 }
 
-/**
- * "Bom dia"/"Boa tarde"/"Boa noite" pelo horário de Brasília, não o do
- * processo Node (mesmo motivo de `nowInBrazil()`: em produção o servidor
- * roda em UTC, e sem isso a saudação bateria com o relógio errado pra quem
- * abre o Dashboard à noite no Brasil).
- */
-export function greetingForHour(hour: number = nowInBrazil().getHours()): string {
-  if (hour < 5) return "Boa noite";
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
-  return "Boa noite";
-}
-
 export function addMonthsClamped(date: Date, months: number): Date {
   const day = date.getDate();
   // Dia 1 nunca estoura (todo mês tem um dia 1), então isto já cai no mês
