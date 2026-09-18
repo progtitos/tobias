@@ -32,12 +32,28 @@ export function ChatWindow({
   onAction,
   placeholder = "Escreva para o Tobias...",
   className,
+  hero,
+  quickReplies,
 }: {
   initialMessages: ChatMessage[];
   onSend: (text: string) => Promise<{ reply: string; actions?: { label: string; action: string }[]; completed?: boolean }>;
   onAction?: (action: string) => void;
   placeholder?: string;
   className?: string;
+  /**
+   * A one-time welcoming moment rendered above the message list (onboarding
+   * only) — scrolls away naturally as the conversation grows, since it lives
+   * inside the same scroll container as the messages instead of a separate
+   * fixed header.
+   */
+  hero?: { avatarSrc: string; title: string; subtitle: string };
+  /**
+   * Tap-to-send suggestions shown under the very first assistant message,
+   * so the person isn't staring at a blank textarea. They disappear as soon
+   * as the conversation has a first reply (`messages.length > 1`), whether
+   * that reply came from a tap here or from typing directly.
+   */
+  quickReplies?: string[];
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
@@ -48,8 +64,7 @@ export function ChatWindow({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, pending]);
 
-  function handleSend() {
-    const text = input.trim();
+  function sendText(text: string) {
     if (!text || pending) return;
     setInput("");
     const userMsg: ChatMessage = { id: `local-${Date.now()}`, role: "USER", content: text };
@@ -76,36 +91,67 @@ export function ChatWindow({
     });
   }
 
+  function handleSend() {
+    sendText(input.trim());
+  }
+
   return (
     <div className={cn("flex flex-col flex-1 min-h-0", className)}>
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-2xl w-full mx-auto">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={cn("flex items-end gap-2", m.role === "USER" ? "justify-end" : "justify-start")}
-          >
-            {m.role === "ASSISTANT" && <TobiasAvatar />}
-            <div
-              className={cn(
-                "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap",
-                m.role === "USER" ? "bg-gold-500 text-ink-900 rounded-br-sm" : "bg-brand-800 text-onbrand rounded-bl-sm"
-              )}
-            >
-              {m.content}
-              {m.actions && m.actions.length > 0 && (
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  {m.actions.map((a) => (
-                    <button
-                      key={a.action}
-                      onClick={() => onAction?.(a.action)}
-                      className="text-xs font-medium rounded-full border border-gold-400/60 text-gold-400 px-3 py-1 hover:bg-white/5 transition-colors"
-                    >
-                      {a.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+        {hero && (
+          <div className="flex flex-col items-center text-center pb-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={hero.avatarSrc}
+              alt="Tobias"
+              className="tobias-mascot-soft h-14 w-14 object-cover mb-2.5"
+            />
+            <h2 className="font-display font-bold text-[15px] text-onbrand mb-0.5">{hero.title}</h2>
+            <p className="text-xs text-onbrand/60">{hero.subtitle}</p>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={m.id}>
+            <div className={cn("flex items-end gap-2", m.role === "USER" ? "justify-end" : "justify-start")}>
+              {m.role === "ASSISTANT" && <TobiasAvatar />}
+              <div
+                className={cn(
+                  "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap",
+                  m.role === "USER" ? "bg-gold-500 text-ink-900 rounded-br-sm" : "bg-brand-800 text-onbrand rounded-bl-sm"
+                )}
+              >
+                {m.content}
+                {m.actions && m.actions.length > 0 && (
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {m.actions.map((a) => (
+                      <button
+                        key={a.action}
+                        onClick={() => onAction?.(a.action)}
+                        className="text-xs font-medium rounded-full border border-gold-400/60 text-gold-400 px-3 py-1 hover:bg-white/5 transition-colors"
+                      >
+                        {a.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
+            {/* Only under the very first assistant message, and only until the
+               conversation has its first reply — a one-time nudge, not a
+               recurring suggestion bar. */}
+            {quickReplies && quickReplies.length > 0 && i === 0 && messages.length === 1 && !pending && (
+              <div className="flex flex-wrap gap-2 pl-10 pt-2.5">
+                {quickReplies.map((qr) => (
+                  <button
+                    key={qr}
+                    onClick={() => sendText(qr)}
+                    className="text-xs font-medium rounded-full border border-gold-400/50 text-gold-400 px-3.5 py-1.5 hover:bg-white/5 transition-colors"
+                  >
+                    {qr}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
         {pending && (
