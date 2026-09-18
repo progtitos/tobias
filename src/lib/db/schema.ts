@@ -89,6 +89,26 @@ export const riskProfileEnum = pgEnum("risk_profile", [
 // (ver retirementPlan.ts) e a curva volta a tratar 100% da renda desejada
 // como saindo do patrimônio investido, igual ao comportamento anterior.
 export const genderEnum = pgEnum("gender", ["M", "F"]);
+
+// PCA — Perfil Comportamental do usuário. Seis arquétipos determinísticos
+// (ver services/behavioralProfile.ts e
+// claude/especificacao-perfil-comportamental-onboarding.md), nunca "achados"
+// pela IA: um primeiro palpite vem da pergunta de autorrelato do onboarding,
+// depois é refinado pelos scores que a Bússola já calcula.
+export const behavioralProfileEnum = pgEnum("behavioral_profile", [
+  "CAUTIOUS_GUARDIAN",
+  "CONFIDENT_INVESTOR",
+  "GOAL_BUILDER",
+  "LIFESTYLE_SPENDER",
+  "MONTHLY_SURVIVOR",
+  "EMERGING_ORGANIZER",
+]);
+// INITIAL: só o autorrelato do onboarding. CONSOLIDATED: já validado (ou
+// substituído) por dados reais computados pela Bússola.
+export const behavioralProfileConfidenceEnum = pgEnum("behavioral_profile_confidence", [
+  "INITIAL",
+  "CONSOLIDATED",
+]);
 export const onboardingFocusEnum = pgEnum("onboarding_focus", [
   "RETIREMENT",
   "DEBT_RECOVERY",
@@ -365,9 +385,38 @@ export const profiles = pgTable("profiles", {
   priorities: text("priorities").array(),
   financialHabits: text("financial_habits"),
   concerns: text("concerns").array(),
+  // PCA (Perfil Comportamental) — mesma lógica de "autorreportado vs.
+  // computado" já usada em financial_profiles. behavioralProfileSelfReport
+  // guarda a resposta bruta da pergunta de onboarding (nunca sobrescrita);
+  // behavioralProfile é o valor vigente (pode divergir do self-report assim
+  // que a confiança vira CONSOLIDATED). Default EMERGING_ORGANIZER: estado
+  // "ainda conhecendo você", não um arquétipo "fraco".
+  behavioralProfile: behavioralProfileEnum("behavioral_profile").notNull().default("EMERGING_ORGANIZER"),
+  behavioralProfileConfidence: behavioralProfileConfidenceEnum("behavioral_profile_confidence")
+    .notNull()
+    .default("INITIAL"),
+  behavioralProfileSelfReport: behavioralProfileEnum("behavioral_profile_self_report"),
+  behavioralProfileUpdatedAt: timestamp("behavioral_profile_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Histórico do PCA ao longo do tempo, espelhando financial_compass_snapshots
+// — permite ver a evolução do perfil, não só o valor atual, e guarda os
+// scores da Bússola usados em cada recálculo para auditoria/debug (nunca
+// para exibir ao usuário).
+export const behavioralProfileSnapshots = pgTable(
+  "behavioral_profile_snapshots",
+  {
+    id: id(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    profile: behavioralProfileEnum("profile").notNull(),
+    confidence: behavioralProfileConfidenceEnum("confidence").notNull(),
+    signals: jsonb("signals").$type<Record<string, number | string | null>>(),
+    computedAt: timestamp("computed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("behavioral_profile_user_time_idx").on(t.userId, t.computedAt)]
+);
 
 // Self-reported baseline from onboarding — distinct from computed numbers
 // derived from real Transactions. Both appear in the product, always labeled
@@ -386,6 +435,17 @@ export const financialProfiles = pgTable("financial_profiles", {
   desiredLifestyle: text("desired_lifestyle"),
   savingsCapacityPerMonth: money("savings_capacity_per_month"),
   primaryFocus: onboardingFocusEnum("primary_focus"),
+  // Os 4 dados que o simulador de INSS precisa (ver retirement_plans /
+  // services/inss.ts), coletados aqui quando vêm da CONVERSA de onboarding
+  // — antes de existir uma linha em retirement_plans, que só é criada em
+  // finalizeOnboarding. finalizeOnboarding copia esses 4 campos pra lá,
+  // exatamente como já faz hoje com currentAge/desiredRetirementAge etc.
+  // A tela manual de Aposentadoria continua funcionando do jeito que é,
+  // escrevendo direto em retirement_plans — esses "stated*" não a afetam.
+  statedBirthDate: timestamp("stated_birth_date", { withTimezone: true }),
+  statedGender: genderEnum("stated_gender"),
+  statedContributionYearsToDate: numeric("stated_contribution_years_to_date", { precision: 5, scale: 2, mode: "number" }),
+  statedAverageMonthlySalary: money("stated_average_monthly_salary"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

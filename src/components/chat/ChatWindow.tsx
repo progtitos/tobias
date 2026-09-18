@@ -26,18 +26,28 @@ function TobiasAvatar() {
   );
 }
 
-export function ChatWindow({
+export function ChatWindow<TReveal = never>({
   initialMessages,
   onSend,
   onAction,
+  onReveal,
   placeholder = "Escreva para o Tobias...",
   className,
   hero,
   quickReplies,
 }: {
   initialMessages: ChatMessage[];
-  onSend: (text: string) => Promise<{ reply: string; actions?: { label: string; action: string }[]; completed?: boolean }>;
+  onSend: (
+    text: string
+  ) => Promise<{ reply: string; actions?: { label: string; action: string }[]; completed?: boolean; reveal?: TReveal | null }>;
   onAction?: (action: string) => void;
+  /**
+   * Fired once, right after the assistant's closing message is appended,
+   * when `onSend` comes back with a non-null `reveal` payload — the
+   * onboarding-completion celebration (see ProfileRevealOverlay). Left
+   * undefined for the ongoing chat, which never sends a `reveal`.
+   */
+  onReveal?: (reveal: TReveal) => void;
   placeholder?: string;
   className?: string;
   /**
@@ -77,6 +87,7 @@ export function ChatWindow({
           ...prev,
           { id: `local-${Date.now()}-a`, role: "ASSISTANT", content: result.reply, actions: result.actions },
         ]);
+        if (result.reveal != null) onReveal?.(result.reveal);
       } catch {
         setMessages((prev) => [
           ...prev,

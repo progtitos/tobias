@@ -1,0 +1,597 @@
+From 0b21bf3d6f61ac6f7126d74bee9a9af0fdb0fe18 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 18 Sep 2026 07:26:55 +0000
+Subject: [PATCH] =?UTF-8?q?Revert=20"feat:=20reskin=20Dashboard=20para=20d?=
+ =?UTF-8?q?ire=C3=A7=C3=A3o=20visual=20"energia=20tipo=20Pierre""?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This reverts commit 04b7cbdb7483f2f80d9882e5ee8c51c771c661f7.
+---
+ src/app/(app)/dashboard/page.tsx | 204 +++++++++----------------------
+ src/app/globals.css              |  18 ---
+ src/lib/utils/dates.ts           |  13 --
+ src/services/dashboard.ts        |  52 +++-----
+ src/services/gamification.ts     | 100 ---------------
+ 5 files changed, 72 insertions(+), 315 deletions(-)
+ delete mode 100644 src/services/gamification.ts
+
+diff --git a/src/app/(app)/dashboard/page.tsx b/src/app/(app)/dashboard/page.tsx
+index 2195385..dd24b2b 100644
+--- a/src/app/(app)/dashboard/page.tsx
++++ b/src/app/(app)/dashboard/page.tsx
+@@ -1,42 +1,32 @@
+ import Image from "next/image";
+ import Link from "next/link";
+-import { ArrowRight, Flame, MessageCircle } from "lucide-react";
++import { ArrowRight } from "lucide-react";
+ import { requireOnboardedUser } from "@/lib/auth/guards";
+ import { getDashboardData } from "@/services/dashboard";
+ import type { CompassDimensionResult } from "@/services/compass";
+-import type { LevelTier } from "@/services/gamification";
+ import { Card, CardContent } from "@/components/ui/Card";
+ import { Badge } from "@/components/ui/Badge";
+ import { formatBRL } from "@/lib/utils/money";
+-import { greetingForHour } from "@/lib/utils/dates";
+ import { RetirementChart } from "@/components/charts/RetirementChart";
+ import { CompassDial } from "@/components/dashboard/CompassDial";
+ import { TobiasMascot } from "@/components/dashboard/TobiasMascot";
+ 
+-// "Direção B" (energia tipo Pierre) — ver comparativo enviado ao Thiago em
+-// 18/09/2026 e claude/especificacao-patrimonio-por-pilares.md pro que ainda
+-// não entrou aqui (breakdown por pilar depende de decisão/migração à parte).
+-// O gold-* continua sendo o acento de marca; lime-* é o segundo acento,
+-// fixo nos dois temas (globals.css), usado só nesta energia mais vibrante.
+-const GLASS_CARD = "bg-brand-800/90 border border-white/[0.06] shadow-[0_18px_40px_-22px_rgba(0,0,0,0.6)]";
++const DARK_CARD = "bg-brand-800 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)]";
+ const CHIP_DOT_TONE: Record<CompassDimensionResult["status"], string> = {
+   Excelente: "bg-ok-400",
+   Saudável: "bg-ok-400",
+   "Em construção": "bg-gold-400",
+   Atenção: "bg-danger-300",
+ };
+-const LEVEL_CHIP_TONE: Record<LevelTier, string> = {
+-  BRONZE: "bg-white/10 text-onbrand/80",
+-  PRATA: "bg-white/10 text-onbrand/80",
+-  OURO: "bg-lime-400 text-limechip-ink",
+-  PLATINA: "bg-lime-400 text-limechip-ink",
+-};
+ 
+ export default async function DashboardPage() {
+   const user = await requireOnboardedUser();
+   const data = await getDashboardData(user.id);
+   const firstName = user.name.split(" ")[0];
+ 
++  // Highlight the strongest dimension plus the two that most need attention,
++  // instead of the full 9-dimension list — the full breakdown still lives on
++  // /compass, this is just the "de cara" snapshot.
+   const sortedCompass = [...data.compass].sort((a, b) => b.score - a.score);
+   const heroChips =
+     sortedCompass.length > 0
+@@ -45,6 +35,8 @@ export default async function DashboardPage() {
+         )
+       : [];
+ 
++  // Drives the mood ring/message on each hero card's Tobias mascot — same
++  // status classification the compass already uses elsewhere on this page.
+   const compassMood: "ok" | "warn" =
+     data.healthStatus === "Excelente" || data.healthStatus === "Saudável" ? "ok" : "warn";
+   const compassMoodMessage =
+@@ -56,94 +48,30 @@ export default async function DashboardPage() {
+       ? "No alvo! Continue assim"
+       : "Vamos ajustar o plano juntos";
+ 
+-  const heroSubtitle =
+-    data.compass.length === 0
+-      ? "Vamos começar a organizar sua vida financeira."
+-      : `Sua saúde financeira está ${data.healthStatus.toLowerCase()}.`;
+-
+   return (
+-    <div className="flex-1 bg-brand-950">
+-      {/* Hero — sangra até a borda da área de conteúdo (fora do max-w-5xl),
+-          é o que dá a sensação de "capa" em vez de mais um card na grade. */}
+-      <div
+-        className="relative overflow-hidden px-5 pt-6 pb-14"
+-        style={{
+-          background:
+-            "radial-gradient(130% 100% at 12% -10%, rgba(200,241,105,.14), transparent 55%)," +
+-            "radial-gradient(90% 70% at 92% 0%, rgba(255,182,72,.12), transparent 60%)," +
+-            "linear-gradient(180deg, var(--color-brand-900) 0%, var(--color-brand-950) 100%)",
+-        }}
+-      >
+-        <div className="max-w-5xl mx-auto w-full">
+-          <div className="flex items-center justify-between mb-6">
+-            <div className="flex items-center gap-2 font-display font-bold text-onbrand">
+-              <span className="h-2 w-2 rounded-full bg-lime-400" />
+-              Tobias
+-            </div>
+-            {data.level && (
+-              <span
+-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold font-sans ${LEVEL_CHIP_TONE[data.level.tier]}`}
+-              >
+-                {data.level.label}
+-              </span>
+-            )}
+-          </div>
++    <div className="flex-1 bg-brand-950 px-5 py-6 space-y-6">
++      <div className="max-w-5xl mx-auto w-full space-y-6">
++        <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
+ 
+-          <div className="flex items-center gap-4">
+-            <Image
+-              src="/avatars/tobias-boas-vindas.png"
+-              alt="Tobias"
+-              width={64}
+-              height={64}
+-              className="rounded-full shrink-0 ring-2 ring-lime-400/60"
+-            />
+-            <div className="min-w-0">
+-              <h1 className="font-display font-bold text-[21px] text-onbrand leading-tight tracking-tight">
+-                {greetingForHour()}, {firstName}.
+-              </h1>
+-              <p className="text-[13px] text-onbrand/60 mt-0.5">{heroSubtitle}</p>
+-            </div>
+-          </div>
+-
+-          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-3.5 py-2 text-xs font-medium text-onbrand/80">
+-            <Flame className={`h-4 w-4 ${data.streakDays > 0 ? "text-gold-400" : "text-onbrand/40"}`} strokeWidth={2} />
+-            {data.streakDays > 0
+-              ? `${data.streakDays} dia${data.streakDays === 1 ? "" : "s"} seguido${data.streakDays === 1 ? "" : "s"} organizando as finanças`
+-              : "Ainda sem sequência — hoje é um bom dia pra começar"}
+-          </div>
++        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
++          <StatCard label="Seu patrimônio" value={formatBRL(data.netWorth.netWorth)} />
++          <Card className={DARK_CARD}>
++            <CardContent className="py-5">
++              <h2 className="font-display font-semibold text-base text-onbrand mb-3">Seu mês</h2>
++              <MonthFlow
++                income={data.month.income}
++                expenses={data.month.expenses}
++                investments={data.month.investments}
++                balance={data.month.balance}
++              />
++            </CardContent>
++          </Card>
++          <StatCard label="Saúde financeira" value={`${data.healthScore}/100`} accent />
+         </div>
+-      </div>
+-
+-      {/* Conteúdo — sobe por cima do fim do hero (margin negativa), efeito
+-          de "capa por trás dos cards" sem precisar de posicionamento absoluto. */}
+-      <div className="max-w-5xl mx-auto w-full px-5 -mt-8 pb-6 space-y-4 relative z-10">
+-        <Card className={GLASS_CARD}>
+-          <CardContent className="py-5">
+-            <p className="text-xs uppercase tracking-wide text-onbrand/55 mb-1.5">Patrimônio líquido</p>
+-            <p className="font-display font-extrabold text-[28px] tracking-tight tabular-nums text-onbrand mb-4">
+-              {formatBRL(data.netWorth.netWorth)}
+-            </p>
+-            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+-              <MiniStat label="Em contas" value={formatBRL(data.netWorth.liquidAssets)} />
+-              <MiniStat label="Saúde financeira" value={`${data.healthScore}/100`} accent />
+-            </div>
+-          </CardContent>
+-        </Card>
+-
+-        <Card className={GLASS_CARD}>
+-          <CardContent className="py-5">
+-            <h2 className="font-display font-semibold text-base text-onbrand mb-3">Seu mês</h2>
+-            <MonthFlow
+-              income={data.month.income}
+-              expenses={data.month.expenses}
+-              investments={data.month.investments}
+-              balance={data.month.balance}
+-            />
+-          </CardContent>
+-        </Card>
+ 
++        {/* Hero: Bússola + curva de aposentadoria + o Tobias, unificados e logo de cara. */}
+         <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-4">
+-          <Card className={`${GLASS_CARD} relative`}>
++          <Card className={`${DARK_CARD} relative`}>
+             <TobiasMascot
+               src="/avatars/tobias-bussola-financeira.png"
+               mood={compassMood}
+@@ -152,7 +80,7 @@ export default async function DashboardPage() {
+             <CardContent className="py-5">
+               <div className="flex items-baseline gap-2.5 mb-1">
+                 <h2 className="font-display font-semibold text-lg text-onbrand">Seu Ponteiro</h2>
+-                <Link href="/compass" className="text-xs text-lime-400 hover:underline flex items-center gap-1 font-medium">
++                <Link href="/compass" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
+                   Ver tudo <ArrowRight className="h-3 w-3" />
+                 </Link>
+               </div>
+@@ -185,7 +113,7 @@ export default async function DashboardPage() {
+           </Card>
+ 
+           <div className="space-y-4">
+-            <Card className={`${GLASS_CARD} relative`}>
++            <Card className={`${DARK_CARD} relative`}>
+               <TobiasMascot
+                 src="/avatars/tobias-curva-aposentadoria.png"
+                 mood={retirementMood}
+@@ -194,7 +122,7 @@ export default async function DashboardPage() {
+               <CardContent className="py-5">
+                 <div className="flex items-baseline gap-2.5 mb-1">
+                   <h2 className="font-display font-semibold text-lg text-onbrand">Curva de aposentadoria</h2>
+-                  <Link href="/retirement" className="text-xs text-lime-400 hover:underline flex items-center gap-1 font-medium">
++                  <Link href="/retirement" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
+                     Simular <ArrowRight className="h-3 w-3" />
+                   </Link>
+                 </div>
+@@ -215,7 +143,7 @@ export default async function DashboardPage() {
+                 ) : (
+                   <p className="text-sm text-onbrand/60 mt-3">
+                     Ainda não montamos seu plano de aposentadoria.{" "}
+-                    <Link href="/chat" className="text-lime-400 underline">
++                    <Link href="/chat" className="text-gold-400 underline">
+                       Vamos conversar sobre isso
+                     </Link>
+                     .
+@@ -224,7 +152,7 @@ export default async function DashboardPage() {
+               </CardContent>
+             </Card>
+ 
+-            <Card className={GLASS_CARD}>
++            <Card className={DARK_CARD}>
+               <CardContent className="py-5">
+                 <div className="flex gap-3 items-start">
+                   <Image
+@@ -234,8 +162,8 @@ export default async function DashboardPage() {
+                     height={38}
+                     className="tobias-mascot-soft shrink-0"
+                   />
+-                  <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0 border border-lime-400/20">
+-                    <p className="text-[11px] font-bold uppercase tracking-wide text-lime-400 mb-1">Tobias</p>
++                  <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
++                    <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400 mb-1">Tobias</p>
+                     <p className="text-sm leading-relaxed text-onbrand">{data.tobiasMessage}</p>
+                   </div>
+                 </div>
+@@ -243,29 +171,29 @@ export default async function DashboardPage() {
+             </Card>
+           </div>
+         </div>
+-
+-        {/* CTA flutuante — mesmo destino de sempre (/chat), só com o tratamento
+-            visual da Direção B. sticky (não fixed) pra não brigar com a bottom
+-            nav mobile nem cobrir conteúdo em telas curtas. */}
+-        <Link
+-          href="/chat"
+-          className="sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-full bg-lime-400 text-limechip-ink font-sans font-bold text-sm px-5 py-3.5 shadow-[0_16px_30px_-12px_rgba(200,241,105,0.45)] hover:brightness-105 transition"
+-        >
+-          <span className="flex items-center gap-2">
+-            <MessageCircle className="h-[18px] w-[18px]" strokeWidth={2.25} />
+-            Perguntar ao Tobias
+-          </span>
+-          <ArrowRight className="h-4 w-4" />
+-        </Link>
+       </div>
+     </div>
+   );
+ }
+ 
++function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
++  return (
++    <Card className={accent ? "bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]" : DARK_CARD}>
++      <CardContent className="py-5">
++        <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-1.5">{label}</p>
++        <p className="font-sans font-medium text-[22px] tracking-tight tabular-nums text-onbrand">{value}</p>
++      </CardContent>
++    </Card>
++  );
++}
++
+ /**
+- * Mesma lógica de sempre (líder com o saldo, o resto como uma barra
+- * proporcional única) — só o tratamento visual mudou pra Direção B
+- * (investimentos em lime em vez de dourado, pra reforçar o segundo acento).
++ * "Seu mês" used to be a flat 2x2 grid of numbers — accurate, but you had to
++ * read all four to understand anything. This leads with the one number that
++ * actually matters day-to-day (o saldo), then shows where the money that
++ * didn't stay as saldo actually went as a single proportional bar (despesas
++ * vs. investimentos, out of a receitas baseline) instead of two more
++ * disconnected figures.
+  */
+ function MonthFlow({
+   income,
+@@ -278,6 +206,9 @@ function MonthFlow({
+   investments: number;
+   balance: number;
+ }) {
++  // Scale against whichever is bigger — income, or everything that went out
++  // — so the bar never silently overflows its own track when spending (+
++  // investing) exceeds what came in that month.
+   const scale = Math.max(income, expenses + investments, 1);
+   const expensePct = (expenses / scale) * 100;
+   const investPct = (investments / scale) * 100;
+@@ -304,12 +235,12 @@ function MonthFlow({
+ 
+       <div className="h-2.5 rounded-full bg-white/[0.07] overflow-hidden flex">
+         {expensePct > 0 && <div className="h-full bg-danger-300/85" style={{ width: `${expensePct}%` }} />}
+-        {investPct > 0 && <div className="h-full bg-lime-400" style={{ width: `${investPct}%` }} />}
++        {investPct > 0 && <div className="h-full bg-gold-400" style={{ width: `${investPct}%` }} />}
+       </div>
+ 
+       <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+         <FlowLegend dotClass="bg-danger-300/85" label="Despesas" value={expenses} />
+-        <FlowLegend dotClass="bg-lime-400" label="Investimentos" value={investments} />
++        <FlowLegend dotClass="bg-gold-400" label="Investimentos" value={investments} />
+       </div>
+     </div>
+   );
+@@ -324,28 +255,3 @@ function FlowLegend({ dotClass, label, value }: { dotClass: string; label: strin
+     </div>
+   );
+ }
+-
+-function MiniStat({
+-  label,
+-  value,
+-  accent,
+-  positive,
+-}: {
+-  label: string;
+-  value: string;
+-  accent?: boolean;
+-  positive?: boolean;
+-}) {
+-  return (
+-    <div>
+-      <p className="text-[10.5px] uppercase tracking-wide text-onbrand/55 mb-0.5">{label}</p>
+-      <p
+-        className={`font-sans font-semibold text-base tracking-tight tabular-nums ${
+-          accent ? "text-lime-400" : positive === false ? "text-danger-300" : "text-onbrand"
+-        }`}
+-      >
+-        {value}
+-      </p>
+-    </div>
+-  );
+-}
+diff --git a/src/app/globals.css b/src/app/globals.css
+index b29e5cd..99b4310 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -71,18 +71,6 @@
+   --color-gold-400: #ffb648;
+   --color-gold-100: #ffe7c4;
+ 
+-  /* Segundo acento, FIXO nos dois temas como o gold-* — não substitui o
+-     dourado, é usado só na "energia tipo Pierre" (hero do Dashboard,
+-     streak/nível, CTA de chat flutuante): ver design-system-tobias.md
+-     quando essa direção for formalizada por lá. limechip-ink é o par de
+-     texto escuro pra ficar em cima de um preenchimento lime-400/500, do
+-     mesmo jeito que brandchip-900 existe pro par do Badge tone="brand". */
+-  --color-lime-600: #6b9a2f;
+-  --color-lime-500: #8fc93f;
+-  --color-lime-400: #c8f169;
+-  --color-lime-100: #eef9d1;
+-  --color-limechip-ink: #16210a;
+-
+   --color-cream-50: #f5f6f5;
+   --color-cream-100: #eef0ef;
+   --color-cream-200: #e2e5e3;
+@@ -160,12 +148,6 @@
+   --color-gold-400: var(--color-gold-400);
+   --color-gold-100: var(--color-gold-100);
+ 
+-  --color-lime-600: var(--color-lime-600);
+-  --color-lime-500: var(--color-lime-500);
+-  --color-lime-400: var(--color-lime-400);
+-  --color-lime-100: var(--color-lime-100);
+-  --color-limechip-ink: var(--color-limechip-ink);
+-
+   --color-cream-50: var(--color-cream-50);
+   --color-cream-100: var(--color-cream-100);
+   --color-cream-200: var(--color-cream-200);
+diff --git a/src/lib/utils/dates.ts b/src/lib/utils/dates.ts
+index 3c0bd46..cf86674 100644
+--- a/src/lib/utils/dates.ts
++++ b/src/lib/utils/dates.ts
+@@ -85,19 +85,6 @@ export function ageFromBirthDate(birthDate: Date, atDate: Date = new Date()): nu
+   return yearsBetween(birthDate, atDate);
+ }
+ 
+-/**
+- * "Bom dia"/"Boa tarde"/"Boa noite" pelo horário de Brasília, não o do
+- * processo Node (mesmo motivo de `nowInBrazil()`: em produção o servidor
+- * roda em UTC, e sem isso a saudação bateria com o relógio errado pra quem
+- * abre o Dashboard à noite no Brasil).
+- */
+-export function greetingForHour(hour: number = nowInBrazil().getHours()): string {
+-  if (hour < 5) return "Boa noite";
+-  if (hour < 12) return "Bom dia";
+-  if (hour < 18) return "Boa tarde";
+-  return "Boa noite";
+-}
+-
+ export function addMonthsClamped(date: Date, months: number): Date {
+   const day = date.getDate();
+   // Dia 1 nunca estoura (todo mês tem um dia 1), então isto já cai no mês
+diff --git a/src/services/dashboard.ts b/src/services/dashboard.ts
+index a072383..2262b5d 100644
+--- a/src/services/dashboard.ts
++++ b/src/services/dashboard.ts
+@@ -6,47 +6,31 @@ import { computeNetWorth, monthRange, sumIncome, sumExpenses, sumInvestmentContr
+ import { getLatestCompass, statusForScore } from "./compass";
+ import { simulateRetirementCurve } from "./retirement";
+ import { buildRetirementInputs } from "./retirementPlan";
+-import { computeStreakDays, levelForScore } from "./gamification";
+ 
+ export async function getDashboardData(userId: string) {
+   const { start, end } = monthRange();
+ 
+-  const [
+-    netWorth,
+-    income,
+-    expenses,
+-    investmentContributions,
+-    compass,
+-    goals,
+-    activeAlerts,
+-    retirementPlan,
+-    financialProfile,
+-    streakDays,
+-  ] = await Promise.all([
+-    computeNetWorth(userId),
+-    sumIncome(userId, start, end),
+-    sumExpenses(userId, start, end),
+-    sumInvestmentContributions(userId, start, end),
+-    getLatestCompass(userId),
+-    activeGoals(userId),
+-    db
+-      .select()
+-      .from(alerts)
+-      .where(and(eq(alerts.userId, userId), eq(alerts.isDismissed, false)))
+-      .orderBy(desc(alerts.createdAt))
+-      .limit(3),
+-    db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).then((r) => r[0] ?? null),
+-    db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).then((r) => r[0] ?? null),
+-    computeStreakDays(userId),
+-  ]);
++  const [netWorth, income, expenses, investmentContributions, compass, goals, activeAlerts, retirementPlan, financialProfile] =
++    await Promise.all([
++      computeNetWorth(userId),
++      sumIncome(userId, start, end),
++      sumExpenses(userId, start, end),
++      sumInvestmentContributions(userId, start, end),
++      getLatestCompass(userId),
++      activeGoals(userId),
++      db
++        .select()
++        .from(alerts)
++        .where(and(eq(alerts.userId, userId), eq(alerts.isDismissed, false)))
++        .orderBy(desc(alerts.createdAt))
++        .limit(3),
++      db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).then((r) => r[0] ?? null),
++      db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).then((r) => r[0] ?? null),
++    ]);
+ 
+   const healthScore =
+     compass.length > 0 ? Math.round(compass.reduce((s, c) => s + c.score, 0) / compass.length) : 0;
+   const healthStatus = statusForScore(healthScore);
+-  // Sem Ponteiro calculado ainda (compass vazio), não existe "nível" —
+-  // mostrar Bronze pra quem acabou de chegar seria um julgamento que a
+-  // gente ainda não tem dado pra fazer, não um começo motivador.
+-  const level = compass.length > 0 ? levelForScore(healthScore) : null;
+ 
+   // A proactive nudge for the dashboard's "Tobias" card. Deliberately rule-based
+   // like the rest of the Bússola: it's just the weakest dimension's own
+@@ -78,7 +62,5 @@ export async function getDashboardData(userId: string) {
+     retirementTargetAge: retirementPlan?.targetRetirementAge ?? null,
+     tobiasMessage,
+     tobiasFocusLabel,
+-    streakDays,
+-    level,
+   };
+ }
+diff --git a/src/services/gamification.ts b/src/services/gamification.ts
+deleted file mode 100644
+index 5ac2440..0000000
+--- a/src/services/gamification.ts
++++ /dev/null
+@@ -1,100 +0,0 @@
+-import "server-only";
+-import { and, eq, gte, inArray } from "drizzle-orm";
+-import { db } from "@/lib/db/client";
+-import { analyticsEvents } from "@/lib/db/schema";
+-import { nowInBrazil } from "@/lib/utils/dates";
+-import type { AnalyticsEventName } from "./analytics";
+-
+-/**
+- * Eventos que contam como "dia ativo" pra sequência — só os que representam
+- * a pessoa de fato organizando a vida financeira dela (lançar, revisar,
+- * planejar, conversar com o Tobias). Deliberadamente de fora: eventos de
+- * sistema/ciclo de conta (login, trial, assinatura, insight/alerta gerado
+- * passivamente pela IA) — logar ou receber um insight não é a pessoa
+- * fazendo nada, e contar isso inflaria a sequência sem sentido.
+- */
+-const STREAK_EVENT_NAMES: AnalyticsEventName[] = [
+-  "onboarding_message",
+-  "expense_created",
+-  "receipt_uploaded",
+-  "receipt_confirmed",
+-  "goal_created",
+-  "goal_updated",
+-  "bank_account_created",
+-  "bank_account_updated",
+-  "credit_card_created",
+-  "statement_uploaded",
+-  "statement_import_confirmed",
+-  "investment_created",
+-  "investment_updated",
+-  "retirement_plan_created",
+-  "retirement_plan_simulated",
+-  "chat_message",
+-  "budget_created",
+-  "affordability_check",
+-];
+-
+-function dayKeyInBrazil(date: Date): string {
+-  // "en-CA" é o jeito mais direto de pedir ao Intl um formato YYYY-MM-DD
+-  // pronto pra usar como chave, sem montar a string na mão a partir de
+-  // formatToParts (já usado em nowInBrazil() por precisar também de
+-  // hora/minuto ali; aqui só o dia calendário importa).
+-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(date);
+-}
+-
+-/**
+- * Sequência de dias seguidos com pelo menos um evento "ativo" (ver
+- * STREAK_EVENT_NAMES), contando pra trás a partir de hoje. Hoje sem nenhum
+- * evento ainda NÃO quebra a sequência (o dia não acabou) — só ontem sem
+- * evento quebra. Olha no máximo ~13 meses pra trás (janela generosa pra
+- * quem usa o produto há muito tempo, sem varrer a tabela inteira).
+- */
+-export async function computeStreakDays(userId: string): Promise<number> {
+-  const since = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
+-  const rows = await db
+-    .select({ createdAt: analyticsEvents.createdAt })
+-    .from(analyticsEvents)
+-    .where(
+-      and(
+-        eq(analyticsEvents.userId, userId),
+-        inArray(analyticsEvents.name, STREAK_EVENT_NAMES),
+-        gte(analyticsEvents.createdAt, since)
+-      )
+-    );
+-
+-  if (rows.length === 0) return 0;
+-
+-  const activeDays = new Set(rows.map((r) => dayKeyInBrazil(r.createdAt)));
+-  const cursor = nowInBrazil();
+-
+-  if (!activeDays.has(dayKeyInBrazil(cursor))) {
+-    cursor.setDate(cursor.getDate() - 1);
+-  }
+-
+-  let streak = 0;
+-  while (activeDays.has(dayKeyInBrazil(cursor))) {
+-    streak += 1;
+-    cursor.setDate(cursor.getDate() - 1);
+-  }
+-
+-  return streak;
+-}
+-
+-export type LevelTier = "BRONZE" | "PRATA" | "OURO" | "PLATINA";
+-
+-export type LevelInfo = { tier: LevelTier; label: string };
+-
+-/**
+- * Nível deliberadamente amarrado à pontuação real do Ponteiro (saúde
+- * financeira das 9 dimensões), não a um contador de XP/ações separado — o
+- * "nível" precisa significar "sua vida financeira está indo bem", nunca só
+- * "você mexeu bastante no app". Gamificação vazia (subir de nível só por
+- * clicar) é o oposto do princípio 3 do design system (calma pela
+- * confiança, não pelo brilho) — aqui ela existe, mas é honesta.
+- */
+-export function levelForScore(score: number): LevelInfo {
+-  if (score >= 85) return { tier: "PLATINA", label: "Nível Platina" };
+-  if (score >= 65) return { tier: "OURO", label: "Nível Ouro" };
+-  if (score >= 40) return { tier: "PRATA", label: "Nível Prata" };
+-  return { tier: "BRONZE", label: "Nível Bronze" };
+-}
+-- 
+2.43.0
+

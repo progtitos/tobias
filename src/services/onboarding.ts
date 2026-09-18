@@ -20,7 +20,15 @@ import { seedGlobalCategoriesIfNeeded } from "@/lib/db/seedCategories";
 import { trackEvent } from "./analytics";
 import type { ChatTurn as GeminiChatTurn } from "@/lib/ai/generate";
 import { computeNetWorth } from "./aggregations";
-import { estimateTargetAge } from "./retirement";
+import { estimateTargetAge, simulateRetirementCurve } from "./retirement";
+import { buildRetirementInputs } from "./retirementPlan";
+import {
+  setInitialSelfReportedProfile,
+  BEHAVIORAL_PROFILE_LABELS,
+  BEHAVIORAL_PROFILE_DESCRIPTIONS,
+  type BehavioralProfile,
+} from "./behavioralProfile";
+import { parseDateOnly } from "@/lib/utils/dates";
 
 const FIRST_MESSAGE = `Olá, eu sou o Tobias.
 
@@ -69,6 +77,12 @@ async function applyExtractedData(userId: string, extracted: NonNullable<Awaited
   if (extracted.maritalStatus) profileUpdates.maritalStatus = extracted.maritalStatus;
   if (extracted.profession) profileUpdates.profession = extracted.profession;
   if (extracted.riskProfile) profileUpdates.riskProfile = extracted.riskProfile;
+  // Só a resposta bruta da pergunta dedicada de PCA — o valor "vigente"
+  // (profiles.behavioralProfile) é decidido por computeBehavioralProfile,
+  // nunca escrito diretamente aqui.
+  if (extracted.behavioralProfileSelfReport) {
+    profileUpdates.behavioralProfileSelfReport = extracted.behavioralProfileSelfReport;
+  }
 
   if (Object.keys(profileUpdates).length > 0 || extracted.priorities?.length || extracted.concerns?.length) {
     const [existing] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
@@ -106,6 +120,12 @@ async function applyExtractedData(userId: string, extracted: NonNullable<Awaited
   }
   if (extracted.desiredRetirementIncome !== undefined) fpUpdates.desiredRetirementIncome = extracted.desiredRetirementIncome;
   if (extracted.focus) fpUpdates.primaryFocus = extracted.focus;
+  // Os 4 dados do INSS coletados na conversa (ramo aposentadoria) — ficam
+  // aqui até finalizeOnboarding copiá-los pra retirement_plans.
+  if (extracted.birthDate) fpUpdates.statedBirthDate = parseDateOnly(extracted.birthDate);
+  if (extracted.gender) fpUpdates.statedGender = extracted.gender;
+  if (extracted.contributionYearsToDate !== undefined) fpUpdates.statedContributionYearsToDate = extracted.contributionYearsToDate;
+  if (extracted.averageMonthlySalary !== undefined) fpUpdates.statedAverageMonthlySalary = extracted.averageMonthlySalary;
 
   if (Object.keys(fpUpdates).length > 0) {
     if (existingFp) {
@@ -181,16 +201,49 @@ async function finalizeOnboarding(userId: string) {
       desiredMonthlyIncome,
       currentNetWorth,
       monthlyContribution,
+      // Os 4 dados de INSS coletados na conversa, copiados de financial_profiles
+      // pra cá exatamente como já fazíamos com currentAge/desiredRetirementAge
+      // acima — se algum faltar, computeGuaranteedMonthlyIncome simplesmente
+      // ignora essa parte do cálculo (degrada, não quebra).
+      birthDate: fp.statedBirthDate ?? undefined,
+      gender: fp.statedGender ?? undefined,
+      contributionYearsToDate: fp.statedContributionYearsToDate ?? undefined,
+      contributionYearsAsOfDate: fp.statedContributionYearsToDate ? new Date() : undefined,
+      averageMonthlySalary: fp.statedAverageMonthlySalary ?? undefined,
     });
   }
 
   await generateInitialBudget(userId);
+
+  // Primeiro palpite do PCA a partir do autorrelato, antes do primeiro
+  // recálculo de Bússola (que roda logo abaixo e pode já consolidar um
+  // valor computado se houver sinal real suficiente).
+  const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
+  await setInitialSelfReportedProfile(userId, (profile?.behavioralProfileSelfReport as BehavioralProfile | null) ?? null);
   await saveCompassSnapshot(userId);
 
   await db.update(users).set({ onboardingCompleted: true, updatedAt: new Date() }).where(eq(users.id, userId));
   await trackEvent(userId, "onboarding_completed");
   await trackEvent(userId, "retirement_plan_created");
   await trackEvent(userId, "budget_created");
+
+  // Dados pro momento de revelação no fim da conversa (ver ProfileReveal) —
+  // lidos de novo depois de saveCompassSnapshot pra pegar o PCA já
+  // eventualmente consolidado, não só o palpite inicial.
+  const [finalProfileRow] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
+  const [plan] = await db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).limit(1);
+  const behavioralProfile = (finalProfileRow?.behavioralProfile as BehavioralProfile | undefined) ?? "EMERGING_ORGANIZER";
+  const retirementPreview = plan ? simulateRetirementCurve(buildRetirementInputs(plan, plan.currentNetWorth)) : null;
+
+  return {
+    behavioralProfile: {
+      type: behavioralProfile,
+      label: BEHAVIORAL_PROFILE_LABELS[behavioralProfile],
+      description: BEHAVIORAL_PROFILE_DESCRIPTIONS[behavioralProfile],
+    },
+    retirementPreview,
+    retirementTargetAge: plan?.targetRetirementAge ?? null,
+  };
 }
 
 export async function submitOnboardingMessage(userId: string, userMessage: string) {
@@ -222,10 +275,11 @@ export async function submitOnboardingMessage(userId: string, userMessage: strin
   await trackEvent(userId, "onboarding_message", { extracted: Boolean(turn.extracted) });
 
   let completed = false;
+  let reveal: Awaited<ReturnType<typeof finalizeOnboarding>> | null = null;
   if (turn.isOnboardingComplete) {
-    await finalizeOnboarding(userId);
+    reveal = await finalizeOnboarding(userId);
     completed = true;
   }
 
-  return { reply: turn.reply, completed };
+  return { reply: turn.reply, completed, reveal };
 }

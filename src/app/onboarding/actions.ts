@@ -6,5 +6,5 @@ import { submitOnboardingMessage } from "@/services/onboarding";
 export async function sendOnboardingMessageAction(text: string) {
   const user = await requireUser();
   const result = await submitOnboardingMessage(user.id, text);
-  return { reply: result.reply, completed: result.completed };
+  return { reply: result.reply, completed: result.completed, reveal: result.reveal };
 }

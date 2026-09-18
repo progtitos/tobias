@@ -1,16 +1,17 @@
 import "server-only";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { alerts, retirementPlans, financialProfiles } from "@/lib/db/schema";
+import { alerts, retirementPlans, financialProfiles, profiles } from "@/lib/db/schema";
 import { computeNetWorth, monthRange, sumIncome, sumExpenses, sumInvestmentContributions, activeGoals } from "./aggregations";
 import { getLatestCompass, statusForScore } from "./compass";
 import { simulateRetirementCurve } from "./retirement";
 import { buildRetirementInputs } from "./retirementPlan";
+import { BEHAVIORAL_PROFILE_LABELS, type BehavioralProfile } from "./behavioralProfile";
 
 export async function getDashboardData(userId: string) {
   const { start, end } = monthRange();
 
-  const [netWorth, income, expenses, investmentContributions, compass, goals, activeAlerts, retirementPlan, financialProfile] =
+  const [netWorth, income, expenses, investmentContributions, compass, goals, activeAlerts, retirementPlan, financialProfile, profile] =
     await Promise.all([
       computeNetWorth(userId),
       sumIncome(userId, start, end),
@@ -26,7 +27,15 @@ export async function getDashboardData(userId: string) {
         .limit(3),
       db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).then((r) => r[0] ?? null),
       db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).then((r) => r[0] ?? null),
+      db.select().from(profiles).where(eq(profiles.userId, userId)).then((r) => r[0] ?? null),
     ]);
+
+  const behavioralProfileType = (profile?.behavioralProfile as BehavioralProfile | undefined) ?? "EMERGING_ORGANIZER";
+  const behavioralProfile = {
+    type: behavioralProfileType,
+    label: BEHAVIORAL_PROFILE_LABELS[behavioralProfileType],
+    confidence: profile?.behavioralProfileConfidence ?? "INITIAL",
+  };
 
   const healthScore =
     compass.length > 0 ? Math.round(compass.reduce((s, c) => s + c.score, 0) / compass.length) : 0;
@@ -53,6 +62,7 @@ export async function getDashboardData(userId: string) {
     netWorth,
     healthScore,
     healthStatus,
+    behavioralProfile,
     monthlyCapacity,
     month: { income, expenses, investments: investmentContributions, balance: income - expenses - investmentContributions },
     compass,

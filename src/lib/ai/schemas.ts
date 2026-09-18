@@ -20,6 +20,19 @@ export const onboardingExtractedSchema = z.object({
   savingsCapacityPerMonth: z.number().nonnegative().optional(),
   desiredRetirementAge: z.number().int().positive().optional(),
   desiredRetirementIncome: z.number().nonnegative().optional(),
+  // Os 4 dados que faltam pro simulador de INSS rodar (ver services/inss.ts)
+  // — só pedidos dentro do ramo "aposentadoria" da conversa, nunca de
+  // cara. Todos opcionais e degradam graciosamente se faltar algum.
+  birthDate: z.string().optional().describe("Data de nascimento em ISO (YYYY-MM-DD), se souber com razoável precisão."),
+  gender: z.enum(["M", "F"]).optional(),
+  contributionYearsToDate: z.number().nonnegative().optional().describe("Anos de contribuição ao INSS até agora, pode ser aproximado."),
+  averageMonthlySalary: z.number().nonnegative().optional().describe("Média mensal (já corrigida) dos salários de contribuição ao INSS."),
+  // PCA — primeiro palpite do perfil comportamental, a partir da pergunta
+  // dedicada de autorrelato (ver ONBOARDING_SYSTEM). Nunca inferido livremente
+  // pelo modelo fora dessa pergunta — só quando a pessoa responder a ela.
+  behavioralProfileSelfReport: z
+    .enum(["CAUTIOUS_GUARDIAN", "CONFIDENT_INVESTOR", "GOAL_BUILDER", "LIFESTYLE_SPENDER", "MONTHLY_SURVIVOR"])
+    .optional(),
   priorities: z.array(z.string()).optional(),
   concerns: z.array(z.string()).optional(),
   newDebt: z
@@ -73,6 +86,15 @@ export const onboardingTurnJsonSchema = {
         savingsCapacityPerMonth: { type: "number" },
         desiredRetirementAge: { type: "number" },
         desiredRetirementIncome: { type: "number" },
+        birthDate: { type: "string", description: "Data de nascimento em ISO (YYYY-MM-DD), só dentro do ramo aposentadoria." },
+        gender: { type: "string", enum: ["M", "F"], description: "Só pra regra de transição do INSS, pode ficar de fora se a pessoa preferir não dizer." },
+        contributionYearsToDate: { type: "number", description: "Anos de contribuição ao INSS até agora, pode ser aproximado." },
+        averageMonthlySalary: { type: "number", description: "Média mensal (já corrigida) dos salários de contribuição ao INSS." },
+        behavioralProfileSelfReport: {
+          type: "string",
+          enum: ["CAUTIOUS_GUARDIAN", "CONFIDENT_INVESTOR", "GOAL_BUILDER", "LIFESTYLE_SPENDER", "MONTHLY_SURVIVOR"],
+          description: "Preencher só como resposta direta à pergunta dedicada de autorrelato do perfil comportamental (ver system prompt), nunca inferido de outra fala.",
+        },
         priorities: { type: "array", items: { type: "string" } },
         concerns: { type: "array", items: { type: "string" } },
         newDebt: {

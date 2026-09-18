@@ -1,0 +1,282 @@
+From e9cac80b017efac06c5efaa0363f329ddc3d9271 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 18 Sep 2026 13:52:25 +0000
+Subject: [PATCH] =?UTF-8?q?feat:=20redesenha=20onboarding=20e=20chat=20na?=
+ =?UTF-8?q?=20Dire=C3=A7=C3=A3o=20A=20(acolhimento=20sutil)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Implementa a direção aprovada do comparativo de design: um momento de
+abertura com o mascote do Tobias e chips de resposta rápida na primeira
+pergunta do onboarding, e uma faixa de humor do Ponteiro no chat do dia
+a dia para dar continuidade com a Dashboard. Sem cor nova, sem
+gamificação, tudo reaproveitando tokens e componentes já existentes.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Ka2YTSc9tuveNjCeKZ63MD
+---
+ src/app/(app)/chat/ChatPageClient.tsx |  44 ++++++++++-
+ src/app/(app)/chat/page.tsx           |  14 +++-
+ src/app/onboarding/OnboardingChat.tsx |   6 ++
+ src/components/chat/ChatWindow.tsx    | 102 +++++++++++++++++++-------
+ 4 files changed, 134 insertions(+), 32 deletions(-)
+
+diff --git a/src/app/(app)/chat/ChatPageClient.tsx b/src/app/(app)/chat/ChatPageClient.tsx
+index 3d1794e..e5b6d5d 100644
+--- a/src/app/(app)/chat/ChatPageClient.tsx
++++ b/src/app/(app)/chat/ChatPageClient.tsx
+@@ -2,6 +2,7 @@
+ 
+ import { useRouter } from "next/navigation";
+ import { ChatWindow, type ChatMessage } from "@/components/chat/ChatWindow";
++import type { CompassDimensionResult } from "@/services/compass";
+ import { sendChatMessageAction } from "./actions";
+ 
+ const ACTION_ROUTES: Record<string, string> = {
+@@ -12,13 +13,50 @@ const ACTION_ROUTES: Record<string, string> = {
+   view_compass: "/compass",
+ };
+ 
+-export function ChatPageClient({ initialMessages }: { initialMessages: ChatMessage[] }) {
++// Mesmo mapa de tom que o CompassDial já usa para os 4 status da Bússola —
++// duplicado aqui (só 4 linhas) em vez de importado, pra não criar uma
++// dependência cruzada entre um componente de dashboard e o chat por causa
++// de uma faixa de humor pequena.
++const STATUS_TONE: Record<CompassDimensionResult["status"], string> = {
++  Excelente: "text-ok-400",
++  Saudável: "text-ok-400",
++  "Em construção": "text-gold-400",
++  Atenção: "text-danger-300",
++};
++
++function moodMessage(firstName: string, status: CompassDimensionResult["status"] | null) {
++  if (status === "Excelente" || status === "Saudável") return `Seu Ponteiro está indo bem, ${firstName}.`;
++  if (status === "Em construção") return `Seu Ponteiro está em construção, vamos evoluir juntos.`;
++  if (status === "Atenção") return `Seu Ponteiro pede atenção, vamos ajustar juntos.`;
++  return `Ainda estou te conhecendo, ${firstName}.`;
++}
++
++export function ChatPageClient({
++  initialMessages,
++  firstName,
++  healthStatus,
++}: {
++  initialMessages: ChatMessage[];
++  firstName: string;
++  healthStatus: CompassDimensionResult["status"] | null;
++}) {
+   const router = useRouter();
+ 
+   return (
+     <div className="flex flex-col flex-1 min-h-0 bg-brand-950">
+-      <div className="px-5 py-4 border-b border-white/10">
+-        <h1 className="font-sans font-bold text-xl text-onbrand">Converse com o Tobias</h1>
++      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-white/10">
++        {/* eslint-disable-next-line @next/next/no-img-element */}
++        <img
++          src="/avatars/tobias-sempre-ao-lado.png"
++          alt="Tobias"
++          className="tobias-mascot-soft h-9 w-9 object-cover shrink-0"
++        />
++        <div className="min-w-0">
++          <p className={`text-[10px] font-semibold uppercase tracking-wide ${healthStatus ? STATUS_TONE[healthStatus] : "text-onbrand/45"}`}>
++            {healthStatus ?? "Conhecendo você"}
++          </p>
++          <p className="text-sm text-onbrand truncate">{moodMessage(firstName, healthStatus)}</p>
++        </div>
+       </div>
+       <ChatWindow
+         initialMessages={initialMessages}
+diff --git a/src/app/(app)/chat/page.tsx b/src/app/(app)/chat/page.tsx
+index a5bfc16..21c9500 100644
+--- a/src/app/(app)/chat/page.tsx
++++ b/src/app/(app)/chat/page.tsx
+@@ -1,10 +1,20 @@
+ import { requireOnboardedUser } from "@/lib/auth/guards";
+ import { getChatMessages } from "@/services/chat";
++import { getLatestCompass, statusForScore } from "@/services/compass";
+ import { ChatPageClient } from "./ChatPageClient";
+ 
+ export default async function ChatPage() {
+   const user = await requireOnboardedUser();
+-  const messages = await getChatMessages(user.id);
++  const [messages, compass] = await Promise.all([getChatMessages(user.id), getLatestCompass(user.id)]);
++
++  // Same "de olho no seu Ponteiro" framing as a Dashboard, in miniature, so
++  // reabrir o chat não parece uma tela desconectada do resto do app. `null`
++  // (ainda sem nenhum snapshot de Bússola) é um estado válido e diferente de
++  // qualquer status computado — tratado à parte no client.
++  const healthStatus =
++    compass.length > 0
++      ? statusForScore(Math.round(compass.reduce((sum, c) => sum + c.score, 0) / compass.length))
++      : null;
+ 
+   return (
+     <ChatPageClient
+@@ -14,6 +24,8 @@ export default async function ChatPage() {
+         content: m.content,
+         actions: m.actions as { label: string; action: string }[] | null,
+       }))}
++      firstName={user.name.split(" ")[0]}
++      healthStatus={healthStatus}
+     />
+   );
+ }
+diff --git a/src/app/onboarding/OnboardingChat.tsx b/src/app/onboarding/OnboardingChat.tsx
+index 61008da..55edaf6 100644
+--- a/src/app/onboarding/OnboardingChat.tsx
++++ b/src/app/onboarding/OnboardingChat.tsx
+@@ -12,6 +12,12 @@ export function OnboardingChat({ initialMessages }: { initialMessages: ChatMessa
+     <ChatWindow
+       initialMessages={initialMessages}
+       placeholder="Conte um pouco sobre você..."
++      hero={{
++        avatarSrc: "/avatars/tobias-boas-vindas.png",
++        title: "Vamos montar seu plano juntos",
++        subtitle: "Leva uns 5 a 10 minutos, no seu tempo.",
++      }}
++      quickReplies={["Quero economizar mais", "Já tenho dívidas", "Penso em aposentadoria", "Tenho um sonho"]}
+       onSend={async (text) => {
+         const result = await sendOnboardingMessageAction(text);
+         if (result.completed) {
+diff --git a/src/components/chat/ChatWindow.tsx b/src/components/chat/ChatWindow.tsx
+index 88638b6..e934955 100644
+--- a/src/components/chat/ChatWindow.tsx
++++ b/src/components/chat/ChatWindow.tsx
+@@ -32,12 +32,28 @@ export function ChatWindow({
+   onAction,
+   placeholder = "Escreva para o Tobias...",
+   className,
++  hero,
++  quickReplies,
+ }: {
+   initialMessages: ChatMessage[];
+   onSend: (text: string) => Promise<{ reply: string; actions?: { label: string; action: string }[]; completed?: boolean }>;
+   onAction?: (action: string) => void;
+   placeholder?: string;
+   className?: string;
++  /**
++   * A one-time welcoming moment rendered above the message list (onboarding
++   * only) — scrolls away naturally as the conversation grows, since it lives
++   * inside the same scroll container as the messages instead of a separate
++   * fixed header.
++   */
++  hero?: { avatarSrc: string; title: string; subtitle: string };
++  /**
++   * Tap-to-send suggestions shown under the very first assistant message,
++   * so the person isn't staring at a blank textarea. They disappear as soon
++   * as the conversation has a first reply (`messages.length > 1`), whether
++   * that reply came from a tap here or from typing directly.
++   */
++  quickReplies?: string[];
+ }) {
+   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+   const [input, setInput] = useState("");
+@@ -48,8 +64,7 @@ export function ChatWindow({
+     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+   }, [messages, pending]);
+ 
+-  function handleSend() {
+-    const text = input.trim();
++  function sendText(text: string) {
+     if (!text || pending) return;
+     setInput("");
+     const userMsg: ChatMessage = { id: `local-${Date.now()}`, role: "USER", content: text };
+@@ -76,36 +91,67 @@ export function ChatWindow({
+     });
+   }
+ 
++  function handleSend() {
++    sendText(input.trim());
++  }
++
+   return (
+     <div className={cn("flex flex-col flex-1 min-h-0", className)}>
+       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-2xl w-full mx-auto">
+-        {messages.map((m) => (
+-          <div
+-            key={m.id}
+-            className={cn("flex items-end gap-2", m.role === "USER" ? "justify-end" : "justify-start")}
+-          >
+-            {m.role === "ASSISTANT" && <TobiasAvatar />}
+-            <div
+-              className={cn(
+-                "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap",
+-                m.role === "USER" ? "bg-gold-500 text-ink-900 rounded-br-sm" : "bg-brand-800 text-onbrand rounded-bl-sm"
+-              )}
+-            >
+-              {m.content}
+-              {m.actions && m.actions.length > 0 && (
+-                <div className="mt-2.5 flex flex-wrap gap-2">
+-                  {m.actions.map((a) => (
+-                    <button
+-                      key={a.action}
+-                      onClick={() => onAction?.(a.action)}
+-                      className="text-xs font-medium rounded-full border border-gold-400/60 text-gold-400 px-3 py-1 hover:bg-white/5 transition-colors"
+-                    >
+-                      {a.label}
+-                    </button>
+-                  ))}
+-                </div>
+-              )}
++        {hero && (
++          <div className="flex flex-col items-center text-center pb-2">
++            {/* eslint-disable-next-line @next/next/no-img-element */}
++            <img
++              src={hero.avatarSrc}
++              alt="Tobias"
++              className="tobias-mascot-soft h-14 w-14 object-cover mb-2.5"
++            />
++            <h2 className="font-display font-bold text-[15px] text-onbrand mb-0.5">{hero.title}</h2>
++            <p className="text-xs text-onbrand/60">{hero.subtitle}</p>
++          </div>
++        )}
++        {messages.map((m, i) => (
++          <div key={m.id}>
++            <div className={cn("flex items-end gap-2", m.role === "USER" ? "justify-end" : "justify-start")}>
++              {m.role === "ASSISTANT" && <TobiasAvatar />}
++              <div
++                className={cn(
++                  "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap",
++                  m.role === "USER" ? "bg-gold-500 text-ink-900 rounded-br-sm" : "bg-brand-800 text-onbrand rounded-bl-sm"
++                )}
++              >
++                {m.content}
++                {m.actions && m.actions.length > 0 && (
++                  <div className="mt-2.5 flex flex-wrap gap-2">
++                    {m.actions.map((a) => (
++                      <button
++                        key={a.action}
++                        onClick={() => onAction?.(a.action)}
++                        className="text-xs font-medium rounded-full border border-gold-400/60 text-gold-400 px-3 py-1 hover:bg-white/5 transition-colors"
++                      >
++                        {a.label}
++                      </button>
++                    ))}
++                  </div>
++                )}
++              </div>
+             </div>
++            {/* Only under the very first assistant message, and only until the
++               conversation has its first reply — a one-time nudge, not a
++               recurring suggestion bar. */}
++            {quickReplies && quickReplies.length > 0 && i === 0 && messages.length === 1 && !pending && (
++              <div className="flex flex-wrap gap-2 pl-10 pt-2.5">
++                {quickReplies.map((qr) => (
++                  <button
++                    key={qr}
++                    onClick={() => sendText(qr)}
++                    className="text-xs font-medium rounded-full border border-gold-400/50 text-gold-400 px-3.5 py-1.5 hover:bg-white/5 transition-colors"
++                  >
++                    {qr}
++                  </button>
++                ))}
++              </div>
++            )}
+           </div>
+         ))}
+         {pending && (
+-- 
+2.43.0
+

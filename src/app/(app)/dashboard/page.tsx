@@ -10,6 +10,7 @@ import { formatBRL } from "@/lib/utils/money";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 import { CompassDial } from "@/components/dashboard/CompassDial";
 import { TobiasMascot } from "@/components/dashboard/TobiasMascot";
+import { BehavioralProfileIcon } from "@/components/profile/BehavioralProfileIcon";
 
 const DARK_CARD = "bg-brand-800 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)]";
 const CHIP_DOT_TONE: Record<CompassDimensionResult["status"], string> = {
@@ -66,7 +67,17 @@ export default async function DashboardPage() {
               />
             </CardContent>
           </Card>
-          <StatCard label="Saúde financeira" value={`${data.healthScore}/100`} accent />
+          <Card className="bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]">
+            <CardContent className="py-5">
+              <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-1.5">Seu perfil</p>
+              <div className="flex items-center gap-2.5">
+                <BehavioralProfileIcon profile={data.behavioralProfile.type} size="sm" />
+                <p className="font-sans font-medium text-[17px] leading-tight tracking-tight text-onbrand">
+                  {data.behavioralProfile.label}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Hero: Bússola + curva de aposentadoria + o Tobias, unificados e logo de cara. */}

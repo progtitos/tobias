@@ -50,6 +50,13 @@
       "when": 1789666250821,
       "tag": "0006_luxuriant_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789740842334,
+      "tag": "0007_adiciona_perfil_comportamental_e_inss_onboarding",
+      "breakpoints": true
     }
   ]
 }

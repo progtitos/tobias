@@ -297,6 +297,60 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/* ============================================================================
+   Reveal celebratório de fim de onboarding (ProfileRevealOverlay.tsx):
+   "Perfil Desbloqueado" + curva de aposentadoria. Exceção deliberada e
+   RESTRITA a esse único momento ao Princípio 3 do design system ("confiança
+   pela calma, não pelo brilho") — aqui, e só aqui, o brilho É o objetivo,
+   por escolha explícita do Thiago ("Celebração de verdade, tipo conquista de
+   app/game"). Não reaproveitar essas classes em nenhum outro lugar do app.
+   ============================================================================ */
+.reveal-pop {
+  animation: reveal-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.reveal-glow-ring {
+  animation: reveal-glow-pulse 1.8s ease-in-out infinite;
+}
+.reveal-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.reveal-confetti-piece {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  animation: reveal-confetti-burst 1.15s ease-out both;
+}
+
+@keyframes reveal-pop {
+  0% { opacity: 0; transform: scale(0.4) translateY(12px); }
+  65% { opacity: 1; transform: scale(1.06) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes reveal-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 153, 47, 0.55), 0 0 30px 6px rgba(240, 153, 47, 0.3); }
+  50% { box-shadow: 0 0 0 10px rgba(240, 153, 47, 0), 0 0 46px 14px rgba(240, 153, 47, 0.45); }
+}
+@keyframes reveal-confetti-burst {
+  0% { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)) scale(0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-pop,
+  .reveal-glow-ring,
+  .reveal-confetti-piece {
+    animation: none;
+  }
+}
+
 /* Minimal, calm scrollbars — the product should feel quiet, not busy. */
 ::-webkit-scrollbar {
   width: 10px;

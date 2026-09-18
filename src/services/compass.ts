@@ -14,6 +14,11 @@ import { getCurrentBudgetsWithActuals } from "./budget";
 import { simulateRetirementCurve } from "./retirement";
 import { buildRetirementInputs } from "./retirementPlan";
 import { formatBRL } from "@/lib/utils/money";
+// Import cíclico intencional e seguro: behavioralProfile.ts importa só o
+// tipo CompassDimensionResult e a função computeCompass daqui, nenhum dos
+// dois módulos usa o outro no topo do arquivo (só dentro de função), então
+// não há problema de binding ainda não inicializado.
+import { computeBehavioralProfile } from "./behavioralProfile";
 
 export type CompassDimensionResult = {
   dimension:
@@ -236,6 +241,12 @@ export async function saveCompassSnapshot(userId: string) {
       nextAction: r.nextAction,
     }))
   );
+  // O PCA (perfil comportamental) é recalculado junto, sempre que a Bússola
+  // é recalculada — mesmo ponto único usado pelos 3 call-sites de hoje
+  // (finalizeOnboarding, a ação "Recalcular" e o carregamento de /compass),
+  // então um novo call-site futuro de saveCompassSnapshot já ganha isso de
+  // graça, sem precisar lembrar de chamar os dois separadamente.
+  await computeBehavioralProfile(userId, results);
   return results;
 }
 
