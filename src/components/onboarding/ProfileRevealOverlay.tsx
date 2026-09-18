@@ -5,6 +5,7 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { BehavioralProfileIcon } from "@/components/profile/BehavioralProfileIcon";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 import { Button } from "@/components/ui/Button";
+import { ConnectAccountsStep } from "@/components/onboarding/ConnectAccountsStep";
 import type { BehavioralProfile } from "@/services/behavioralProfile";
 import type { RetirementSimulation } from "@/services/retirement";
 
@@ -72,7 +73,7 @@ function Confetti({ seed }: { seed: number }) {
  */
 export function ProfileRevealOverlay({ reveal, onDone }: { reveal: RevealData; onDone: () => void }) {
   const hasRetirement = Boolean(reveal.retirementPreview);
-  const [step, setStep] = useState<"profile" | "retirement">("profile");
+  const [step, setStep] = useState<"profile" | "connect" | "retirement">("profile");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-950/97 backdrop-blur-sm px-5 py-8 overflow-y-auto">
@@ -105,12 +106,14 @@ export function ProfileRevealOverlay({ reveal, onDone }: { reveal: RevealData; o
               size="lg"
               className="reveal-pop"
               style={{ animationDelay: "0.4s" }}
-              onClick={() => (hasRetirement ? setStep("retirement") : onDone())}
+              onClick={() => setStep("connect")}
             >
-              {hasRetirement ? "Ver minha curva de aposentadoria" : "Ir para o Dashboard"}
+              Continuar
               <ArrowRight className="h-4 w-4 ml-1.5" />
             </Button>
           </div>
+        ) : step === "connect" ? (
+          <ConnectAccountsStep onDone={() => (hasRetirement ? setStep("retirement") : onDone())} />
         ) : (
           <div className="flex flex-col items-center text-center">
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold-400 mb-5 reveal-pop">

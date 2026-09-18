@@ -238,6 +238,7 @@ export const documentKindEnum = pgEnum("document_kind", [
   "INVOICE_STATEMENT",
   "BANK_STATEMENT",
   "RECEIPT_PDF",
+  "INVESTMENT_STATEMENT",
   "OTHER",
 ]);
 export const conversationTypeEnum = pgEnum("conversation_type", [
@@ -632,11 +633,17 @@ export const investments = pgTable(
     goalId: text("goal_id").references(() => goals.id, { onDelete: "set null" }),
     allocationPct: numeric("allocation_pct", { precision: 5, scale: 2, mode: "number" }),
     institution: text("institution"),
+    // A corretora que guarda esse investimento — reaproveita bank_accounts
+    // com type=INVESTMENT (ver seção "corretora" em Investimentos) em vez de
+    // uma tabela nova só pra isso. Nullable: um investimento cadastrado à
+    // mão sem escolher corretora continua totalmente válido, exatamente como
+    // antes desta coluna existir.
+    bankAccountId: text("bank_account_id").references(() => bankAccounts.id, { onDelete: "set null" }),
     source: dataSourceEnum("source").notNull().default("MANUAL"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("investments_user_idx").on(t.userId)]
+  (t) => [index("investments_user_idx").on(t.userId), index("investments_bank_account_idx").on(t.bankAccountId)]
 );
 
 export const assets = pgTable(
@@ -831,6 +838,31 @@ export const documentItems = pgTable(
     isSelected: boolean("is_selected").notNull().default(true),
   },
   (t) => [index("document_items_document_idx").on(t.documentId)]
+);
+
+// Equivalente a documentItems, mas pra extrato consolidado de investimentos
+// (services/investmentStatementImport.ts) — o formato de linha é
+// completamente diferente (um ativo/posição, não uma movimentação com
+// data+direção), por isso é uma tabela própria em vez de reaproveitar
+// documentItems. `matchedInvestmentId` guarda, já na leitura, um palpite de
+// qual investimento existente essa linha provavelmente é (mesma corretora +
+// nome parecido) — a tela de Revisão usa isso pra pré-marcar "atualizar" em
+// vez de "criar novo", mas a pessoa sempre pode mudar antes de confirmar.
+export const investmentDocumentItems = pgTable(
+  "investment_document_items",
+  {
+    id: id(),
+    documentId: text("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: investmentTypeEnum("type").notNull(),
+    investedAmount: money("invested_amount"),
+    currentAmount: money("current_amount").notNull(),
+    institution: text("institution"),
+    liquidity: text("liquidity"),
+    matchedInvestmentId: text("matched_investment_id").references(() => investments.id, { onDelete: "set null" }),
+    isSelected: boolean("is_selected").notNull().default(true),
+  },
+  (t) => [index("investment_document_items_document_idx").on(t.documentId)]
 );
 
 // ----------------------------------------------------------------------------

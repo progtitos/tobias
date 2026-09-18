@@ -11,6 +11,8 @@ import { RetirementChart } from "@/components/charts/RetirementChart";
 import { CompassDial } from "@/components/dashboard/CompassDial";
 import { TobiasMascot } from "@/components/dashboard/TobiasMascot";
 import { BehavioralProfileIcon } from "@/components/profile/BehavioralProfileIcon";
+import { cn } from "@/lib/utils/cn";
+import type { CreditCardUsage } from "@/services/creditCards";
 
 const DARK_CARD = "bg-brand-800 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)]";
 const CHIP_DOT_TONE: Record<CompassDimensionResult["status"], string> = {
@@ -55,7 +57,7 @@ export default async function DashboardPage() {
         <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard label="Seu patrimônio" value={formatBRL(data.netWorth.netWorth)} />
+          <CreditCardAttentionCard card={data.cardNeedingAttention} totalCards={data.totalCreditCards} />
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <h2 className="font-display font-semibold text-base text-onbrand mb-3">Seu mês</h2>
@@ -187,12 +189,64 @@ export default async function DashboardPage() {
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+/**
+ * Substituiu o antigo card "Seu patrimônio" (pedido do Thiago): mostra o
+ * cartão que precisa de mais atenção — o de maior % do limite usado no ciclo
+ * aberto, quando há mais de um — em vez do patrimônio líquido, que continua
+ * completo em /patrimonio, só parou de ter esse card dedicado aqui.
+ */
+function CreditCardAttentionCard({ card, totalCards }: { card: CreditCardUsage | null; totalCards: number }) {
+  const usagePct = card?.usagePct != null ? Math.round(card.usagePct) : null;
+  const usageTone = usagePct == null ? "bg-onbrand/30" : usagePct >= 90 ? "bg-danger-300" : usagePct >= 70 ? "bg-gold-400" : "bg-ok-400";
+  const highAttention = usagePct != null && usagePct >= 90;
+
   return (
-    <Card className={accent ? "bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]" : DARK_CARD}>
+    <Card
+      className={
+        highAttention
+          ? "bg-brand-800 border-danger-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]"
+          : DARK_CARD
+      }
+    >
       <CardContent className="py-5">
-        <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-1.5">{label}</p>
-        <p className="font-sans font-medium text-[22px] tracking-tight tabular-nums text-onbrand">{value}</p>
+        <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-1.5">
+          {totalCards > 1 ? "Cartão em atenção" : "Seu cartão"}
+        </p>
+
+        {!card ? (
+          <>
+            <p className="font-sans font-medium text-[15px] text-onbrand/70 mb-2">Nenhum cartão cadastrado</p>
+            <Link href="/conta" className="text-xs text-gold-400 hover:underline">
+              Adicionar cartão →
+            </Link>
+          </>
+        ) : (
+          <>
+            <div className="flex items-baseline justify-between gap-2 mb-1">
+              <p className="font-sans font-medium text-[15px] text-onbrand truncate">{card.nickname}</p>
+              {card.limitAmount != null && (
+                <span className="text-xs text-onbrand/50 shrink-0">de {formatBRL(card.limitAmount)}</span>
+              )}
+            </div>
+            <p className="font-sans font-medium text-[22px] tracking-tight tabular-nums text-onbrand mb-2">
+              {formatBRL(card.currentCycleSpend)}
+            </p>
+            {usagePct != null && (
+              <div className="h-1.5 rounded-full bg-white/[0.07] overflow-hidden mb-1.5">
+                <div className={cn("h-full", usageTone)} style={{ width: `${Math.min(usagePct, 100)}%` }} />
+              </div>
+            )}
+            <p className="text-xs text-onbrand/50">
+              {usagePct != null ? `${usagePct}% do limite usado` : "Sem limite cadastrado"}
+              {card.dueDay ? ` · vence dia ${card.dueDay}` : ""}
+            </p>
+            {totalCards > 1 && (
+              <p className="text-[11px] text-onbrand/40 mt-1">
+                +{totalCards - 1} outro{totalCards - 1 === 1 ? "" : "s"} cartão{totalCards - 1 === 1 ? "" : "ões"}
+              </p>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );

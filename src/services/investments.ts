@@ -1,13 +1,22 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { investments, transactions } from "@/lib/db/schema";
+import { investments, transactions, bankAccounts } from "@/lib/db/schema";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { applyGoalContribution } from "./goals";
 import type { CreateInvestmentInput } from "@/lib/validations/investment";
 
 export async function listInvestments(userId: string) {
   return db.select().from(investments).where(eq(investments.userId, userId)).orderBy(investments.createdAt);
+}
+
+/** Contas do tipo INVESTMENT — as "corretoras" que aparecem na aba Investimentos. */
+export async function listInvestmentAccounts(userId: string) {
+  return db
+    .select()
+    .from(bankAccounts)
+    .where(and(eq(bankAccounts.userId, userId), eq(bankAccounts.type, "INVESTMENT")))
+    .orderBy(bankAccounts.createdAt);
 }
 
 export async function createInvestment(userId: string, input: CreateInvestmentInput) {
@@ -22,6 +31,7 @@ export async function createInvestment(userId: string, input: CreateInvestmentIn
       liquidity: input.liquidity || null,
       institution: input.institution || null,
       goalId: input.goalId || null,
+      bankAccountId: input.bankAccountId || null,
     })
     .returning();
 

@@ -12,7 +12,7 @@ import {
 } from "@/services/bankAccounts";
 import { createCreditCard, deleteCreditCard } from "@/services/creditCards";
 
-export type ContaFormState = { error?: string; success?: boolean } | undefined;
+export type ContaFormState = { error?: string; success?: boolean; accountId?: string } | undefined;
 
 function revalidateAll() {
   revalidatePath("/conta");
@@ -39,9 +39,9 @@ export async function createBankAccountAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
 
-  await createBankAccount(user.id, parsed.data);
+  const account = await createBankAccount(user.id, parsed.data);
   revalidateAll();
-  return { success: true };
+  return { success: true, accountId: account.id };
 }
 
 export async function updateBankAccountBalanceAction(accountId: string, balance: number) {

@@ -57,6 +57,13 @@
       "when": 1789740842334,
       "tag": "0007_adiciona_perfil_comportamental_e_inss_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789744425027,
+      "tag": "0008_adiciona_extrato_investimentos_e_conta_corretora",
+      "breakpoints": true
     }
   ]
 }

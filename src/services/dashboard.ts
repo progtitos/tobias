@@ -7,11 +7,12 @@ import { getLatestCompass, statusForScore } from "./compass";
 import { simulateRetirementCurve } from "./retirement";
 import { buildRetirementInputs } from "./retirementPlan";
 import { BEHAVIORAL_PROFILE_LABELS, type BehavioralProfile } from "./behavioralProfile";
+import { getCreditCardsUsage, pickCardNeedingAttention } from "./creditCards";
 
 export async function getDashboardData(userId: string) {
   const { start, end } = monthRange();
 
-  const [netWorth, income, expenses, investmentContributions, compass, goals, activeAlerts, retirementPlan, financialProfile, profile] =
+  const [netWorth, income, expenses, investmentContributions, compass, goals, activeAlerts, retirementPlan, financialProfile, profile, cardsUsage] =
     await Promise.all([
       computeNetWorth(userId),
       sumIncome(userId, start, end),
@@ -28,7 +29,14 @@ export async function getDashboardData(userId: string) {
       db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).then((r) => r[0] ?? null),
       db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).then((r) => r[0] ?? null),
       db.select().from(profiles).where(eq(profiles.userId, userId)).then((r) => r[0] ?? null),
+      getCreditCardsUsage(userId),
     ]);
+
+  // Card "Seu patrimônio" do Dashboard virou o cartão que precisa de mais
+  // atenção (maior % do limite usado no ciclo aberto) — decisão do Thiago.
+  // O patrimônio líquido em si não sumiu do produto, continua completo e
+  // detalhado em /patrimonio; só parou de ter esse card dedicado aqui.
+  const cardNeedingAttention = pickCardNeedingAttention(cardsUsage);
 
   const behavioralProfileType = (profile?.behavioralProfile as BehavioralProfile | undefined) ?? "EMERGING_ORGANIZER";
   const behavioralProfile = {
@@ -63,6 +71,8 @@ export async function getDashboardData(userId: string) {
     healthScore,
     healthStatus,
     behavioralProfile,
+    cardNeedingAttention,
+    totalCreditCards: cardsUsage.length,
     monthlyCapacity,
     month: { income, expenses, investments: investmentContributions, balance: income - expenses - investmentContributions },
     compass,

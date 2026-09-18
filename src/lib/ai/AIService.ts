@@ -14,6 +14,9 @@ import {
   statementExtractionSchema,
   statementExtractionJsonSchema,
   type StatementExtraction,
+  investmentStatementExtractionSchema,
+  investmentStatementExtractionJsonSchema,
+  type InvestmentStatementExtraction,
   classificationSchema,
   classificationJsonSchema,
   type Classification,
@@ -104,6 +107,25 @@ export const AIService = {
       // dos casos; ainda pode truncar num extrato excepcionalmente longo,
       // mas não há como saber o tamanho antes de tentar.
       maxOutputTokens: 32768,
+    });
+  },
+
+  /**
+   * Document Agent: extrato consolidado de investimentos (corretora). Ao
+   * contrário de extractStatement, cada linha aqui é uma POSIÇÃO atual (o
+   * que a pessoa tem hoje), não uma movimentação com data — um consolidado
+   * de corretora tipicamente lista "renda fixa: Tesouro X, R$ 10.000" e
+   * afins, não um extrato de compra/venda do mês.
+   */
+  async extractInvestmentStatement(images: { mimeType: string; base64: string }[]): Promise<InvestmentStatementExtraction> {
+    return generateVisionJSON({
+      system: `${TOBIAS_PERSONA}\n\nVocê está extraindo as posições de um extrato/relatório consolidado de investimentos (corretora, banco de investimento ou previdência). Cada linha é um ativo que a pessoa TEM hoje (o saldo/posição atual), não uma compra ou venda pontual. Classifique cada ativo no tipo mais próximo entre FIXED_INCOME (CDB, LCI/LCA, Tesouro Direto — mas Tesouro Direto especificamente vai em TREASURY), FUNDS (fundos multimercado/imobiliário genéricos — mas fundo imobiliário/FII vai em REIT), STOCKS (ações), ETF, REIT (FIIs), PENSION (PGBL/VGBL, previdência privada), TREASURY (Tesouro Direto) ou OTHER. Só preencha investedAmount quando o documento mostrar explicitamente um "valor aplicado"/"valor investido" diferente do valor atual — muitos consolidados só têm o valor atual, e nesse caso deixe investedAmount como null (nunca copie o valor atual pra lá). Nunca invente um ativo que não está no documento. Se houver várias páginas, consolide como uma única lista, sem repetir o mesmo ativo que aparece em mais de uma página (some as posições se for claramente o mesmo ativo fracionado em duas linhas).`,
+      message:
+        "Extraia todas as posições/ativos deste extrato consolidado: nome, tipo, valor investido (se o documento mostrar), valor atual, instituição (se identificável) e liquidez (se o documento indicar, ex: 'D+0', 'no vencimento'). Retorne também uma confiança geral de 0 a 1.",
+      images,
+      jsonSchema: investmentStatementExtractionJsonSchema,
+      zodSchema: investmentStatementExtractionSchema,
+      maxOutputTokens: 16384,
     });
   },
 

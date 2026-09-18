@@ -291,6 +291,61 @@ export const statementExtractionJsonSchema = {
 };
 
 // ----------------------------------------------------------------------------
+// Extrato consolidado de investimentos (corretora) — Document Agent, mesma
+// família dos dois acima, mas cada linha é uma POSIÇÃO/ativo (uma foto do
+// que existe agora), não uma movimentação com data — um consolidado de
+// corretora normalmente não lista "compras e vendas do mês", lista o que a
+// pessoa tem hoje.
+// ----------------------------------------------------------------------------
+
+const rawInvestmentHoldingSchema = z.object({
+  name: z.string().describe("Nome do ativo/investimento, como aparece no documento (ex: 'Tesouro IPCA+ 2035', 'PETR4')."),
+  type: z.enum(["FIXED_INCOME", "FUNDS", "STOCKS", "ETF", "REIT", "PENSION", "TREASURY", "OTHER"]),
+  // Quanto foi originalmente aportado nesse ativo — só preencha se o
+  // documento mostrar isso explicitamente (ex: "valor aplicado"); muitos
+  // consolidados só mostram o valor atual, e nesse caso deixe null em vez de
+  // supor que aportado == atual.
+  investedAmount: z.number().nonnegative().nullable(),
+  currentAmount: z.number().nonnegative(),
+  institution: z.string().nullable(),
+  liquidity: z.string().nullable(),
+});
+
+export const investmentStatementExtractionSchema = z.object({
+  confidence: z.number().min(0).max(1),
+  holdings: z
+    .array(rawInvestmentHoldingSchema)
+    .transform((holdings) => holdings.filter((h) => h.currentAmount > 0)),
+});
+export type InvestmentStatementExtraction = z.infer<typeof investmentStatementExtractionSchema>;
+
+export const investmentStatementExtractionJsonSchema = {
+  type: "object",
+  properties: {
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    holdings: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          type: {
+            type: "string",
+            enum: ["FIXED_INCOME", "FUNDS", "STOCKS", "ETF", "REIT", "PENSION", "TREASURY", "OTHER"],
+          },
+          investedAmount: { type: ["number", "null"] },
+          currentAmount: { type: "number" },
+          institution: { type: ["string", "null"] },
+          liquidity: { type: ["string", "null"] },
+        },
+        required: ["name", "type", "currentAmount"],
+      },
+    },
+  },
+  required: ["confidence", "holdings"],
+};
+
+// ----------------------------------------------------------------------------
 // Transaction classification
 // ----------------------------------------------------------------------------
 

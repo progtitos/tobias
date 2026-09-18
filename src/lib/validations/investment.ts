@@ -8,6 +8,7 @@ export const createInvestmentSchema = z.object({
   liquidity: z.string().optional().nullable(),
   institution: z.string().optional().nullable(),
   goalId: z.string().optional().nullable(),
+  bankAccountId: z.string().optional().nullable(),
 });
 export type CreateInvestmentInput = z.infer<typeof createInvestmentSchema>;
 
