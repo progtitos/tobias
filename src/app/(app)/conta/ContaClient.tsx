@@ -12,7 +12,6 @@ import {
   Play,
   Wallet,
   ArrowRight,
-  ChevronDown,
   Upload,
   CreditCard as CreditCardIcon,
 } from "lucide-react";
@@ -23,16 +22,18 @@ import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { BankBadge } from "@/components/ui/BankBadge";
-import { CreditCardBadge } from "@/components/ui/CreditCardBadge";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
-import { BANKS, OTHER_BANK_ID } from "@/lib/utils/banks";
+import { BANKS, OTHER_BANK_ID, findBank } from "@/lib/utils/banks";
+import type { CreditCardUsage } from "@/services/creditCards";
 import {
   createBankAccountAction,
   updateBankAccountBalanceAction,
+  updateBankAccountDetailsAction,
   toggleBankAccountActiveAction,
   deleteBankAccountAction,
   createCreditCardAction,
+  updateCreditCardAction,
   deleteCreditCardAction,
   type ContaFormState,
   type CreditCardFormState,
@@ -43,9 +44,11 @@ type BankAccount = {
   id: string;
   name: string;
   bankName: string | null;
+  ownerName: string | null;
   type: string;
   balance: number;
   isActive: boolean;
+  invested: number;
 };
 
 type CreditCard = {
@@ -55,6 +58,8 @@ type CreditCard = {
   brand: string | null;
   lastFourDigits: string | null;
   limitAmount: number | null;
+  closingDay: number | null;
+  dueDay: number | null;
 };
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -64,25 +69,47 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   WALLET: "Carteira digital",
 };
 
+// Mesmos limiares do card "Seu cartão" do Dashboard (pickCardNeedingAttention)
+// — verde/dourado/vermelho pela % do limite usada no ciclo aberto.
+function usageTone(usagePct: number | null): { bar: string; text: string } {
+  if (usagePct == null) return { bar: "bg-onbrand/25", text: "text-onbrand/50" };
+  if (usagePct >= 90) return { bar: "bg-danger-300", text: "text-danger-300" };
+  if (usagePct >= 70) return { bar: "bg-gold-400", text: "text-gold-400" };
+  return { bar: "bg-ok-400", text: "text-ok-400" };
+}
+
 export function ContaClient({
   accounts,
   creditCards,
+  cardsUsage,
   totalInvested,
 }: {
   accounts: BankAccount[];
   creditCards: CreditCard[];
+  cardsUsage: CreditCardUsage[];
   totalInvested: number;
 }) {
-  const [showForm, setShowForm] = useState(false);
-  const [state, formAction, pending] = useActionState<ContaFormState, FormData>(createBankAccountAction, undefined);
+  const [showAccountForm, setShowAccountForm] = useState(false);
+  const [showCardForm, setShowCardForm] = useState(false);
+  const [accountFormState, accountFormAction, accountPending] = useActionState<ContaFormState, FormData>(
+    createBankAccountAction,
+    undefined
+  );
+
   const active = accounts.filter((a) => a.isActive);
   const inactive = accounts.filter((a) => !a.isActive);
   const totalBalance = active.reduce((s, a) => s + a.balance, 0);
-  const cardsFor = (accountId: string) => creditCards.filter((c) => c.bankAccountId === accountId);
+  const totalAccountsInvested = active.reduce((s, a) => s + a.invested, 0);
+
+  const usageById = new Map(cardsUsage.map((u) => [u.id, u]));
+  const totalCardSpend = cardsUsage.reduce((s, u) => s + u.currentCycleSpend, 0);
+  const totalCardLimit = cardsUsage.reduce((s, u) => s + (u.limitAmount ?? 0), 0);
+  const cardsWithLimit = cardsUsage.filter((u) => u.limitAmount != null);
+  const totalAvailableLimit = cardsWithLimit.reduce((s, u) => s + (u.limitAmount! - u.currentCycleSpend), 0);
 
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
-      <div className="max-w-3xl mx-auto w-full">
+      <div className="max-w-5xl mx-auto w-full">
         <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Suas contas</h1>
         <p className="text-sm text-onbrand/55 mb-6">
           Contas bancárias, carteiras digitais e cartões de crédito ligados a elas. Abra uma conta pra atualizar o
@@ -98,11 +125,8 @@ export function ContaClient({
                   {formatBRL(totalBalance + totalInvested)}
                 </p>
               </div>
-              <Button size="sm" onClick={() => setShowForm((v) => !v)}>
-                <Plus className="h-4 w-4" /> Nova conta
-              </Button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/10">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/[0.06]">
               <div>
                 <p className="text-[11px] text-onbrand/50 mb-0.5">Em contas</p>
                 <p className="text-sm font-medium tabular-nums text-onbrand/85">{formatBRL(totalBalance)}</p>
@@ -120,47 +144,136 @@ export function ContaClient({
           </CardContent>
         </Card>
 
-        {showForm && (
-          <Card className="mb-5">
-            <CardContent className="pt-5">
-              <NewAccountForm
-                formAction={formAction}
-                pending={pending}
-                error={state?.error}
-                onDone={() => setShowForm(false)}
-              />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          {/* ------------------------------------------------------------- */}
+          {/* Contas */}
+          {/* ------------------------------------------------------------- */}
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-sans font-semibold text-onbrand">Contas</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowAccountForm((v) => !v)}
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-white/5"
+                  title="Adicionar conta"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-white/[0.06]">
+                <span>
+                  Total em contas correntes <span className="tabular-nums text-onbrand/80">{formatBRL(totalBalance)}</span>
+                </span>
+                <span>
+                  Total em investimentos{" "}
+                  <span className="tabular-nums text-onbrand/80">{formatBRL(totalAccountsInvested)}</span>
+                </span>
+              </div>
+
+              {showAccountForm && (
+                <div className="py-3 border-b border-white/[0.06] mb-1">
+                  <NewAccountForm
+                    formAction={accountFormAction}
+                    pending={accountPending}
+                    error={accountFormState?.error}
+                    onDone={() => setShowAccountForm(false)}
+                  />
+                </div>
+              )}
+
+              {accounts.length === 0 ? (
+                <p className="text-sm text-onbrand/55 py-8 text-center">
+                  Nenhuma conta cadastrada ainda — adicione pra o patrimônio refletir a realidade.
+                </p>
+              ) : (
+                <div className="divide-y divide-white/[0.04]">
+                  {active.map((a) => (
+                    <AccountRow key={a.id} account={a} cards={creditCards.filter((c) => c.bankAccountId === a.id)} />
+                  ))}
+                  {inactive.length > 0 && (
+                    <>
+                      <p className="text-[11px] font-medium text-onbrand/45 pt-3 pb-1">Desativadas</p>
+                      {inactive.map((a) => (
+                        <AccountRow key={a.id} account={a} cards={creditCards.filter((c) => c.bankAccountId === a.id)} />
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
-        )}
 
-        {accounts.length === 0 ? (
-          <p className="text-sm text-onbrand/55 py-12 text-center">
-            Você ainda não cadastrou nenhuma conta. Adicione suas contas para o patrimônio e a reserva de emergência
-            refletirem a realidade.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {active.map((a) => (
-              <AccountCard key={a.id} account={a} cards={cardsFor(a.id)} />
-            ))}
-            {inactive.length > 0 && (
-              <>
-                <p className="text-xs font-medium text-onbrand/55 pt-4">Desativadas</p>
-                {inactive.map((a) => (
-                  <AccountCard key={a.id} account={a} cards={cardsFor(a.id)} />
-                ))}
-              </>
-            )}
-          </div>
-        )}
+          {/* ------------------------------------------------------------- */}
+          {/* Cartões */}
+          {/* ------------------------------------------------------------- */}
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-sans font-semibold text-onbrand">Cartões</h2>
+                {accounts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCardForm((v) => !v)}
+                    className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-white/5"
+                    title="Adicionar cartão"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-white/[0.06]">
+                <span>
+                  Total utilizado em cartões{" "}
+                  <span className="tabular-nums text-onbrand/80">
+                    {formatBRL(totalCardSpend)} de {formatBRL(totalCardLimit)}
+                  </span>
+                </span>
+                <span>
+                  Limite disponível{" "}
+                  <span className="tabular-nums text-onbrand/80">{formatBRL(totalAvailableLimit)}</span>
+                </span>
+              </div>
+
+              {showCardForm && (
+                <div className="py-3 border-b border-white/[0.06] mb-1">
+                  <NewCreditCardForm accounts={accounts} onDone={() => setShowCardForm(false)} />
+                </div>
+              )}
+
+              {creditCards.length === 0 ? (
+                <p className="text-sm text-onbrand/55 py-8 text-center">
+                  {accounts.length === 0
+                    ? "Adicione uma conta primeiro — todo cartão fica ligado à conta que paga a fatura."
+                    : "Nenhum cartão cadastrado ainda."}
+                </p>
+              ) : (
+                <div className="divide-y divide-white/[0.04]">
+                  {creditCards.map((c) => (
+                    <CardRow
+                      key={c.id}
+                      card={c}
+                      usage={usageById.get(c.id) ?? null}
+                      accountName={accounts.find((a) => a.id === c.bankAccountId)?.name ?? null}
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Nova conta — nome pré-setado com marca (cor + iniciais, quadrado
-// arredondado), em vez de digitar o nome do banco.
+// Nova conta — instituição num seletor (mais compacto que a grade de logos
+// de antes, cabe melhor no layout de duas colunas), nome pré-preenchido a
+// partir da instituição escolhida (editável), dono opcional (pra quem
+// compartilha o Tobias com a família).
 // ---------------------------------------------------------------------------
 
 function NewAccountForm({
@@ -174,10 +287,12 @@ function NewAccountForm({
   error?: string;
   onDone: () => void;
 }) {
-  const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  const [selectedBank, setSelectedBank] = useState<string>("");
   const [customBank, setCustomBank] = useState("");
+  const [name, setName] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
   const isOther = selectedBank === OTHER_BANK_ID;
-  const bankNameValue = isOther ? customBank : (BANKS.find((b) => b.id === selectedBank)?.label ?? "");
+  const bankLabel = isOther ? customBank : BANKS.find((b) => b.id === selectedBank)?.label ?? "";
 
   return (
     <form
@@ -185,142 +300,231 @@ function NewAccountForm({
         await formAction(fd);
         onDone();
       }}
-      className="grid grid-cols-2 gap-4"
+      className="space-y-3"
     >
-      <div className="col-span-2">
-        <Label>Banco (opcional)</Label>
-        <div className="flex flex-wrap justify-center gap-3 py-1">
-          {BANKS.map((bank) => (
-            <button
-              type="button"
-              key={bank.id}
-              onClick={() => setSelectedBank(bank.id === selectedBank ? null : bank.id)}
-              className={cn(
-                "flex flex-col items-center gap-1.5 w-[70px] py-2 px-1 rounded-xl border-[1.5px] border-transparent",
-                selectedBank === bank.id && "border-gold-400 bg-gold-400/10"
-              )}
-            >
-              <BankBadge bankName={bank.label} size="lg" />
-              <span
-                className={cn(
-                  "text-[11px] text-center leading-tight text-onbrand/65",
-                  selectedBank === bank.id && "text-gold-400 font-medium"
-                )}
-              >
-                {bank.label}
-              </span>
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setSelectedBank(selectedBank === OTHER_BANK_ID ? null : OTHER_BANK_ID)}
-            className={cn(
-              "flex flex-col items-center gap-1.5 w-[70px] py-2 px-1 rounded-xl border-[1.5px] border-transparent",
-              isOther && "border-gold-400 bg-gold-400/10"
-            )}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="acc-bank">Instituição</Label>
+          <Select
+            id="acc-bank"
+            value={selectedBank}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedBank(value);
+              const label = value === OTHER_BANK_ID ? customBank : BANKS.find((b) => b.id === value)?.label ?? "";
+              if (!nameTouched && label) setName(label);
+            }}
           >
-            <span className="h-10 w-10 rounded-full flex items-center justify-center text-base font-extrabold bg-white/10 text-onbrand/60 border border-dashed border-white/25">
-              +
-            </span>
-            <span className={cn("text-[11px] text-center leading-tight text-onbrand/65", isOther && "text-gold-400 font-medium")}>
-              Outro banco
-            </span>
-          </button>
+            <option value="">Selecione a instituição</option>
+            {BANKS.map((bank) => (
+              <option key={bank.id} value={bank.id}>
+                {bank.label}
+              </option>
+            ))}
+            <option value={OTHER_BANK_ID}>Outra / carteira digital</option>
+          </Select>
+          {isOther && (
+            <Input
+              className="mt-2"
+              placeholder="Nome da instituição"
+              value={customBank}
+              onChange={(e) => {
+                setCustomBank(e.target.value);
+                if (!nameTouched) setName(e.target.value);
+              }}
+            />
+          )}
+          <input type="hidden" name="bankName" value={bankLabel} />
         </div>
-        {isOther && (
+        <div>
+          <Label htmlFor="acc-owner">Proprietário (opcional)</Label>
+          <Input id="acc-owner" name="ownerName" placeholder="Ex: Luísa" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="acc-name">Nome da conta</Label>
           <Input
-            className="mt-2"
-            placeholder="Nome do banco"
-            value={customBank}
-            onChange={(e) => setCustomBank(e.target.value)}
+            id="acc-name"
+            name="name"
+            placeholder="Ex: Conta corrente"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setNameTouched(true);
+            }}
+            required
           />
-        )}
-        <input type="hidden" name="bankName" value={bankNameValue} />
-      </div>
-      <div className="col-span-2">
-        <Label htmlFor="name">Nome da conta</Label>
-        <Input id="name" name="name" placeholder="Ex: Conta corrente principal" required />
-      </div>
-      <div>
-        <Label htmlFor="type">Tipo</Label>
-        <Select id="type" name="type" defaultValue="CHECKING">
-          {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="balance">Saldo atual (R$)</Label>
-        <CurrencyInput id="balance" name="balance" required />
-      </div>
-      <div className="col-span-2">
-        <FieldError>{error}</FieldError>
-        <div className="flex gap-2 mt-1">
-          <Button type="submit" loading={pending}>
-            Salvar conta
-          </Button>
-          <Button type="button" variant="ghost" onClick={onDone}>
-            Cancelar
-          </Button>
         </div>
+        <div>
+          <Label htmlFor="acc-type">Tipo</Label>
+          <Select id="acc-type" name="type" defaultValue="CHECKING">
+            {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="acc-balance">Saldo em conta</Label>
+        <CurrencyInput id="acc-balance" name="balance" required />
+      </div>
+      <FieldError>{error}</FieldError>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" loading={pending}>
+          Adicionar conta
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
       </div>
     </form>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Card de conta — maior e clicável: colapsado mostra o resumo (banco, nome,
-// tipo, saldo, quantos cartões estão ligados); aberto revela as ações
-// (atualizar saldo, pausar, excluir), os cartões de crédito vinculados (cada
-// um clicável só pra excluir — importar sobe pra cá) e os dois gatilhos: um
-// upload único (extrato da conta OU fatura de qualquer cartão dela, ver
-// ImportUploadPanel) e "+ Cartão de crédito" (cadastra um cartão novo).
-//
-// Antes existiam DOIS lugares pra subir arquivo (botão aqui + um escondido
-// dentro de cada cartão), visualmente idênticos e em profundidades
-// diferentes da árvore — já causou uma fatura de cartão entrar como extrato
-// de conta na prática (distorceu o saldo). Um botão só, com o destino
-// escolhido explicitamente dentro do próprio formulário, elimina essa classe
-// de erro em vez de só mitigar com rótulo melhor.
+// Editar conta — mesmos campos de cadastro (sem saldo, que já tem seu
+// próprio atalho rápido na linha).
 // ---------------------------------------------------------------------------
 
-function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCard[] }) {
+function EditAccountForm({ account, onDone }: { account: BankAccount; onDone: () => void }) {
+  const [state, formAction, pending] = useActionState<ContaFormState, FormData>(
+    updateBankAccountDetailsAction,
+    undefined
+  );
+  const [selectedBank, setSelectedBank] = useState<string>(findBank(account.bankName)?.id ?? OTHER_BANK_ID);
+  const [customBank, setCustomBank] = useState(findBank(account.bankName) ? "" : account.bankName ?? "");
+  const isOther = selectedBank === OTHER_BANK_ID;
+  const bankLabel = isOther ? customBank : BANKS.find((b) => b.id === selectedBank)?.label ?? "";
+
+  useEffect(() => {
+    if (state?.success) onDone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  return (
+    <form action={formAction} className="space-y-3 py-3">
+      <input type="hidden" name="accountId" value={account.id} />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor={`edit-acc-bank-${account.id}`}>Instituição</Label>
+          <Select id={`edit-acc-bank-${account.id}`} value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
+            <option value="">Selecione a instituição</option>
+            {BANKS.map((bank) => (
+              <option key={bank.id} value={bank.id}>
+                {bank.label}
+              </option>
+            ))}
+            <option value={OTHER_BANK_ID}>Outra / carteira digital</option>
+          </Select>
+          {isOther && (
+            <Input
+              className="mt-2"
+              placeholder="Nome da instituição"
+              value={customBank}
+              onChange={(e) => setCustomBank(e.target.value)}
+            />
+          )}
+          <input type="hidden" name="bankName" value={bankLabel} />
+        </div>
+        <div>
+          <Label htmlFor={`edit-acc-owner-${account.id}`}>Proprietário (opcional)</Label>
+          <Input id={`edit-acc-owner-${account.id}`} name="ownerName" defaultValue={account.ownerName ?? ""} placeholder="Ex: Luísa" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor={`edit-acc-name-${account.id}`}>Nome da conta</Label>
+          <Input id={`edit-acc-name-${account.id}`} name="name" defaultValue={account.name} required />
+        </div>
+        <div>
+          <Label htmlFor={`edit-acc-type-${account.id}`}>Tipo</Label>
+          <Select id={`edit-acc-type-${account.id}`} name="type" defaultValue={account.type}>
+            {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
+      <FieldError>{state?.error}</FieldError>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" loading={pending}>
+          Salvar
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Linha de conta — ícone do banco, nome + tipo + dono, saldo e investido à
+// direita, lápis (editar cadastro) e lixeira (excluir) sempre visíveis. O
+// resto (atualizar saldo, pausar, importar extrato/fatura) fica atrás de um
+// clique na linha, pra não competir visualmente com o essencial.
+// ---------------------------------------------------------------------------
+
+function AccountRow({ account, cards }: { account: BankAccount; cards: CreditCard[] }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
   const [editingBalance, setEditingBalance] = useState(false);
   const [balanceInput, setBalanceInput] = useState(account.balance);
-  const [panel, setPanel] = useState<"upload" | "cartao" | null>(null);
+  const [panel, setPanel] = useState<"upload" | null>(null);
 
   return (
-    <Card className={cn(open && "ring-1 ring-gold-400/25")}>
-      <button
-        type="button"
-        className="w-full flex items-center gap-3 py-4 px-5 text-left"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Wallet className="h-5 w-5 shrink-0 text-onbrand/45" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            {account.bankName && <BankBadge bankName={account.bankName} />}
-            <p className="font-medium text-onbrand truncate">{account.name}</p>
-            <Badge tone="brand">{ACCOUNT_TYPE_LABELS[account.type]}</Badge>
+    <div className="py-3">
+      <div className="flex items-center gap-2.5">
+        {account.bankName ? <BankBadge bankName={account.bankName} /> : <Wallet className="h-5 w-5 shrink-0 text-onbrand/45" />}
+        <button type="button" className="flex-1 min-w-0 text-left" onClick={() => setOpen((v) => !v)}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="font-medium text-onbrand text-sm truncate">{account.name}</p>
             {!account.isActive && <Badge tone="neutral">Desativada</Badge>}
-            {cards.length > 0 && (
-              <Badge tone="gold">
-                {cards.length} cartão{cards.length > 1 ? "ões" : ""}
-              </Badge>
-            )}
           </div>
+          <p className="text-[11px] text-onbrand/50 truncate">
+            {ACCOUNT_TYPE_LABELS[account.type]}
+            {account.ownerName ? ` · ${account.ownerName}` : ""}
+          </p>
+        </button>
+        <div className="text-right shrink-0">
+          <p className="font-medium tabular-nums text-onbrand text-sm">{formatBRL(account.balance)}</p>
+          {account.invested > 0 && (
+            <p className="text-[11px] tabular-nums text-onbrand/50">Investido {formatBRL(account.invested)}</p>
+          )}
         </div>
-        <span className="font-medium tabular-nums text-onbrand shrink-0">{formatBRL(account.balance)}</span>
-        <ChevronDown className={cn("h-4 w-4 text-onbrand/40 transition-transform shrink-0", open && "rotate-180")} />
-      </button>
+        <button
+          type="button"
+          className="text-onbrand/35 hover:text-gold-400 shrink-0"
+          title="Editar conta"
+          onClick={() => setEditing((v) => !v)}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          className="text-onbrand/35 hover:text-danger-300 shrink-0"
+          title="Excluir conta"
+          disabled={pending}
+          onClick={() => {
+            if (!window.confirm(`Excluir a conta "${account.name}"? Isso não pode ser desfeito.`)) return;
+            startTransition(() => deleteBankAccountAction(account.id));
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {editing && <EditAccountForm account={account} onDone={() => setEditing(false)} />}
 
       {open && (
-        <CardContent className="pt-1 pb-5 border-t border-white/10">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 text-sm">
+        <div className="pt-2 pl-8">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
             {editingBalance ? (
               <div className="flex items-center gap-1.5">
                 <CurrencyInput
@@ -345,7 +549,7 @@ function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCa
               </div>
             ) : (
               <button
-                className="flex items-center gap-1.5 group text-onbrand/70 hover:text-onbrand"
+                className="flex items-center gap-1.5 group text-onbrand/70 hover:text-onbrand text-xs"
                 onClick={() => {
                   setBalanceInput(account.balance);
                   setEditingBalance(true);
@@ -356,7 +560,7 @@ function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCa
             )}
             <span className="text-onbrand/20">·</span>
             <button
-              className="flex items-center gap-1.5 text-onbrand/70 hover:text-gold-400"
+              className="flex items-center gap-1.5 text-onbrand/70 hover:text-gold-400 text-xs"
               disabled={pending}
               onClick={() => startTransition(() => toggleBankAccountActiveAction(account.id, !account.isActive))}
             >
@@ -365,83 +569,15 @@ function AccountCard({ account, cards }: { account: BankAccount; cards: CreditCa
             </button>
             <span className="text-onbrand/20">·</span>
             <button
-              className="flex items-center gap-1.5 text-onbrand/50 hover:text-danger-300"
-              disabled={pending}
-              onClick={() => {
-                // Excluir sem confirmação nenhuma já causou um acidente real
-                // (o "Excluir cartão" logo abaixo, que tinha o mesmo
-                // problema) — conta é ainda mais grave de apagar sem querer.
-                if (!window.confirm(`Excluir a conta "${account.name}"? Isso não pode ser desfeito.`)) return;
-                startTransition(() => deleteBankAccountAction(account.id));
-              }}
+              className="flex items-center gap-1.5 text-onbrand/70 hover:text-gold-400 text-xs"
+              onClick={() => setPanel(panel === "upload" ? null : "upload")}
             >
-              <Trash2 className="h-3.5 w-3.5" /> Excluir conta
+              <Upload className="h-3.5 w-3.5" /> Importar extrato ou fatura
             </button>
           </div>
 
-          {cards.length > 0 && (
-            <div className="flex flex-wrap gap-4 py-2">
-              {cards.map((c) => (
-                <CreditCardTile key={c.id} card={c} />
-              ))}
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2 pt-3">
-            <Button size="sm" variant="outline" onClick={() => setPanel(panel === "upload" ? null : "upload")}>
-              <Upload className="h-3.5 w-3.5" /> Importar extrato ou fatura
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setPanel(panel === "cartao" ? null : "cartao")}>
-              <Plus className="h-3.5 w-3.5" /> Cartão de crédito
-            </Button>
-          </div>
-
-          {panel === "upload" && (
-            <ImportUploadPanel account={account} cards={cards} onCancel={() => setPanel(null)} />
-          )}
-          {panel === "cartao" && <NewCreditCardForm bankAccountId={account.id} onDone={() => setPanel(null)} />}
-        </CardContent>
-      )}
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Cartão de crédito vinculado — retângulo clicável (CreditCardBadge); ao
-// clicar, só revela o botão de excluir. Importar a fatura dele acontece pelo
-// upload único lá em cima na conta (ImportUploadPanel), não mais aqui — ver
-// o comentário em AccountCard sobre por que esses dois caminhos foram
-// unificados.
-// ---------------------------------------------------------------------------
-
-function CreditCardTile({ card }: { card: CreditCard }) {
-  const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
-
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <CreditCardBadge
-        brand={card.brand}
-        nickname={card.nickname}
-        lastFourDigits={card.lastFourDigits}
-        limitAmount={card.limitAmount}
-        onClick={() => setOpen((v) => !v)}
-      />
-      {open && (
-        <button
-          type="button"
-          className="text-[11px] text-onbrand/40 hover:text-danger-300 flex items-center justify-center gap-1 disabled:opacity-40"
-          disabled={pending}
-          onClick={() => {
-            // Sem essa confirmação, um clique em cima do que parecia ser só
-            // um retângulo decorativo já apagou um cartão de verdade (visto
-            // na prática) — nada avisava antes de excluir.
-            if (!window.confirm(`Excluir o cartão "${card.nickname}"? Isso não pode ser desfeito.`)) return;
-            startTransition(() => deleteCreditCardAction(card.id));
-          }}
-        >
-          <Trash2 className="h-3 w-3" /> Excluir cartão
-        </button>
+          {panel === "upload" && <ImportUploadPanel account={account} cards={cards} onCancel={() => setPanel(null)} />}
+        </div>
       )}
     </div>
   );
@@ -473,7 +609,7 @@ function ImportUploadPanel({
   const submitLabel = destination.kind === "account" ? "Enviar extrato" : "Enviar fatura";
 
   return (
-    <form action={formAction} className="rounded-xl bg-brand-900/60 border border-white/10 p-3.5 mt-3">
+    <form action={formAction} className="rounded-xl bg-brand-900/60 p-3.5 mt-3">
       <p className="text-xs text-onbrand/60 mb-2">Isso é o extrato de qual conta, ou a fatura de qual cartão?</p>
 
       <div className="flex flex-wrap gap-2 mb-3">
@@ -484,7 +620,7 @@ function ImportUploadPanel({
             "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
             destination.kind === "account"
               ? "border-gold-400 bg-gold-400/10 text-gold-400"
-              : "border-white/10 text-onbrand/65 hover:border-white/25"
+              : "border-transparent bg-white/[0.03] text-onbrand/65 hover:bg-white/[0.07]"
           )}
         >
           {account.bankName && <BankBadge bankName={account.bankName} />}
@@ -499,7 +635,7 @@ function ImportUploadPanel({
               "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
               destination.kind === "card" && destination.cardId === c.id
                 ? "border-gold-400 bg-gold-400/10 text-gold-400"
-                : "border-white/10 text-onbrand/65 hover:border-white/25"
+                : "border-transparent bg-white/[0.03] text-onbrand/65 hover:bg-white/[0.07]"
             )}
           >
             <CreditCardIcon className="h-3.5 w-3.5" />
@@ -535,17 +671,16 @@ function ImportUploadPanel({
 }
 
 // ---------------------------------------------------------------------------
-// Novo cartão de crédito — sempre nasce ligado à conta que foi aberta;
-// preview do cartão ao vivo enquanto a pessoa escolhe o banco/apelido.
+// Novo cartão de crédito — agora um formulário de primeiro nível (a seção
+// Cartões não fica mais dentro de cada conta), então precisa de um seletor
+// de "conta que paga a fatura" que antes vinha implícito por estar aberto
+// dentro dela.
 // ---------------------------------------------------------------------------
 
-function NewCreditCardForm({ bankAccountId, onDone }: { bankAccountId: string; onDone: () => void }) {
+function NewCreditCardForm({ accounts, onDone }: { accounts: BankAccount[]; onDone: () => void }) {
   const [state, formAction, pending] = useActionState<CreditCardFormState, FormData>(createCreditCardAction, undefined);
-  const [nickname, setNickname] = useState("");
-  const [selectedBank, setSelectedBank] = useState<string | null>(null);
-  const [lastFour, setLastFour] = useState("");
-  const [limit, setLimit] = useState<number | undefined>(undefined);
-  const bankLabel = BANKS.find((b) => b.id === selectedBank)?.label ?? null;
+  const [selectedBank, setSelectedBank] = useState<string>("");
+  const bankLabel = BANKS.find((b) => b.id === selectedBank)?.label ?? "";
 
   useEffect(() => {
     if (state?.success) onDone();
@@ -553,83 +688,230 @@ function NewCreditCardForm({ bankAccountId, onDone }: { bankAccountId: string; o
   }, [state]);
 
   return (
-    <div className="mt-3 p-3.5 rounded-xl bg-brand-900/60 border border-white/10">
-      <div className="flex justify-center py-2">
-        <CreditCardBadge
-          brand={bankLabel}
-          nickname={nickname || "Meu cartão"}
-          lastFourDigits={lastFour || null}
-          limitAmount={limit ?? null}
-        />
-      </div>
-      <form action={formAction} className="grid grid-cols-2 gap-3 mt-2">
-        <input type="hidden" name="bankAccountId" value={bankAccountId} />
-        <input type="hidden" name="brand" value={bankLabel ?? ""} />
-        <div className="col-span-2">
-          <Label>Banco (opcional)</Label>
-          <div className="flex flex-wrap gap-2">
-            {BANKS.map((bank) => (
-              <button
-                key={bank.id}
-                type="button"
-                onClick={() => setSelectedBank(bank.id === selectedBank ? null : bank.id)}
-                className={cn(
-                  "h-8 px-2.5 rounded-lg text-xs font-medium",
-                  bank.className,
-                  selectedBank === bank.id ? "ring-2 ring-gold-400" : "opacity-60 hover:opacity-90"
-                )}
-              >
-                {bank.label}
-              </button>
+    <form action={formAction} className="space-y-3">
+      <input type="hidden" name="brand" value={bankLabel} />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="card-account">Conta que paga a fatura</Label>
+          <Select id="card-account" name="bankAccountId" defaultValue={accounts[0]?.id ?? ""} required>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
             ))}
-          </div>
-        </div>
-        <div className="col-span-2">
-          <Label htmlFor="nickname">Apelido do cartão</Label>
-          <Input
-            id="nickname"
-            name="nickname"
-            placeholder="Ex: Cartão principal"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            required
-          />
+          </Select>
         </div>
         <div>
-          <Label htmlFor="lastFourDigits">Últimos 4 dígitos</Label>
+          <Label htmlFor="card-bank">Bandeira / banco (opcional)</Label>
+          <Select id="card-bank" value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
+            <option value="">Selecione</option>
+            {BANKS.map((bank) => (
+              <option key={bank.id} value={bank.id}>
+                {bank.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="card-nickname">Apelido do cartão</Label>
+          <Input id="card-nickname" name="nickname" placeholder="Ex: Cartão principal" required />
+        </div>
+        <div>
+          <Label htmlFor="card-last4">Últimos 4 dígitos</Label>
+          <Input id="card-last4" name="lastFourDigits" inputMode="numeric" maxLength={4} placeholder="1234" />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label htmlFor="card-limit">Limite (R$)</Label>
+          <CurrencyInput id="card-limit" name="limitAmount" />
+        </div>
+        <div>
+          <Label htmlFor="card-closing">Fechamento</Label>
+          <Input id="card-closing" name="closingDay" type="number" min={1} max={31} placeholder="Ex: 20" />
+        </div>
+        <div>
+          <Label htmlFor="card-due">Vencimento</Label>
+          <Input id="card-due" name="dueDay" type="number" min={1} max={31} placeholder="Ex: 28" />
+        </div>
+      </div>
+      <FieldError>{state?.error}</FieldError>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" loading={pending}>
+          Adicionar cartão
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Editar cartão — mesmos campos do cadastro; é o caminho principal pra
+// preencher um limite que ficou em branco (cartão sem limite não entra na
+// barra de uso aqui nem no card "Seu cartão" do Dashboard).
+// ---------------------------------------------------------------------------
+
+function EditCreditCardForm({ card, accountName, onDone }: { card: CreditCard; accountName: string | null; onDone: () => void }) {
+  const [state, formAction, pending] = useActionState<CreditCardFormState, FormData>(updateCreditCardAction, undefined);
+  const [selectedBank, setSelectedBank] = useState<string>(findBank(card.brand)?.id ?? "");
+  const bankLabel = selectedBank ? BANKS.find((b) => b.id === selectedBank)?.label ?? card.brand ?? "" : card.brand ?? "";
+
+  useEffect(() => {
+    if (state?.success) onDone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  return (
+    <form action={formAction} className="space-y-3 py-3">
+      <input type="hidden" name="creditCardId" value={card.id} />
+      <input type="hidden" name="brand" value={bankLabel} />
+      {accountName && <p className="text-[11px] text-onbrand/45">Conta que paga a fatura: {accountName}</p>}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor={`edit-card-nickname-${card.id}`}>Apelido do cartão</Label>
+          <Input id={`edit-card-nickname-${card.id}`} name="nickname" defaultValue={card.nickname} required />
+        </div>
+        <div>
+          <Label htmlFor={`edit-card-bank-${card.id}`}>Bandeira / banco</Label>
+          <Select id={`edit-card-bank-${card.id}`} value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
+            <option value="">Selecione</option>
+            {BANKS.map((bank) => (
+              <option key={bank.id} value={bank.id}>
+                {bank.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label htmlFor={`edit-card-last4-${card.id}`}>Últimos 4 dígitos</Label>
           <Input
-            id="lastFourDigits"
+            id={`edit-card-last4-${card.id}`}
             name="lastFourDigits"
             inputMode="numeric"
-            placeholder="1234"
-            value={lastFour}
-            onChange={(e) => setLastFour(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            maxLength={4}
+            defaultValue={card.lastFourDigits ?? ""}
           />
         </div>
         <div>
-          <Label htmlFor="limitAmount">Limite (R$)</Label>
-          <CurrencyInput id="limitAmount" name="limitAmount" onValueChange={setLimit} />
+          <Label htmlFor={`edit-card-closing-${card.id}`}>Fechamento</Label>
+          <Input
+            id={`edit-card-closing-${card.id}`}
+            name="closingDay"
+            type="number"
+            min={1}
+            max={31}
+            defaultValue={card.closingDay ?? undefined}
+          />
         </div>
         <div>
-          <Label htmlFor="closingDay">Dia de fechamento</Label>
-          <Input id="closingDay" name="closingDay" type="number" min={1} max={31} placeholder="Ex: 20" />
+          <Label htmlFor={`edit-card-due-${card.id}`}>Vencimento</Label>
+          <Input
+            id={`edit-card-due-${card.id}`}
+            name="dueDay"
+            type="number"
+            min={1}
+            max={31}
+            defaultValue={card.dueDay ?? undefined}
+          />
         </div>
-        <div>
-          <Label htmlFor="dueDay">Dia de vencimento</Label>
-          <Input id="dueDay" name="dueDay" type="number" min={1} max={31} placeholder="Ex: 28" />
-        </div>
-        <div className="col-span-2">
-          <FieldError>{state?.error}</FieldError>
-          <div className="flex gap-2 mt-1">
-            <Button type="submit" size="sm" loading={pending}>
-              Salvar cartão
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={onDone}>
-              Cancelar
-            </Button>
+      </div>
+      <div>
+        <Label htmlFor={`edit-card-limit-${card.id}`}>Limite (R$)</Label>
+        <CurrencyInput id={`edit-card-limit-${card.id}`} name="limitAmount" defaultValue={card.limitAmount ?? undefined} />
+      </div>
+      <FieldError>{state?.error}</FieldError>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" loading={pending}>
+          Salvar
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Linha de cartão — ícone da bandeira, apelido, gasto do ciclo aberto (R$ e
+// %), barra de uso colorida pelos mesmos limiares do Dashboard, limite
+// disponível, lápis (editar) e lixeira (excluir).
+// ---------------------------------------------------------------------------
+
+function CardRow({
+  card,
+  usage,
+  accountName,
+}: {
+  card: CreditCard;
+  usage: CreditCardUsage | null;
+  accountName: string | null;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const tone = usageTone(usage?.usagePct ?? null);
+  const spend = usage?.currentCycleSpend ?? 0;
+  const pct = usage?.usagePct != null ? Math.round(usage.usagePct) : null;
+  const available = card.limitAmount != null ? card.limitAmount - spend : null;
+
+  return (
+    <div className="py-3">
+      <div className="flex items-center gap-2.5">
+        {card.brand ? <BankBadge bankName={card.brand} /> : <CreditCardIcon className="h-5 w-5 shrink-0 text-onbrand/45" />}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-medium text-onbrand text-sm truncate">
+              {card.nickname}
+              {card.lastFourDigits && <span className="text-onbrand/40 font-normal"> •••• {card.lastFourDigits}</span>}
+            </p>
+            <p className={cn("text-sm font-medium tabular-nums shrink-0", tone.text)}>
+              {formatBRL(spend)}
+              {pct != null && <span className="text-onbrand/45 font-normal"> ({pct}%)</span>}
+            </p>
           </div>
+          <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden mt-1.5">
+            <div
+              className={cn("h-full rounded-full", tone.bar)}
+              style={{ width: `${Math.min(100, pct ?? (card.limitAmount == null ? 6 : 0))}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-onbrand/50 mt-1">
+            {accountName ? `${accountName} · ` : ""}
+            {card.limitAmount != null
+              ? `Limite disponível: ${formatBRL(available ?? 0)}`
+              : "Sem limite cadastrado — edite pra acompanhar o uso"}
+          </p>
         </div>
-      </form>
+        <button
+          type="button"
+          className="text-onbrand/35 hover:text-gold-400 shrink-0"
+          title="Editar cartão"
+          onClick={() => setEditing((v) => !v)}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          className="text-onbrand/35 hover:text-danger-300 shrink-0"
+          title="Excluir cartão"
+          disabled={pending}
+          onClick={() => {
+            if (!window.confirm(`Excluir o cartão "${card.nickname}"? Isso não pode ser desfeito.`)) return;
+            startTransition(() => deleteCreditCardAction(card.id));
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {editing && <EditCreditCardForm card={card} accountName={accountName} onDone={() => setEditing(false)} />}
     </div>
   );
 }

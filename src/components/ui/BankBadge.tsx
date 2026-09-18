@@ -31,7 +31,7 @@ export function BankBadge({
       className={cn(
         "relative inline-flex items-center justify-center shrink-0 overflow-hidden rounded-full font-extrabold leading-none text-center",
         dim,
-        bank ? bank.className : "bg-white/10 text-onbrand/60 border border-dashed border-white/25",
+        bank ? bank.className : "bg-white/10 text-onbrand/60 border border-dashed border-white/10",
         className
       )}
       title={bankName}
