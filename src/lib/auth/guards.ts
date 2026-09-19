@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { getCurrentUser, type SessionUser } from "./session";
+import { getCurrentUser, getCurrentAdmin, type SessionUser } from "./session";
 
 /** Use in Server Components/pages that require a logged-in user. */
 export async function requireUser(): Promise<SessionUser> {
@@ -21,13 +21,15 @@ export async function requireOnboardedUser(): Promise<SessionUser> {
 }
 
 /**
- * Use in the (admin) route group only. Redirects a logged-out visitor to
- * /login same as requireUser, but sends anyone who IS logged in and just
- * isn't staff back to their own dashboard instead of a generic 403 — no
- * point telling a curious end user this area exists at all.
+ * Use only inside `(admin)/admin/(protected)` — the group of pages that
+ * actually needs staff access. Checks the SEPARATE admin session
+ * (`tobias_admin_session`, see session.ts), not the regular app login: being
+ * logged into Tobias as a customer — even on an account with
+ * `role: "ADMIN"` — never grants this by itself. Redirects to `/admin/login`,
+ * never to the customer `/login`, so the two flows never mix.
  */
 export async function requireAdmin(): Promise<SessionUser> {
-  const user = await requireUser();
-  if (user.role !== "ADMIN") redirect("/dashboard");
-  return user;
+  const admin = await getCurrentAdmin();
+  if (!admin) redirect("/admin/login");
+  return admin;
 }

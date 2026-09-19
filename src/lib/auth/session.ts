@@ -22,6 +22,12 @@ import { sessions, users } from "@/lib/db/schema";
 // ----------------------------------------------------------------------------
 
 const COOKIE_NAME = "tobias_session";
+// Cookie separado (nome + path próprios) pra sessão do painel admin — pedido
+// do Thiago 2026-09-19 pra separar o admin do resto do sistema de verdade,
+// não só na UI: logar como cliente em `/login` nunca concede `/admin`, e
+// vice-versa, mesmo que a mesma conta tenha `role: "ADMIN"`. Reaproveita a
+// tabela `sessions` (é só um token opaco), só não compartilha o cookie.
+const ADMIN_COOKIE_NAME = "tobias_admin_session";
 const SESSION_TTL_DAYS = 30;
 
 export type SessionUser = {
@@ -42,7 +48,7 @@ function generateToken(): string {
   return randomBytes(32).toString("hex");
 }
 
-export async function createSession(userId: string, userAgent?: string) {
+async function createSessionWithCookie(userId: string, cookieName: string, cookiePath: string, userAgent?: string) {
   const token = generateToken();
   const expires = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
 
@@ -54,18 +60,18 @@ export async function createSession(userId: string, userAgent?: string) {
   });
 
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, {
+  cookieStore.set(cookieName, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     expires,
-    path: "/",
+    path: cookiePath,
   });
 }
 
-export async function getCurrentUser(): Promise<SessionUser | null> {
+async function readSessionFromCookie(cookieName: string): Promise<SessionUser | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
+  const token = cookieStore.get(cookieName)?.value;
   if (!token) return null;
 
   const rows = await db
@@ -93,7 +99,10 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!row) return null;
   if (row.deletedAt) return null;
   if (row.expires.getTime() < Date.now()) {
-    await destroySession();
+    const cookieStore2 = await cookies();
+    const expiredToken = cookieStore2.get(cookieName)?.value;
+    if (expiredToken) await db.delete(sessions).where(eq(sessions.sessionToken, expiredToken));
+    cookieStore2.delete(cookieName);
     return null;
   }
 
@@ -112,11 +121,46 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   };
 }
 
-export async function destroySession() {
+async function destroySessionCookie(cookieName: string) {
   const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
+  const token = cookieStore.get(cookieName)?.value;
   if (token) {
     await db.delete(sessions).where(eq(sessions.sessionToken, token));
   }
-  cookieStore.delete(COOKIE_NAME);
+  cookieStore.delete(cookieName);
+}
+
+export async function createSession(userId: string, userAgent?: string) {
+  return createSessionWithCookie(userId, COOKIE_NAME, "/", userAgent);
+}
+
+export async function getCurrentUser(): Promise<SessionUser | null> {
+  return readSessionFromCookie(COOKIE_NAME);
+}
+
+export async function destroySession() {
+  return destroySessionCookie(COOKIE_NAME);
+}
+
+/**
+ * Sessão do painel admin — cookie e path próprios (`/admin`), nunca
+ * compartilhados com `tobias_session`. Só quem passou por `/admin/login` (e
+ * cuja conta já era `role: "ADMIN"` no momento do login) tem esse cookie;
+ * estar logado no app comum, mesmo como admin, não concede acesso aqui.
+ */
+export async function createAdminSession(userId: string, userAgent?: string) {
+  return createSessionWithCookie(userId, ADMIN_COOKIE_NAME, "/admin", userAgent);
+}
+
+export async function getCurrentAdmin(): Promise<SessionUser | null> {
+  const user = await readSessionFromCookie(ADMIN_COOKIE_NAME);
+  // Revalida a role a cada request: se alguém perder o cargo de ADMIN depois
+  // de já ter uma sessão admin aberta, a sessão para de valer no ato, sem
+  // esperar o cookie expirar.
+  if (user && user.role !== "ADMIN") return null;
+  return user;
+}
+
+export async function destroyAdminSession() {
+  return destroySessionCookie(ADMIN_COOKIE_NAME);
 }

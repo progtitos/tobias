@@ -1,0 +1,127 @@
+From 78e603258a070f54518090d643ce8d89f0b11663 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 18 Sep 2026 20:03:48 +0000
+Subject: [PATCH 1/3] fix: deixa claro no grafico de aposentadoria que a curva
+ projeta patrimonio total, nao so investimentos
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Resposta a pergunta do Thiago: como a curva agora parte do patrimonio
+total (contas + investimentos, nao so o que esta investido), os rotulos
+crus "agressivo"/"base"/"conservador" no tooltip passavam a impressao
+de que eram opcoes/alocacoes de investimento reais.
+
+- Tooltip: rotulos viram "Patrimonio - cenario agressivo/base/conservador"
+- Corrige de quebra um bug latente: a Area usada só pra pintar o
+  gradiente sob a linha "base" duplicava a linha "Patrimonio - cenario
+  base" no tooltip (mesmo dataKey da Line) -- dedupe via content customizado
+  em cima do DefaultTooltipContent do recharts.
+- Adiciona uma legenda curta "nao e uma recomendacao de investimento"
+  embaixo do mini-grafico do Dashboard (a pagina /retirement ja tinha
+  uma legenda parecida, so reforcei o texto lá tambem).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Ka2YTSc9tuveNjCeKZ63MD
+---
+ src/app/(app)/dashboard/page.tsx              |  5 ++-
+ src/app/(app)/retirement/RetirementClient.tsx |  2 +-
+ src/components/charts/RetirementChart.tsx     | 37 ++++++++++++++++++-
+ 3 files changed, 41 insertions(+), 3 deletions(-)
+
+diff --git a/src/app/(app)/dashboard/page.tsx b/src/app/(app)/dashboard/page.tsx
+index 872392b..fa6a931 100644
+--- a/src/app/(app)/dashboard/page.tsx
++++ b/src/app/(app)/dashboard/page.tsx
+@@ -147,10 +147,13 @@ export default async function DashboardPage() {
+                       height={190}
+                       dark
+                     />
+-                    <div className="flex gap-1.5 mt-2">
++                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                       <Badge tone={data.retirementPreview.base.onTrack ? "ok" : "warn"}>
+                         {data.retirementPreview.base.onTrack ? "No alvo" : "Requer ajuste"}
+                       </Badge>
++                      <span className="text-[11px] text-onbrand/45">
++                        Projeção do seu patrimônio total (contas + investimentos) em 3 cenários de retorno — não é uma recomendação de investimento.
++                      </span>
+                     </div>
+                   </>
+                 ) : (
+diff --git a/src/app/(app)/retirement/RetirementClient.tsx b/src/app/(app)/retirement/RetirementClient.tsx
+index b8db341..05e8556 100644
+--- a/src/app/(app)/retirement/RetirementClient.tsx
++++ b/src/app/(app)/retirement/RetirementClient.tsx
+@@ -82,7 +82,7 @@ export function RetirementClient({
+         <div>
+           <h1 className="font-sans font-bold text-2xl text-onbrand">Curva de aposentadoria</h1>
+           <p className="text-sm text-onbrand/55 mt-1">
+-            Simule cenários conservador, base e agressivo. Os números usam seu patrimônio real de hoje ({formatBRL(currentNetWorth)}).
++            Simule 3 cenários de retorno sobre seu patrimônio total de hoje ({formatBRL(currentNetWorth)}: contas + investimentos) — não é uma recomendação de investimento nem sua alocação real.
+           </p>
+         </div>
+         <Button size="sm" loading={pending} onClick={save}>
+diff --git a/src/components/charts/RetirementChart.tsx b/src/components/charts/RetirementChart.tsx
+index 0e8cb71..f73df56 100644
+--- a/src/components/charts/RetirementChart.tsx
++++ b/src/components/charts/RetirementChart.tsx
+@@ -7,12 +7,43 @@ import {
+   XAxis,
+   YAxis,
+   Tooltip,
++  DefaultTooltipContent,
+   ReferenceLine,
+   ResponsiveContainer,
+ } from "recharts";
++import type { TooltipContentProps } from "recharts/types/component/Tooltip";
++import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
+ import type { RetirementSimulation } from "@/services/retirement";
+ import { formatBRL } from "@/lib/utils/money";
+ 
++// As três linhas projetam o PATRIMÔNIO TOTAL (contas + investimentos, não só
++// o que está investido) sob taxas de retorno hipotéticas diferentes — não são
++// uma alocação real nem uma recomendação de quanto investir em renda
++// variável. O rótulo do tooltip deixa isso explícito (pedido do Thiago: os
++// nomes "agressivo"/"base"/"conservador" sozinhos passavam a impressão de que
++// eram opções de investimento, ou de que só dinheiro investido crescia assim).
++const SCENARIO_TOOLTIP_LABEL = {
++  conservador: "Patrimônio · cenário conservador",
++  base: "Patrimônio · cenário base",
++  agressivo: "Patrimônio · cenário agressivo",
++};
++
++// A <Area> usada só pra pintar o gradiente sob a linha "base" tem o mesmo
++// dataKey da <Line> "base" (mesmo dado, dois elementos gráficos) — sem essa
++// dedupe, o tooltip padrão do Recharts mostra "Patrimônio · cenário base"
++// duas vezes seguidas, o que looks like um bug bem na hora que a gente tá
++// tentando deixar o tooltip mais claro, não mais confuso.
++function ScenarioTooltipContent(props: TooltipContentProps<ValueType, NameType>) {
++  const seen = new Set<string>();
++  const payload = (props.payload ?? []).filter((p) => {
++    const key = String(p.dataKey ?? p.name);
++    if (seen.has(key)) return false;
++    seen.add(key);
++    return true;
++  });
++  return <DefaultTooltipContent {...props} payload={payload} />;
++}
++
+ function buildDataset(sim: RetirementSimulation, targetAge: number) {
+   const byAge = (series: RetirementSimulation["base"]["series"]) => {
+     const map = new Map<number, number>();
+@@ -118,7 +149,11 @@ export function RetirementChart({
+           reversed={yReversed}
+         />
+         <Tooltip
+-          formatter={(value, name) => [typeof value === "number" ? formatBRL(value) : value, name]}
++          content={ScenarioTooltipContent}
++          formatter={(value, name) => [
++            typeof value === "number" ? formatBRL(value) : value,
++            SCENARIO_TOOLTIP_LABEL[name as keyof typeof SCENARIO_TOOLTIP_LABEL] ?? name,
++          ]}
+           labelFormatter={(age) => `${age} anos`}
+           contentStyle={{
+             borderRadius: 12,
+-- 
+2.43.0
+

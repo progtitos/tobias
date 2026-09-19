@@ -3,8 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Contact } from "lucide-react";
+import { LayoutDashboard, Users, Contact, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { adminLogoutAction } from "@/app/(admin)/admin/login/actions";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Visão geral", icon: LayoutDashboard },
@@ -56,6 +57,15 @@ export function AdminShell({ children, adminName }: { children: React.ReactNode;
           <Link href="/dashboard" className="px-3 text-xs text-gold-400 hover:underline">
             ← Voltar ao app
           </Link>
+          <form action={adminLogoutAction}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-1.5 px-3 text-xs text-onbrand/45 hover:text-onbrand/80"
+            >
+              <LogOut className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Sair do admin
+            </button>
+          </form>
         </div>
       </aside>
 
@@ -67,9 +77,16 @@ export function AdminShell({ children, adminName }: { children: React.ReactNode;
             Tobias <span className="text-onbrand/40 text-sm font-sans font-normal">Admin</span>
           </span>
         </Link>
-        <Link href="/dashboard" className="text-xs text-gold-400 hover:underline">
-          Voltar ao app →
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-xs text-gold-400 hover:underline">
+            Voltar ao app →
+          </Link>
+          <form action={adminLogoutAction}>
+            <button type="submit" className="text-xs text-onbrand/45 hover:text-onbrand/80">
+              Sair
+            </button>
+          </form>
+        </div>
       </header>
 
       <main className="flex-1 flex flex-col pb-16 md:pb-0 min-w-0">

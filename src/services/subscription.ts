@@ -5,6 +5,7 @@ import { users } from "@/lib/db/schema";
 import { getPreApprovalClient, getMercadoPagoAccessToken } from "@/lib/mercadopago/client";
 import { PRICING_PLANS, type BillingCycle } from "@/lib/billing/plans";
 import { trackEvent, logFinancialEvent } from "./analytics";
+import { convertLeadsForPaidUser } from "./admin";
 import type {
   AutoRecurringWithFreeTrial,
   PreApprovalRequest,
@@ -109,6 +110,8 @@ export async function markSubscriptionActive(preapprovalId: string) {
     .set({ subscriptionStatus: "ACTIVE", subscriptionPlan: "TOBIAS", updatedAt: new Date() })
     .where(eq(users.id, user.id));
   await logFinancialEvent(user.id, "mp_subscription_charged", { preapprovalId });
+  // Pedido do Thiago: quem paga vira "convertido" no CRM de leads automaticamente.
+  await convertLeadsForPaidUser(user.id, user.email);
 }
 
 export async function markSubscriptionPastDue(preapprovalId: string) {

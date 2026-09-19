@@ -1,8 +1,8 @@
 import "server-only";
 import { and, count, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
+import type ExcelJS from "exceljs";
 import { db } from "@/lib/db/client";
-import { users, leads, leadStatusEnum } from "@/lib/db/schema";
-import { trackEvent } from "./analytics";
+import { users, sessions, leads, leadStatusEnum, userRoleEnum, subscriptionPlanEnum, subscriptionStatusEnum } from "@/lib/db/schema";
 
 // ============================================================================
 // Painel admin — leitura de usuários/assinaturas (dado já existe em `users`,
@@ -95,6 +95,47 @@ export async function listUsersForAdmin(opts: {
   return { rows, total: totalRow[0]?.n ?? 0, page, pageSize };
 }
 
+export type AdminUserEditableFields = {
+  name: string;
+  email: string;
+  role: (typeof userRoleEnum.enumValues)[number];
+  subscriptionPlan: (typeof subscriptionPlanEnum.enumValues)[number];
+  subscriptionStatus: (typeof subscriptionStatusEnum.enumValues)[number];
+  trialEndsAt: Date;
+};
+
+/** Edição pontual de usuário pelo `/admin/usuarios` — pedido do Thiago 2026-09-19. */
+export async function updateUserForAdmin(userId: string, fields: AdminUserEditableFields): Promise<void> {
+  await db
+    .update(users)
+    .set({
+      name: fields.name,
+      email: fields.email,
+      role: fields.role,
+      subscriptionPlan: fields.subscriptionPlan,
+      subscriptionStatus: fields.subscriptionStatus,
+      trialEndsAt: fields.trialEndsAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId));
+}
+
+/**
+ * Exclusão de usuário pelo admin — soft delete (`deletedAt`), igual ao resto
+ * do produto já trata contas removidas (`getCurrentUser()` recusa login pra
+ * quem tem `deletedAt` setado), nunca um DELETE físico: a tabela `users` é
+ * referenciada por praticamente todo o resto do schema (contas, lançamentos,
+ * investimentos, sessões de chat...) e um hard delete arriscaria FK
+ * violation ou apagar dado financeiro por engano. Também derruba toda sessão
+ * ativa da pessoa na hora (`sessions`), pra excluir ter efeito imediato.
+ * Nunca permite o admin excluir a própria conta por aqui — motivo por trás
+ * de `guardUserId`, checado no server action.
+ */
+export async function softDeleteUserForAdmin(userId: string): Promise<void> {
+  await db.update(users).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(users.id, userId));
+  await db.delete(sessions).where(eq(sessions.userId, userId));
+}
+
 export type AdminLeadRow = {
   id: string;
   name: string | null;
@@ -135,6 +176,33 @@ export async function listLeadsForAdmin(opts: {
 
 export async function updateLeadStatus(leadId: string, status: (typeof leadStatusEnum.enumValues)[number]) {
   await db.update(leads).set({ status, updatedAt: new Date() }).where(eq(leads.id, leadId));
+}
+
+/**
+ * Chamada no momento em que o pagamento de um usuário é confirmado
+ * (`markSubscriptionActive`, quando `subscriptionStatus` vira "ACTIVE") —
+ * pedido do Thiago 2026-09-19 pra linkar quem pagou com "convertido" no CRM
+ * de leads automaticamente. Casa por e-mail (case-insensitive, comparando os
+ * dois lados em minúsculo — não usa `ilike` puro porque um e-mail com `_`
+ * seria interpretado como wildcard de um caractere) porque hoje não existe
+ * nenhum id de lead guardado no cadastro do usuário pra casar por chave
+ * direta; se um dia esse vínculo passar a existir (ex.: link de convite com
+ * o id do lead na URL), trocar pra casar por id é mais confiável que por
+ * e-mail. Não mexe em leads sem e-mail (import de CSV que só tinha
+ * telefone) nem em leads já `CONVERTED`.
+ */
+export async function convertLeadsForPaidUser(userId: string, email: string): Promise<number> {
+  const result = await db
+    .update(leads)
+    .set({ status: "CONVERTED", convertedUserId: userId, updatedAt: new Date() })
+    .where(
+      and(
+        sql`lower(${leads.email}) = lower(${email})`,
+        sql`${leads.status} != 'CONVERTED'`
+      )
+    )
+    .returning({ id: leads.id });
+  return result.length;
 }
 
 /**
@@ -187,15 +255,51 @@ export function parseCsv(text: string): string[][] {
 }
 
 /**
- * Importa um CSV de leads em lote. Aceita cabeçalho em qualquer ordem entre
- * name/nome, email, phone/telefone/celular — tolera variação de planilha
- * exportada de CRM diferente. Insere em blocos de 500 (nada de um único
- * INSERT com 50 mil linhas) e nunca falha a leva inteira por causa de uma
- * linha ruim: linhas sem nome/e-mail/telefone (as 3 vazias) são só puladas e
- * contadas em `skipped`.
+ * Lê a primeira aba de um .xlsx/.xls e devolve no mesmo formato de
+ * `parseCsv` (array de linhas, cada uma um array de células em texto) —
+ * assim o resto do pipeline de import (cabeçalho em qualquer ordem, lotes de
+ * 500, linha vazia pulada) é um só, não importa se o arquivo veio como CSV
+ * ou Excel. `exceljs` em vez de `xlsx`/SheetJS de propósito: a versão do
+ * `xlsx` disponível no npm tem CVE de prototype pollution conhecida sem fix
+ * publicado lá (o fix só existe no registry próprio da SheetJS, que não é
+ * alcançável daqui) — mesmo o upload sendo restrito a admin autenticado,
+ * não vale a pena.
  */
-export async function importLeadsFromCsv(csvText: string, source: string): Promise<{ imported: number; skipped: number; total: number }> {
-  const rows = parseCsv(csvText);
+async function parseExcelRows(buffer: ArrayBuffer): Promise<string[][]> {
+  const { default: ExcelJSLib } = await import("exceljs");
+  const workbook = new ExcelJSLib.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return [];
+
+  const rows: string[][] = [];
+  sheet.eachRow((row) => {
+    const cells: string[] = [];
+    // `row.values` é 1-indexado e o índice 0 vem undefined — pula ele.
+    const values = row.values as ExcelJS.CellValue[];
+    for (let i = 1; i < values.length; i++) {
+      const v = values[i];
+      if (v == null) cells.push("");
+      else if (v instanceof Date) cells.push(v.toISOString());
+      else if (typeof v === "object" && "text" in v) cells.push(String((v as { text: unknown }).text ?? ""));
+      else if (typeof v === "object" && "result" in v) cells.push(String((v as { result: unknown }).result ?? ""));
+      else cells.push(String(v));
+    }
+    rows.push(cells);
+  });
+  return rows.filter((r) => r.some((f) => f.trim().length > 0));
+}
+
+/**
+ * Núcleo do import de leads em lote, comum a CSV e Excel — recebe linhas já
+ * parseadas (primeira linha = cabeçalho). Aceita cabeçalho em qualquer ordem
+ * entre name/nome, email, phone/telefone/celular — tolera variação de
+ * planilha exportada de CRM diferente. Insere em blocos de 500 (nada de um
+ * único INSERT com 50 mil linhas) e nunca falha a leva inteira por causa de
+ * uma linha ruim: linhas sem nome/e-mail/telefone (as 3 vazias) são só
+ * puladas e contadas em `skipped`.
+ */
+export async function importLeadsFromRows(rows: string[][], source: string): Promise<{ imported: number; skipped: number; total: number }> {
   if (rows.length === 0) return { imported: 0, skipped: 0, total: 0 };
 
   const header = rows[0].map((h) => h.trim().toLowerCase());
@@ -227,4 +331,21 @@ export async function importLeadsFromCsv(csvText: string, source: string): Promi
   }
 
   return { imported: toInsert.length, skipped, total: dataRows.length };
+}
+
+/**
+ * Ponto de entrada único do form de import — decide CSV vs Excel pela
+ * extensão do arquivo e devolve linhas já parseadas prontas pro
+ * `importLeadsFromRows`. Pedido do Thiago 2026-09-19: o form aceitava só
+ * `.csv`, mas as planilhas que ele recebe às vezes são `.xlsx`/`.xls`.
+ */
+export async function importLeadsFromFile(file: File, source: string): Promise<{ imported: number; skipped: number; total: number }> {
+  const name = file.name.toLowerCase();
+  let rows: string[][];
+  if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+    rows = await parseExcelRows(await file.arrayBuffer());
+  } else {
+    rows = parseCsv(await file.text());
+  }
+  return importLeadsFromRows(rows, source);
 }

@@ -47,9 +47,9 @@ export default async function AdminOverviewPage() {
         <Card>
           <CardContent className="py-4">
             <h2 className="font-sans font-semibold text-onbrand mb-3">Por status de assinatura</h2>
-            <div className="divide-y divide-onbrand/[0.04]">
+            <div className="flex flex-col gap-1">
               {Object.entries(overview.byStatus).map(([status, n]) => (
-                <div key={status} className="flex items-center justify-between py-2 text-sm">
+                <div key={status} className="flex items-center justify-between rounded-lg px-2 py-2 text-sm even:bg-onbrand/[0.03]">
                   <span className="text-onbrand/70">{STATUS_LABELS[status] ?? status}</span>
                   <span className="font-medium tabular-nums text-onbrand">{n}</span>
                 </div>
@@ -60,9 +60,9 @@ export default async function AdminOverviewPage() {
         <Card>
           <CardContent className="py-4">
             <h2 className="font-sans font-semibold text-onbrand mb-3">Por plano</h2>
-            <div className="divide-y divide-onbrand/[0.04]">
+            <div className="flex flex-col gap-1">
               {Object.entries(overview.byPlan).map(([plan, n]) => (
-                <div key={plan} className="flex items-center justify-between py-2 text-sm">
+                <div key={plan} className="flex items-center justify-between rounded-lg px-2 py-2 text-sm even:bg-onbrand/[0.03]">
                   <span className="text-onbrand/70">{PLAN_LABELS[plan] ?? plan}</span>
                   <span className="font-medium tabular-nums text-onbrand">{n}</span>
                 </div>

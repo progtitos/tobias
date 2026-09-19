@@ -1,7 +1,10 @@
 import { listLeadsForAdmin } from "@/services/admin";
 import { Card, CardContent } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Button } from "@/components/ui/Button";
 import { ImportLeadsForm, LeadStatusSelect } from "./LeadsClient";
-import { formatDate } from "../adminFormat";
+import { formatDate } from "../../adminFormat";
 
 export default async function AdminLeadsPage({
   searchParams,
@@ -23,47 +26,43 @@ export default async function AdminLeadsPage({
 
       <ImportLeadsForm />
 
-      <form className="flex gap-2 mb-4 flex-wrap" method="get">
-        <input
+      <form className="flex gap-2 mb-4 flex-wrap items-center" method="get">
+        <Input
           type="text"
           name="q"
           defaultValue={params.q ?? ""}
           placeholder="Buscar por nome, e-mail ou telefone..."
-          className="flex-1 min-w-[220px] rounded-lg bg-brand-800 border border-transparent px-3 py-2 text-sm text-onbrand placeholder:text-onbrand/40 focus:outline-none focus:ring-1 focus:ring-gold-400"
+          className="flex-1 min-w-[220px] h-10"
         />
-        <select
-          name="status"
-          defaultValue={params.status ?? ""}
-          className="rounded-lg bg-brand-800 border border-transparent px-3 py-2 text-sm text-onbrand focus:outline-none focus:ring-1 focus:ring-gold-400"
-        >
+        <Select name="status" defaultValue={params.status ?? ""} className="h-10 w-auto min-w-[170px]">
           <option value="">Todos os status</option>
           <option value="NEW">Novo</option>
           <option value="CONTACTED">Contatado</option>
           <option value="QUALIFIED">Qualificado</option>
           <option value="CONVERTED">Convertido</option>
           <option value="LOST">Perdido</option>
-        </select>
-        <button type="submit" className="rounded-lg bg-gold-500 text-ink-900 font-medium px-4 py-2 text-sm">
+        </Select>
+        <Button type="submit" size="sm">
           Filtrar
-        </button>
+        </Button>
       </form>
 
       <Card>
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-onbrand/50 text-xs uppercase tracking-wide border-b border-onbrand/[0.06]">
-                <th className="px-4 py-3 font-medium">Nome</th>
-                <th className="px-4 py-3 font-medium">E-mail</th>
-                <th className="px-4 py-3 font-medium">Telefone</th>
-                <th className="px-4 py-3 font-medium">Origem</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Cadastro</th>
+              <tr className="text-left text-onbrand/50 text-xs uppercase tracking-wide">
+                <th className="px-4 pt-4 pb-2.5 font-medium">Nome</th>
+                <th className="px-4 pt-4 pb-2.5 font-medium">E-mail</th>
+                <th className="px-4 pt-4 pb-2.5 font-medium">Telefone</th>
+                <th className="px-4 pt-4 pb-2.5 font-medium">Origem</th>
+                <th className="px-4 pt-4 pb-2.5 font-medium">Status</th>
+                <th className="px-4 pt-4 pb-2.5 font-medium">Cadastro</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-onbrand/[0.04]">
+            <tbody>
               {rows.map((l) => (
-                <tr key={l.id}>
+                <tr key={l.id} className="even:bg-onbrand/[0.025]">
                   <td className="px-4 py-3 text-onbrand font-medium">{l.name || "—"}</td>
                   <td className="px-4 py-3 text-onbrand/70">{l.email || "—"}</td>
                   <td className="px-4 py-3 text-onbrand/70">{l.phone || "—"}</td>
@@ -77,7 +76,7 @@ export default async function AdminLeadsPage({
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-onbrand/50">
-                    Nenhum lead cadastrado ainda. Importe um CSV acima pra começar.
+                    Nenhum lead cadastrado ainda. Importe um CSV ou Excel acima pra começar.
                   </td>
                 </tr>
               )}

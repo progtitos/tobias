@@ -1,0 +1,805 @@
+From 939eb2dc3b2f651af856164b8cefe9083d84579d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 18 Sep 2026 20:44:15 +0000
+Subject: [PATCH 3/3] fix: abole bordas brancas fixas do DS e reconstroi
+ AdminShell como sidebar
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Troca todo `border-white/N`, `divide-white/N` e `bg-white/N` (fora dos
+poucos casos legítimos: máscara de logo, popover com chrome sempre-claro
+cream/ink, cores reais de marca de banco) pelo token `onbrand`, que já
+inverte corretamente com o tema — resolve o bug de contraste no tema claro
+onde essas bordas brancas ficavam praticamente invisíveis/erradas.
+
+Onde a borda era só decorativa e o fundo já dava contraste suficiente
+(cards, painéis de import, chips), a borda foi removida totalmente, sem
+substituição — mesmo tratamento já validado na tela de Contas. Onde a
+borda cumpre função real (variante outline do Button, dropzones
+tracejadas), foi retonada para `border-onbrand/20` em vez de removida.
+Os inputs/selects brutos do painel admin passam a usar `border-transparent`,
+a receita canônica documentada no design-system-tobias.md.
+
+Reconstroi o AdminShell de nav-superior para sidebar esquerda no mesmo
+modelo do AppShell do cliente (logo + nav vertical no desktop, header +
+nav inferior no mobile), conforme pedido.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Ka2YTSc9tuveNjCeKZ63MD
+---
+ src/app/(admin)/admin/leads/LeadsClient.tsx   |   2 +-
+ src/app/(admin)/admin/leads/page.tsx          |   8 +-
+ src/app/(admin)/admin/page.tsx                |   6 +-
+ src/app/(admin)/admin/usuarios/page.tsx       |   8 +-
+ src/app/(app)/chat/ChatPageClient.tsx         |   2 +-
+ src/app/(app)/conta/ContaClient.tsx           |  24 ++--
+ .../importar/[id]/ImportReviewClient.tsx      |   4 +-
+ src/app/(app)/dashboard/page.tsx              |   6 +-
+ src/app/(app)/decide/DecideClient.tsx         |   2 +-
+ .../investimentos/InvestimentosClient.tsx     |   4 +-
+ .../[id]/InvestmentImportReviewClient.tsx     |   4 +-
+ .../(app)/lancamentos/LancamentosClient.tsx   |  12 +-
+ src/app/(app)/patrimonio/PatrimonioClient.tsx |   2 +-
+ .../receipts/new/ReceiptUploadClient.tsx      |   2 +-
+ src/app/(app)/settings/activity/page.tsx      |   2 +-
+ src/app/(auth)/signup/SignupForm.tsx          |   4 +-
+ src/app/onboarding/layout.tsx                 |   2 +-
+ src/app/page.tsx                              |   4 +-
+ src/components/chat/ChatWindow.tsx            |   6 +-
+ src/components/layout/AdminShell.tsx          | 107 ++++++++++++------
+ src/components/layout/AppShell.tsx            |   2 +-
+ src/components/layout/UserMenu.tsx            |   2 +-
+ .../onboarding/ConnectAccountsStep.tsx        |   2 +-
+ src/components/settings/ThemeToggle.tsx       |   2 +-
+ src/components/ui/BankBadge.tsx               |   2 +-
+ src/components/ui/Button.tsx                  |   4 +-
+ 26 files changed, 134 insertions(+), 91 deletions(-)
+
+diff --git a/src/app/(admin)/admin/leads/LeadsClient.tsx b/src/app/(admin)/admin/leads/LeadsClient.tsx
+index 4cd9eb6..ab38262 100644
+--- a/src/app/(admin)/admin/leads/LeadsClient.tsx
++++ b/src/app/(admin)/admin/leads/LeadsClient.tsx
+@@ -51,7 +51,7 @@ export function LeadStatusSelect({ lead }: { lead: AdminLeadRow }) {
+       defaultValue={lead.status}
+       disabled={pending}
+       onChange={(e) => startTransition(() => updateLeadStatusAction(lead.id, e.target.value))}
+-      className="rounded-lg bg-brand-800 border border-white/[0.08] px-2 py-1 text-xs text-onbrand focus:outline-none focus:ring-1 focus:ring-gold-400"
++      className="rounded-lg bg-brand-800 border border-transparent px-2 py-1 text-xs text-onbrand focus:outline-none focus:ring-1 focus:ring-gold-400"
+     >
+       {STATUS_OPTIONS.map((s) => (
+         <option key={s} value={s}>
+diff --git a/src/app/(admin)/admin/leads/page.tsx b/src/app/(admin)/admin/leads/page.tsx
+index 3f9c659..e87e5cc 100644
+--- a/src/app/(admin)/admin/leads/page.tsx
++++ b/src/app/(admin)/admin/leads/page.tsx
+@@ -29,12 +29,12 @@ export default async function AdminLeadsPage({
+           name="q"
+           defaultValue={params.q ?? ""}
+           placeholder="Buscar por nome, e-mail ou telefone..."
+-          className="flex-1 min-w-[220px] rounded-lg bg-brand-800 border border-white/[0.08] px-3 py-2 text-sm text-onbrand placeholder:text-onbrand/40 focus:outline-none focus:ring-1 focus:ring-gold-400"
++          className="flex-1 min-w-[220px] rounded-lg bg-brand-800 border border-transparent px-3 py-2 text-sm text-onbrand placeholder:text-onbrand/40 focus:outline-none focus:ring-1 focus:ring-gold-400"
+         />
+         <select
+           name="status"
+           defaultValue={params.status ?? ""}
+-          className="rounded-lg bg-brand-800 border border-white/[0.08] px-3 py-2 text-sm text-onbrand focus:outline-none focus:ring-1 focus:ring-gold-400"
++          className="rounded-lg bg-brand-800 border border-transparent px-3 py-2 text-sm text-onbrand focus:outline-none focus:ring-1 focus:ring-gold-400"
+         >
+           <option value="">Todos os status</option>
+           <option value="NEW">Novo</option>
+@@ -52,7 +52,7 @@ export default async function AdminLeadsPage({
+         <CardContent className="p-0">
+           <table className="w-full text-sm">
+             <thead>
+-              <tr className="text-left text-onbrand/50 text-xs uppercase tracking-wide border-b border-white/[0.06]">
++              <tr className="text-left text-onbrand/50 text-xs uppercase tracking-wide border-b border-onbrand/[0.06]">
+                 <th className="px-4 py-3 font-medium">Nome</th>
+                 <th className="px-4 py-3 font-medium">E-mail</th>
+                 <th className="px-4 py-3 font-medium">Telefone</th>
+@@ -61,7 +61,7 @@ export default async function AdminLeadsPage({
+                 <th className="px-4 py-3 font-medium">Cadastro</th>
+               </tr>
+             </thead>
+-            <tbody className="divide-y divide-white/[0.04]">
++            <tbody className="divide-y divide-onbrand/[0.04]">
+               {rows.map((l) => (
+                 <tr key={l.id}>
+                   <td className="px-4 py-3 text-onbrand font-medium">{l.name || "—"}</td>
+diff --git a/src/app/(admin)/admin/page.tsx b/src/app/(admin)/admin/page.tsx
+index 4e6fcc7..b3c22f7 100644
+--- a/src/app/(admin)/admin/page.tsx
++++ b/src/app/(admin)/admin/page.tsx
+@@ -47,7 +47,7 @@ export default async function AdminOverviewPage() {
+         <Card>
+           <CardContent className="py-4">
+             <h2 className="font-sans font-semibold text-onbrand mb-3">Por status de assinatura</h2>
+-            <div className="divide-y divide-white/[0.04]">
++            <div className="divide-y divide-onbrand/[0.04]">
+               {Object.entries(overview.byStatus).map(([status, n]) => (
+                 <div key={status} className="flex items-center justify-between py-2 text-sm">
+                   <span className="text-onbrand/70">{STATUS_LABELS[status] ?? status}</span>
+@@ -60,7 +60,7 @@ export default async function AdminOverviewPage() {
+         <Card>
+           <CardContent className="py-4">
+             <h2 className="font-sans font-semibold text-onbrand mb-3">Por plano</h2>
+-            <div className="divide-y divide-white/[0.04]">
++            <div className="divide-y divide-onbrand/[0.04]">
+               {Object.entries(overview.byPlan).map(([plan, n]) => (
+                 <div key={plan} className="flex items-center justify-between py-2 text-sm">
+                   <span className="text-onbrand/70">{PLAN_LABELS[plan] ?? plan}</span>
+@@ -82,7 +82,7 @@ export default async function AdminOverviewPage() {
+           </p>
+           <div className="flex gap-2 flex-wrap">
+             {Object.entries(overview.leadsByStatus).map(([status, n]) => (
+-              <span key={status} className="text-xs rounded-full bg-white/[0.05] text-onbrand/70 px-2.5 py-1">
++              <span key={status} className="text-xs rounded-full bg-onbrand/[0.05] text-onbrand/70 px-2.5 py-1">
+                 {status}: {n}
+               </span>
+             ))}
+diff --git a/src/app/(admin)/admin/usuarios/page.tsx b/src/app/(admin)/admin/usuarios/page.tsx
+index a1dd03c..69d145d 100644
+--- a/src/app/(admin)/admin/usuarios/page.tsx
++++ b/src/app/(admin)/admin/usuarios/page.tsx
+@@ -32,12 +32,12 @@ export default async function AdminUsersPage({
+           name="q"
+           defaultValue={params.q ?? ""}
+           placeholder="Buscar por nome ou e-mail..."
+-          className="flex-1 min-w-[220px] rounded-lg bg-brand-800 border border-white/[0.08] px-3 py-2 text-sm text-onbrand placeholder:text-onbrand/40 focus:outline-none focus:ring-1 focus:ring-gold-400"
++          className="flex-1 min-w-[220px] rounded-lg bg-brand-800 border border-transparent px-3 py-2 text-sm text-onbrand placeholder:text-onbrand/40 focus:outline-none focus:ring-1 focus:ring-gold-400"
+         />
+         <select
+           name="status"
+           defaultValue={params.status ?? ""}
+-          className="rounded-lg bg-brand-800 border border-white/[0.08] px-3 py-2 text-sm text-onbrand focus:outline-none focus:ring-1 focus:ring-gold-400"
++          className="rounded-lg bg-brand-800 border border-transparent px-3 py-2 text-sm text-onbrand focus:outline-none focus:ring-1 focus:ring-gold-400"
+         >
+           <option value="">Todos os status</option>
+           <option value="TRIALING">Em trial</option>
+@@ -55,7 +55,7 @@ export default async function AdminUsersPage({
+         <CardContent className="p-0">
+           <table className="w-full text-sm">
+             <thead>
+-              <tr className="text-left text-onbrand/50 text-xs uppercase tracking-wide border-b border-white/[0.06]">
++              <tr className="text-left text-onbrand/50 text-xs uppercase tracking-wide border-b border-onbrand/[0.06]">
+                 <th className="px-4 py-3 font-medium">Nome</th>
+                 <th className="px-4 py-3 font-medium">E-mail</th>
+                 <th className="px-4 py-3 font-medium">Plano</th>
+@@ -65,7 +65,7 @@ export default async function AdminUsersPage({
+                 <th className="px-4 py-3 font-medium">Cadastro</th>
+               </tr>
+             </thead>
+-            <tbody className="divide-y divide-white/[0.04]">
++            <tbody className="divide-y divide-onbrand/[0.04]">
+               {rows.map((u) => (
+                 <tr key={u.id}>
+                   <td className="px-4 py-3 text-onbrand font-medium">
+diff --git a/src/app/(app)/chat/ChatPageClient.tsx b/src/app/(app)/chat/ChatPageClient.tsx
+index e5b6d5d..f056597 100644
+--- a/src/app/(app)/chat/ChatPageClient.tsx
++++ b/src/app/(app)/chat/ChatPageClient.tsx
+@@ -44,7 +44,7 @@ export function ChatPageClient({
+ 
+   return (
+     <div className="flex flex-col flex-1 min-h-0 bg-brand-950">
+-      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-white/10">
++      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-onbrand/[0.06]">
+         {/* eslint-disable-next-line @next/next/no-img-element */}
+         <img
+           src="/avatars/tobias-sempre-ao-lado.png"
+diff --git a/src/app/(app)/conta/ContaClient.tsx b/src/app/(app)/conta/ContaClient.tsx
+index bf0a27a..eecd4db 100644
+--- a/src/app/(app)/conta/ContaClient.tsx
++++ b/src/app/(app)/conta/ContaClient.tsx
+@@ -126,7 +126,7 @@ export function ContaClient({
+                 </p>
+               </div>
+             </div>
+-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/[0.06]">
++            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-onbrand/[0.06]">
+               <div>
+                 <p className="text-[11px] text-onbrand/50 mb-0.5">Em contas</p>
+                 <p className="text-sm font-medium tabular-nums text-onbrand/85">{formatBRL(totalBalance)}</p>
+@@ -155,14 +155,14 @@ export function ContaClient({
+                 <button
+                   type="button"
+                   onClick={() => setShowAccountForm((v) => !v)}
+-                  className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-white/5"
++                  className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-onbrand/5"
+                   title="Adicionar conta"
+                 >
+                   <Plus className="h-4 w-4" />
+                 </button>
+               </div>
+ 
+-              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-white/[0.06]">
++              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-onbrand/[0.06]">
+                 <span>
+                   Total em contas correntes <span className="tabular-nums text-onbrand/80">{formatBRL(totalBalance)}</span>
+                 </span>
+@@ -173,7 +173,7 @@ export function ContaClient({
+               </div>
+ 
+               {showAccountForm && (
+-                <div className="py-3 border-b border-white/[0.06] mb-1">
++                <div className="py-3 border-b border-onbrand/[0.06] mb-1">
+                   <NewAccountForm
+                     formAction={accountFormAction}
+                     pending={accountPending}
+@@ -188,7 +188,7 @@ export function ContaClient({
+                   Nenhuma conta cadastrada ainda — adicione pra o patrimônio refletir a realidade.
+                 </p>
+               ) : (
+-                <div className="divide-y divide-white/[0.04]">
++                <div className="divide-y divide-onbrand/[0.04]">
+                   {active.map((a) => (
+                     <AccountRow key={a.id} account={a} cards={creditCards.filter((c) => c.bankAccountId === a.id)} />
+                   ))}
+@@ -216,7 +216,7 @@ export function ContaClient({
+                   <button
+                     type="button"
+                     onClick={() => setShowCardForm((v) => !v)}
+-                    className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-white/5"
++                    className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-onbrand/5"
+                     title="Adicionar cartão"
+                   >
+                     <Plus className="h-4 w-4" />
+@@ -224,7 +224,7 @@ export function ContaClient({
+                 )}
+               </div>
+ 
+-              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-white/[0.06]">
++              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-onbrand/[0.06]">
+                 <span>
+                   Total utilizado em cartões{" "}
+                   <span className="tabular-nums text-onbrand/80">
+@@ -238,7 +238,7 @@ export function ContaClient({
+               </div>
+ 
+               {showCardForm && (
+-                <div className="py-3 border-b border-white/[0.06] mb-1">
++                <div className="py-3 border-b border-onbrand/[0.06] mb-1">
+                   <NewCreditCardForm accounts={accounts} onDone={() => setShowCardForm(false)} />
+                 </div>
+               )}
+@@ -250,7 +250,7 @@ export function ContaClient({
+                     : "Nenhum cartão cadastrado ainda."}
+                 </p>
+               ) : (
+-                <div className="divide-y divide-white/[0.04]">
++                <div className="divide-y divide-onbrand/[0.04]">
+                   {creditCards.map((c) => (
+                     <CardRow
+                       key={c.id}
+@@ -620,7 +620,7 @@ function ImportUploadPanel({
+             "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
+             destination.kind === "account"
+               ? "border-gold-400 bg-gold-400/10 text-gold-400"
+-              : "border-transparent bg-white/[0.03] text-onbrand/65 hover:bg-white/[0.07]"
++              : "border-transparent bg-onbrand/[0.03] text-onbrand/65 hover:bg-onbrand/[0.07]"
+           )}
+         >
+           {account.bankName && <BankBadge bankName={account.bankName} />}
+@@ -635,7 +635,7 @@ function ImportUploadPanel({
+               "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
+               destination.kind === "card" && destination.cardId === c.id
+                 ? "border-gold-400 bg-gold-400/10 text-gold-400"
+-                : "border-transparent bg-white/[0.03] text-onbrand/65 hover:bg-white/[0.07]"
++                : "border-transparent bg-onbrand/[0.03] text-onbrand/65 hover:bg-onbrand/[0.07]"
+             )}
+           >
+             <CreditCardIcon className="h-3.5 w-3.5" />
+@@ -876,7 +876,7 @@ function CardRow({
+               {pct != null && <span className="text-onbrand/45 font-normal"> ({pct}%)</span>}
+             </p>
+           </div>
+-          <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden mt-1.5">
++          <div className="h-1.5 rounded-full bg-onbrand/[0.06] overflow-hidden mt-1.5">
+             <div
+               className={cn("h-full rounded-full", tone.bar)}
+               style={{ width: `${Math.min(100, pct ?? (card.limitAmount == null ? 6 : 0))}%` }}
+diff --git a/src/app/(app)/conta/importar/[id]/ImportReviewClient.tsx b/src/app/(app)/conta/importar/[id]/ImportReviewClient.tsx
+index 442ce8f..d3d61a1 100644
+--- a/src/app/(app)/conta/importar/[id]/ImportReviewClient.tsx
++++ b/src/app/(app)/conta/importar/[id]/ImportReviewClient.tsx
+@@ -130,7 +130,7 @@ export function ImportReviewClient({
+                   </button>
+                 </div>
+ 
+-                <div className="divide-y divide-white/10">
++                <div className="divide-y divide-onbrand/[0.06]">
+                   {items.map((item) => (
+                     <div
+                       key={item.id}
+@@ -225,7 +225,7 @@ export function ImportReviewClient({
+                   ))}
+                 </div>
+ 
+-                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-white/10 flex-wrap">
++                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-onbrand/[0.06] flex-wrap">
+                   <span className="text-xs text-onbrand/55">{selected.size} selecionada{selected.size === 1 ? "" : "s"}</span>
+                   <Button type="submit" loading={pending} disabled={selected.size === 0}>
+                     {pending ? (
+diff --git a/src/app/(app)/dashboard/page.tsx b/src/app/(app)/dashboard/page.tsx
+index fa6a931..e94db80 100644
+--- a/src/app/(app)/dashboard/page.tsx
++++ b/src/app/(app)/dashboard/page.tsx
+@@ -112,7 +112,7 @@ export default async function DashboardPage() {
+                       {heroChips.map((c) => (
+                         <span
+                           key={c.dimension}
+-                          className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-onbrand/75"
++                          className="inline-flex items-center gap-1.5 rounded-full bg-onbrand/5 px-3 py-1.5 text-xs font-medium text-onbrand/75"
+                         >
+                           <span className={`h-1.5 w-1.5 rounded-full ${CHIP_DOT_TONE[c.status]}`} />
+                           {c.label} {c.score}
+@@ -235,7 +235,7 @@ function CreditCardAttentionCard({ card, totalCards }: { card: CreditCardUsage |
+               {formatBRL(card.currentCycleSpend)}
+             </p>
+             {usagePct != null && (
+-              <div className="h-1.5 rounded-full bg-white/[0.07] overflow-hidden mb-1.5">
++              <div className="h-1.5 rounded-full bg-onbrand/[0.07] overflow-hidden mb-1.5">
+                 <div className={cn("h-full", usageTone)} style={{ width: `${Math.min(usagePct, 100)}%` }} />
+               </div>
+             )}
+@@ -301,7 +301,7 @@ function MonthFlow({
+         </p>
+       </div>
+ 
+-      <div className="h-2.5 rounded-full bg-white/[0.07] overflow-hidden flex">
++      <div className="h-2.5 rounded-full bg-onbrand/[0.07] overflow-hidden flex">
+         {expensePct > 0 && <div className="h-full bg-danger-300/85" style={{ width: `${expensePct}%` }} />}
+         {investPct > 0 && <div className="h-full bg-gold-400" style={{ width: `${investPct}%` }} />}
+       </div>
+diff --git a/src/app/(app)/decide/DecideClient.tsx b/src/app/(app)/decide/DecideClient.tsx
+index 834f730..9e3e055 100644
+--- a/src/app/(app)/decide/DecideClient.tsx
++++ b/src/app/(app)/decide/DecideClient.tsx
+@@ -84,7 +84,7 @@ function ResultCard({
+           </Badge>
+         </div>
+         <p className="text-onbrand/85">{result.explanation}</p>
+-        <p className="text-sm text-gold-400 border-t border-white/10 pt-3">
++        <p className="text-sm text-gold-400 border-t border-onbrand/[0.06] pt-3">
+           <span className="font-medium">Impacto: </span>
+           {result.impactSummary}
+         </p>
+diff --git a/src/app/(app)/investimentos/InvestimentosClient.tsx b/src/app/(app)/investimentos/InvestimentosClient.tsx
+index 81eac87..9123db7 100644
+--- a/src/app/(app)/investimentos/InvestimentosClient.tsx
++++ b/src/app/(app)/investimentos/InvestimentosClient.tsx
+@@ -94,7 +94,7 @@ function AccountsSection({ accounts }: { accounts: InvestmentAccount[] }) {
+ 
+   if (accounts.length === 0 && !showAccountForm) {
+     return (
+-      <Card className="mb-5 border-dashed border-white/15 bg-transparent">
++      <Card className="mb-5 border-dashed border-onbrand/20 bg-transparent">
+         <CardContent className="py-4 flex items-center justify-between gap-3 flex-wrap">
+           <div className="flex items-center gap-2 text-sm text-onbrand/60">
+             <Landmark className="h-4 w-4 shrink-0" />
+@@ -193,7 +193,7 @@ function InvestmentUploadForm({ accountId, onCancel }: { accountId: string; onCa
+   );
+ 
+   return (
+-    <form action={formAction} className="rounded-xl bg-brand-900/60 border border-white/10 p-3.5 mt-2">
++    <form action={formAction} className="rounded-xl bg-brand-900/60 p-3.5 mt-2">
+       <input type="hidden" name="bankAccountId" value={accountId} />
+       <p className="text-xs text-onbrand/60 mb-2">
+         Suba o extrato/relatório consolidado dessa corretora (PDF ou foto/print) — o Tobias lê as posições e você
+diff --git a/src/app/(app)/investimentos/importar/[id]/InvestmentImportReviewClient.tsx b/src/app/(app)/investimentos/importar/[id]/InvestmentImportReviewClient.tsx
+index 353e391..27b13c9 100644
+--- a/src/app/(app)/investimentos/importar/[id]/InvestmentImportReviewClient.tsx
++++ b/src/app/(app)/investimentos/importar/[id]/InvestmentImportReviewClient.tsx
+@@ -112,7 +112,7 @@ export function InvestmentImportReviewClient({
+                   </button>
+                 </div>
+ 
+-                <div className="divide-y divide-white/10">
++                <div className="divide-y divide-onbrand/[0.06]">
+                   {items.map((item) => (
+                     <div key={item.id} className="py-2.5">
+                       <label className="flex items-center gap-3 cursor-pointer">
+@@ -159,7 +159,7 @@ export function InvestmentImportReviewClient({
+                   ))}
+                 </div>
+ 
+-                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-white/10 flex-wrap">
++                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-onbrand/[0.06] flex-wrap">
+                   <span className="text-xs text-onbrand/55">
+                     {selected.size} selecionado{selected.size === 1 ? "" : "s"}
+                     {selected.size > 0 && ` (${createCount} novo${createCount === 1 ? "" : "s"}, ${updateCount} atualizaç${updateCount === 1 ? "ão" : "ões"})`}
+diff --git a/src/app/(app)/lancamentos/LancamentosClient.tsx b/src/app/(app)/lancamentos/LancamentosClient.tsx
+index 2184769..0d380ec 100644
+--- a/src/app/(app)/lancamentos/LancamentosClient.tsx
++++ b/src/app/(app)/lancamentos/LancamentosClient.tsx
+@@ -221,7 +221,7 @@ export function LancamentosClient({
+           <div className="flex items-center gap-1">
+             <Link
+               href={buildLancamentosUrl(shiftMonth(month, -1), filters)}
+-              className="p-1.5 rounded-lg text-onbrand/55 hover:bg-white/5 hover:text-onbrand"
++              className="p-1.5 rounded-lg text-onbrand/55 hover:bg-onbrand/5 hover:text-onbrand"
+               aria-label="Mês anterior"
+             >
+               <ChevronLeft className="h-4 w-4" />
+@@ -232,7 +232,7 @@ export function LancamentosClient({
+             <Link
+               href={buildLancamentosUrl(shiftMonth(month, 1), filters)}
+               className={cn(
+-                "p-1.5 rounded-lg hover:bg-white/5",
++                "p-1.5 rounded-lg hover:bg-onbrand/5",
+                 isCurrentMonth ? "text-onbrand/20 pointer-events-none" : "text-onbrand/55 hover:text-onbrand"
+               )}
+               aria-label="Próximo mês"
+@@ -260,7 +260,7 @@ export function LancamentosClient({
+           </CardContent>
+         </Card>
+ 
+-        <div className="flex gap-1 mb-5 border-b border-white/10">
++        <div className="flex gap-1 mb-5 border-b border-onbrand/[0.06]">
+           <TabButton active={tab === "transacoes"} onClick={() => setTab("transacoes")} icon={Receipt}>
+             Transações
+           </TabButton>
+@@ -885,7 +885,7 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
+           ) : (
+             <div className="space-y-4">
+               {groups.map((group) => (
+-                <div key={group[0].id} className="rounded-xl border border-white/10 p-3">
++                <div key={group[0].id} className="rounded-xl bg-onbrand/[0.04] p-3">
+                   <div className="space-y-2 mb-2">
+                     {group.map((t) => (
+                       <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
+@@ -967,7 +967,7 @@ function TransactionRow({
+ 
+   return (
+     <li>
+-      <Card className="cursor-pointer hover:bg-white/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
++      <Card className="cursor-pointer hover:bg-onbrand/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
+         {/* Duas linhas em vez de um grid de uma linha só: as duas tentativas
+             anteriores de aproximar o selo do banco e o seletor de categoria
+             (juntando os dois numa coluna do MESMO grid que também tem a
+@@ -1031,7 +1031,7 @@ function TransactionRow({
+               {/* Banco + categoria juntos num "chip" destacado — os dois lidos
+                   como um bloco só (de onde veio, pra onde foi), em vez de
+                   duas informações soltas na linha. */}
+-              <div className="flex items-center gap-2 rounded-lg bg-white/[0.06] pl-1.5 pr-2 py-1">
++              <div className="flex items-center gap-2 rounded-lg bg-onbrand/[0.06] pl-1.5 pr-2 py-1">
+                 {transaction.bankAccountName ? (
+                   transaction.bankAccountBankName ? (
+                     <>
+diff --git a/src/app/(app)/patrimonio/PatrimonioClient.tsx b/src/app/(app)/patrimonio/PatrimonioClient.tsx
+index 5776228..29ed9c5 100644
+--- a/src/app/(app)/patrimonio/PatrimonioClient.tsx
++++ b/src/app/(app)/patrimonio/PatrimonioClient.tsx
+@@ -80,7 +80,7 @@ function NetWorthSummary({ netWorth }: { netWorth: NetWorth }) {
+             </p>
+           </div>
+         </div>
+-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-white/10">
++        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-onbrand/[0.06]">
+           <SummaryFigure label="Em contas" value={netWorth.liquidAssets} />
+           <SummaryFigure label="Investido" value={netWorth.investedAssets} />
+           <SummaryFigure label="Outros bens" value={netWorth.otherAssets} />
+diff --git a/src/app/(app)/receipts/new/ReceiptUploadClient.tsx b/src/app/(app)/receipts/new/ReceiptUploadClient.tsx
+index b1fb3d3..fe1f4f5 100644
+--- a/src/app/(app)/receipts/new/ReceiptUploadClient.tsx
++++ b/src/app/(app)/receipts/new/ReceiptUploadClient.tsx
+@@ -76,7 +76,7 @@ export function ReceiptUploadClient() {
+                 </div>
+               ))}
+               {previews.length < 5 && (
+-                <label className="flex items-center justify-center aspect-square rounded-xl border-2 border-dashed border-white/15 cursor-pointer hover:bg-white/5">
++                <label className="flex items-center justify-center aspect-square rounded-xl border-2 border-dashed border-onbrand/20 cursor-pointer hover:bg-onbrand/5">
+                   <Camera className="h-6 w-6 text-onbrand/55" />
+                   <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+                 </label>
+diff --git a/src/app/(app)/settings/activity/page.tsx b/src/app/(app)/settings/activity/page.tsx
+index bc6982b..6399d88 100644
+--- a/src/app/(app)/settings/activity/page.tsx
++++ b/src/app/(app)/settings/activity/page.tsx
+@@ -42,7 +42,7 @@ export default async function ActivityPage() {
+         <p className="text-sm text-onbrand/55 py-12 text-center">Nenhuma atividade registrada ainda.</p>
+       ) : (
+         <Card>
+-          <CardContent className="py-2 divide-y divide-white/10">
++          <CardContent className="py-2 divide-y divide-onbrand/[0.06]">
+             {events.map((e) => (
+               <div key={e.id} className="py-3 flex items-center justify-between gap-3">
+                 <span className="text-sm text-onbrand/85">{describeEvent(e.type, e.payload)}</span>
+diff --git a/src/app/(auth)/signup/SignupForm.tsx b/src/app/(auth)/signup/SignupForm.tsx
+index b900b3e..4f31ebc 100644
+--- a/src/app/(auth)/signup/SignupForm.tsx
++++ b/src/app/(auth)/signup/SignupForm.tsx
+@@ -34,7 +34,9 @@ export function SignupForm() {
+             onClick={() => setCycle(plan.cycle)}
+             className={cn(
+               "rounded-xl border px-2 py-2.5 text-center transition-colors",
+-              cycle === plan.cycle ? "border-gold-400 bg-gold-400/10" : "border-white/10 hover:border-white/25"
++              cycle === plan.cycle
++                ? "border-gold-400 bg-gold-400/10"
++                : "border-transparent bg-onbrand/[0.04] hover:bg-onbrand/[0.08]"
+             )}
+           >
+             <p className={cn("text-xs font-medium", cycle === plan.cycle ? "text-gold-400" : "text-onbrand/70")}>
+diff --git a/src/app/onboarding/layout.tsx b/src/app/onboarding/layout.tsx
+index 3ab915b..38b23cd 100644
+--- a/src/app/onboarding/layout.tsx
++++ b/src/app/onboarding/layout.tsx
+@@ -9,7 +9,7 @@ export default async function OnboardingLayout({ children }: { children: React.R
+ 
+   return (
+     <div className="flex-1 flex flex-col min-h-screen bg-brand-950">
+-      <header className="flex items-center gap-2.5 px-5 py-4 border-b border-white/10">
++      <header className="flex items-center gap-2.5 px-5 py-4 border-b border-onbrand/[0.06]">
+         <Image src="/logo-transparent.png" alt="Tobias" width={28} height={28} />
+         <span className="font-display text-lg text-onbrand">Tobias</span>
+       </header>
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index 35bce80..d3480f9 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -89,7 +89,7 @@ export default async function LandingPage() {
+             <Button
+               variant="outline"
+               size="lg"
+-              className="w-full sm:w-auto border-cream-100/30 text-onbrand hover:bg-white/5"
++              className="w-full sm:w-auto border-cream-100/30 text-onbrand hover:bg-onbrand/5"
+             >
+               Já tenho conta
+             </Button>
+@@ -101,7 +101,7 @@ export default async function LandingPage() {
+       <section className="relative px-6 py-16 max-w-5xl mx-auto w-full">
+         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+           {FEATURES.map((f) => (
+-            <div key={f.title} className="flex gap-4 text-left rounded-2xl bg-white/[0.03] border border-white/5 p-5">
++            <div key={f.title} className="flex gap-4 text-left rounded-2xl bg-onbrand/[0.03] p-5">
+               <f.icon className="h-6 w-6 text-gold-400 shrink-0 mt-0.5" />
+               <div>
+                 <h3 className="font-sans font-semibold text-onbrand">{f.title}</h3>
+diff --git a/src/components/chat/ChatWindow.tsx b/src/components/chat/ChatWindow.tsx
+index e1ae4d3..2d6a57a 100644
+--- a/src/components/chat/ChatWindow.tsx
++++ b/src/components/chat/ChatWindow.tsx
+@@ -138,7 +138,7 @@ export function ChatWindow<TReveal = never>({
+                       <button
+                         key={a.action}
+                         onClick={() => onAction?.(a.action)}
+-                        className="text-xs font-medium rounded-full border border-gold-400/60 text-gold-400 px-3 py-1 hover:bg-white/5 transition-colors"
++                        className="text-xs font-medium rounded-full border border-gold-400/60 text-gold-400 px-3 py-1 hover:bg-onbrand/5 transition-colors"
+                       >
+                         {a.label}
+                       </button>
+@@ -156,7 +156,7 @@ export function ChatWindow<TReveal = never>({
+                   <button
+                     key={qr}
+                     onClick={() => sendText(qr)}
+-                    className="text-xs font-medium rounded-full border border-gold-400/50 text-gold-400 px-3.5 py-1.5 hover:bg-white/5 transition-colors"
++                    className="text-xs font-medium rounded-full border border-gold-400/50 text-gold-400 px-3.5 py-1.5 hover:bg-onbrand/5 transition-colors"
+                   >
+                     {qr}
+                   </button>
+@@ -176,7 +176,7 @@ export function ChatWindow<TReveal = never>({
+         <div ref={bottomRef} />
+       </div>
+ 
+-      <div className="border-t border-white/10 bg-brand-950 px-4 py-3">
++      <div className="border-t border-onbrand/[0.06] bg-brand-950 px-4 py-3">
+         <div className="max-w-2xl mx-auto flex items-end gap-2">
+           <textarea
+             value={input}
+diff --git a/src/components/layout/AdminShell.tsx b/src/components/layout/AdminShell.tsx
+index f56da3e..c18ce55 100644
+--- a/src/components/layout/AdminShell.tsx
++++ b/src/components/layout/AdminShell.tsx
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import Link from "next/link";
++import Image from "next/image";
+ import { usePathname } from "next/navigation";
+ import { LayoutDashboard, Users, Contact } from "lucide-react";
+ import { cn } from "@/lib/utils/cn";
+@@ -12,48 +13,88 @@ const NAV_ITEMS = [
+ ];
+ 
+ /**
+- * Casca própria do painel admin — deliberadamente diferente do AppShell do
+- * cliente (nav no topo, não sidebar; sem mascote/tema claro-escuro) pra ficar
+- * óbvio visualmente que isso é uma ferramenta interna, não uma tela que um
+- * usuário comum vai ver. Guardado por requireAdmin() no layout do grupo.
++ * Casca do painel admin — mesma estrutura de sidebar do AppShell do cliente
++ * (logo + nav vertical à esquerda no desktop, header + nav inferior no
++ * mobile), só trocando os itens de navegação e adicionando o nome do admin
++ * e o link de volta pro app no rodapé da sidebar. Guardado por
++ * requireAdmin() no layout do grupo.
+  */
+ export function AdminShell({ children, adminName }: { children: React.ReactNode; adminName: string }) {
+   const pathname = usePathname();
+   const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname?.startsWith(href));
+ 
+   return (
+-    <div className="min-h-screen bg-brand-950">
+-      <header className="border-b border-white/[0.08] px-6 py-3 flex items-center justify-between flex-wrap gap-3">
+-        <div className="flex items-center gap-6">
+-          <span className="font-display text-lg text-onbrand">Tobias · Admin</span>
+-          <nav className="flex items-center gap-1">
+-            {NAV_ITEMS.map((item) => {
+-              const Icon = item.icon;
+-              const active = isActive(item.href);
+-              return (
+-                <Link
+-                  key={item.href}
+-                  href={item.href}
+-                  className={cn(
+-                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+-                    active ? "bg-gold-400/10 text-gold-400" : "text-onbrand/60 hover:text-onbrand hover:bg-white/[0.04]"
+-                  )}
+-                >
+-                  <Icon className="h-4 w-4" />
+-                  {item.label}
+-                </Link>
+-              );
+-            })}
+-          </nav>
+-        </div>
+-        <div className="flex items-center gap-3">
+-          <span className="text-xs text-onbrand/45">{adminName}</span>
+-          <Link href="/dashboard" className="text-xs text-gold-400 hover:underline">
+-            Voltar ao app →
++    <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-brand-950">
++      {/* Desktop sidebar */}
++      <aside className="hidden md:flex md:w-60 md:flex-col bg-brand-950 px-4 py-6">
++        <Link href="/admin" className="flex items-center gap-2.5 px-2 mb-8">
++          <Image src="/logo-transparent.png" alt="Tobias" width={40} height={40} />
++          <span className="font-display text-xl text-onbrand">
++            Tobias <span className="text-onbrand/40 text-base font-sans font-normal">Admin</span>
++          </span>
++        </Link>
++        <nav className="flex flex-col gap-1 flex-1">
++          {NAV_ITEMS.map((item) => {
++            const active = isActive(item.href);
++            return (
++              <Link
++                key={item.href}
++                href={item.href}
++                className={cn(
++                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
++                  active ? "bg-onbrand/10 text-gold-400" : "text-onbrand/45 hover:bg-onbrand/5 hover:text-onbrand/80"
++                )}
++              >
++                <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
++                {item.label}
++              </Link>
++            );
++          })}
++        </nav>
++        <div className="border-t border-onbrand/[0.06] pt-3 flex flex-col gap-2">
++          <span className="px-3 text-xs text-onbrand/45 truncate">{adminName}</span>
++          <Link href="/dashboard" className="px-3 text-xs text-gold-400 hover:underline">
++            ← Voltar ao app
+           </Link>
+         </div>
++      </aside>
++
++      {/* Mobile header */}
++      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-brand-950 sticky top-0 z-10">
++        <Link href="/admin" className="flex items-center gap-2">
++          <Image src="/logo-transparent.png" alt="Tobias" width={32} height={32} />
++          <span className="font-display text-lg text-onbrand">
++            Tobias <span className="text-onbrand/40 text-sm font-sans font-normal">Admin</span>
++          </span>
++        </Link>
++        <Link href="/dashboard" className="text-xs text-gold-400 hover:underline">
++          Voltar ao app →
++        </Link>
+       </header>
+-      <main className="px-6 py-6 max-w-6xl mx-auto w-full">{children}</main>
++
++      <main className="flex-1 flex flex-col pb-16 md:pb-0 min-w-0">
++        <div className="px-6 py-6 max-w-6xl mx-auto w-full">{children}</div>
++      </main>
++
++      {/* Mobile bottom nav */}
++      <nav className="md:hidden fixed bottom-0 inset-x-0 z-10 flex items-stretch justify-between bg-brand-950 shadow-[0_-8px_20px_-10px_rgba(0,0,0,0.5)]">
++        {NAV_ITEMS.map((item) => {
++          const active = isActive(item.href);
++          return (
++            <Link
++              key={item.href}
++              href={item.href}
++              className={cn(
++                "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[11px]",
++                active ? "text-gold-400" : "text-onbrand/45"
++              )}
++            >
++              <item.icon className="h-5 w-5" strokeWidth={1.75} />
++              {item.label}
++            </Link>
++          );
++        })}
++      </nav>
+     </div>
+   );
+ }
+diff --git a/src/components/layout/AppShell.tsx b/src/components/layout/AppShell.tsx
+index ae55755..1f066d7 100644
+--- a/src/components/layout/AppShell.tsx
++++ b/src/components/layout/AppShell.tsx
+@@ -63,7 +63,7 @@ export function AppShell({
+                 href={item.href}
+                 className={cn(
+                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+-                  active ? "bg-white/10 text-gold-400" : "text-onbrand/45 hover:bg-white/5 hover:text-onbrand/80"
++                  active ? "bg-onbrand/10 text-gold-400" : "text-onbrand/45 hover:bg-onbrand/5 hover:text-onbrand/80"
+                 )}
+               >
+                 <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+diff --git a/src/components/layout/UserMenu.tsx b/src/components/layout/UserMenu.tsx
+index 65e371a..4013ae5 100644
+--- a/src/components/layout/UserMenu.tsx
++++ b/src/components/layout/UserMenu.tsx
+@@ -26,7 +26,7 @@ export function UserMenu({ user, compact }: { user: SessionUser; compact?: boole
+       <button
+         onClick={() => setOpen((o) => !o)}
+         className={cn(
+-          "flex items-center gap-2 rounded-xl hover:bg-white/5 transition-colors text-left",
++          "flex items-center gap-2 rounded-xl hover:bg-onbrand/5 transition-colors text-left",
+           compact ? "p-1" : "w-full p-2"
+         )}
+       >
+diff --git a/src/components/onboarding/ConnectAccountsStep.tsx b/src/components/onboarding/ConnectAccountsStep.tsx
+index 3065438..1bea69b 100644
+--- a/src/components/onboarding/ConnectAccountsStep.tsx
++++ b/src/components/onboarding/ConnectAccountsStep.tsx
+@@ -140,7 +140,7 @@ function QuickAddCard({
+   children: React.ReactNode;
+ }) {
+   return (
+-    <div className="rounded-xl bg-brand-800 border border-white/10 overflow-hidden">
++    <div className="rounded-xl bg-brand-800 overflow-hidden">
+       <button
+         type="button"
+         onClick={onToggle}
+diff --git a/src/components/settings/ThemeToggle.tsx b/src/components/settings/ThemeToggle.tsx
+index 7310838..3098b1e 100644
+--- a/src/components/settings/ThemeToggle.tsx
++++ b/src/components/settings/ThemeToggle.tsx
+@@ -36,7 +36,7 @@ export function ThemeToggle({ current }: { current: Theme }) {
+             disabled={pending}
+             className={cn(
+               "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-60",
+-              active ? "bg-gold-500 text-ink-900" : "text-onbrand/60 hover:text-onbrand hover:bg-white/5"
++              active ? "bg-gold-500 text-ink-900" : "text-onbrand/60 hover:text-onbrand hover:bg-onbrand/5"
+             )}
+           >
+             <Icon className="h-3.5 w-3.5" />
+diff --git a/src/components/ui/BankBadge.tsx b/src/components/ui/BankBadge.tsx
+index 6c74d21..e7fc1b6 100644
+--- a/src/components/ui/BankBadge.tsx
++++ b/src/components/ui/BankBadge.tsx
+@@ -31,7 +31,7 @@ export function BankBadge({
+       className={cn(
+         "relative inline-flex items-center justify-center shrink-0 overflow-hidden rounded-full font-extrabold leading-none text-center",
+         dim,
+-        bank ? bank.className : "bg-white/10 text-onbrand/60 border border-dashed border-white/10",
++        bank ? bank.className : "bg-onbrand/10 text-onbrand/60",
+         className
+       )}
+       title={bankName}
+diff --git a/src/components/ui/Button.tsx b/src/components/ui/Button.tsx
+index 49c94cc..3f641c3 100644
+--- a/src/components/ui/Button.tsx
++++ b/src/components/ui/Button.tsx
+@@ -15,8 +15,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+ const variantClasses: Record<Variant, string> = {
+   primary: "bg-brand-700 text-onbrand hover:bg-brand-600 disabled:opacity-50",
+   secondary: "bg-gold-500 text-ink-900 hover:bg-gold-600 disabled:bg-gold-500/50",
+-  outline: "border border-white/15 text-onbrand hover:bg-white/5 disabled:opacity-50",
+-  ghost: "text-onbrand/80 hover:bg-white/5 disabled:opacity-50",
++  outline: "border border-onbrand/20 text-onbrand hover:bg-onbrand/5 disabled:opacity-50",
++  ghost: "text-onbrand/80 hover:bg-onbrand/5 disabled:opacity-50",
+   danger: "bg-danger-600 text-onbrand hover:opacity-90 disabled:opacity-50",
+ };
+ 
+-- 
+2.43.0
+
