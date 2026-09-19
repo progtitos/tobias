@@ -22,6 +22,8 @@ import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { BankBadge } from "@/components/ui/BankBadge";
+import { IconButton } from "@/components/ui/IconButton";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { BANKS, OTHER_BANK_ID, findBank } from "@/lib/utils/banks";
@@ -477,6 +479,7 @@ function AccountRow({ account, cards }: { account: BankAccount; cards: CreditCar
   const [editingBalance, setEditingBalance] = useState(false);
   const [balanceInput, setBalanceInput] = useState(account.balance);
   const [panel, setPanel] = useState<"upload" | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <div className="py-3">
@@ -498,26 +501,27 @@ function AccountRow({ account, cards }: { account: BankAccount; cards: CreditCar
             <p className="text-[11px] tabular-nums text-onbrand/50">Investido {formatBRL(account.invested)}</p>
           )}
         </div>
-        <button
-          type="button"
-          className="text-onbrand/35 hover:text-gold-400 shrink-0"
-          title="Editar conta"
-          onClick={() => setEditing((v) => !v)}
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          className="text-onbrand/35 hover:text-danger-300 shrink-0"
-          title="Excluir conta"
-          disabled={pending}
-          onClick={() => {
-            if (!window.confirm(`Excluir a conta "${account.name}"? Isso não pode ser desfeito.`)) return;
-            startTransition(() => deleteBankAccountAction(account.id));
+        <div className="flex items-center gap-1 shrink-0">
+          <IconButton label="Editar conta" onClick={() => setEditing((v) => !v)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </IconButton>
+          <IconButton label="Excluir conta" tone="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </IconButton>
+        </div>
+        <ConfirmDialog
+          open={confirmDelete}
+          title={`Excluir a conta "${account.name}"?`}
+          description="Isso não pode ser desfeito."
+          pending={pending}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            startTransition(() => {
+              deleteBankAccountAction(account.id);
+              setConfirmDelete(false);
+            });
           }}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        />
       </div>
 
       {editing && <EditAccountForm account={account} onDone={() => setEditing(false)} />}
@@ -856,6 +860,7 @@ function CardRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const tone = usageTone(usage?.usagePct ?? null);
   const spend = usage?.currentCycleSpend ?? 0;
   const pct = usage?.usagePct != null ? Math.round(usage.usagePct) : null;
@@ -889,26 +894,27 @@ function CardRow({
               : "Sem limite cadastrado — edite pra acompanhar o uso"}
           </p>
         </div>
-        <button
-          type="button"
-          className="text-onbrand/35 hover:text-gold-400 shrink-0"
-          title="Editar cartão"
-          onClick={() => setEditing((v) => !v)}
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          className="text-onbrand/35 hover:text-danger-300 shrink-0"
-          title="Excluir cartão"
-          disabled={pending}
-          onClick={() => {
-            if (!window.confirm(`Excluir o cartão "${card.nickname}"? Isso não pode ser desfeito.`)) return;
-            startTransition(() => deleteCreditCardAction(card.id));
+        <div className="flex items-center gap-1 shrink-0">
+          <IconButton label="Editar cartão" onClick={() => setEditing((v) => !v)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </IconButton>
+          <IconButton label="Excluir cartão" tone="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </IconButton>
+        </div>
+        <ConfirmDialog
+          open={confirmDelete}
+          title={`Excluir o cartão "${card.nickname}"?`}
+          description="Isso não pode ser desfeito."
+          pending={pending}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            startTransition(() => {
+              deleteCreditCardAction(card.id);
+              setConfirmDelete(false);
+            });
           }}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        />
       </div>
 
       {editing && <EditCreditCardForm card={card} accountName={accountName} onDone={() => setEditing(false)} />}

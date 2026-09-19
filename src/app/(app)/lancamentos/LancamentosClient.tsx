@@ -53,6 +53,8 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { BankBadge } from "@/components/ui/BankBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { IconButton } from "@/components/ui/IconButton";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { toast } from "sonner";
@@ -860,6 +862,7 @@ function findDuplicateGroups(transactions: Transaction[]): Transaction[][] {
 function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transaction[]; onClose: () => void }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const groups = useMemo(
     () => findDuplicateGroups(transactions).filter((g) => !dismissed.has(g[0].id)),
     [transactions, dismissed]
@@ -896,14 +899,14 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
                             {t.merchant ? ` · ${t.merchant}` : ""}
                           </p>
                         </div>
-                        <button
-                          className="text-onbrand/40 hover:text-danger-300 shrink-0"
-                          title="Excluir esta"
+                        <IconButton
+                          label="Excluir esta"
+                          tone="danger"
                           disabled={pending}
-                          onClick={() => startTransition(() => deleteTransactionAction(t.id))}
+                          onClick={() => setConfirmDeleteId(t.id)}
                         >
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </IconButton>
                       </div>
                     ))}
                   </div>
@@ -920,6 +923,21 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={confirmDeleteId != null}
+        title="Excluir esta transação duplicada?"
+        description="Isso não pode ser desfeito."
+        pending={pending}
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={() => {
+          if (!confirmDeleteId) return;
+          const id = confirmDeleteId;
+          startTransition(() => {
+            deleteTransactionAction(id);
+            setConfirmDeleteId(null);
+          });
+        }}
+      />
     </div>
   );
 }
@@ -942,6 +960,7 @@ function TransactionRow({
   const [categoryId, setCategoryId] = useState(transaction.categoryId ?? "");
   const [showRule, setShowRule] = useState(false);
   const [keyword, setKeyword] = useState(transaction.description);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const lowConfidence = transaction.categoryId && transaction.confidence < 0.7;
   const meta = TYPE_META[transaction.type] ?? TYPE_META.EXPENSE;
   // Um gasto categorizado mostra o ícone da própria categoria (Moradia,
@@ -1016,13 +1035,27 @@ function TransactionRow({
                 {formatBRL(transaction.amount)}
               </span>
 
-              <button
-                aria-label="Excluir"
-                className="text-onbrand/35 hover:text-danger-300 transition-colors"
-                onClick={() => startTransition(() => deleteTransactionAction(transaction.id))}
+              <IconButton
+                label="Excluir"
+                tone="danger"
+                disabled={pending}
+                onClick={() => setConfirmDelete(true)}
               >
                 <Trash2 className="h-4 w-4" />
-              </button>
+              </IconButton>
+              <ConfirmDialog
+                open={confirmDelete}
+                title="Excluir esta transação?"
+                description="Isso não pode ser desfeito."
+                pending={pending}
+                onCancel={() => setConfirmDelete(false)}
+                onConfirm={() => {
+                  startTransition(() => {
+                    deleteTransactionAction(transaction.id);
+                    setConfirmDelete(false);
+                  });
+                }}
+              />
             </div>
           </div>
 

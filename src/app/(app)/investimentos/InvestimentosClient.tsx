@@ -8,6 +8,8 @@ import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { IconButton } from "@/components/ui/IconButton";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -350,6 +352,7 @@ function InvestmentRow({ investment }: { investment: Investment }) {
   // limpar o texto) depois de um aporte confirmado — CurrencyInput não
   // aceita um `value` controlado por fora (ver comentário no componente).
   const [contributionKey, setContributionKey] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const gain = investment.currentAmount - investment.investedAmount;
   const gainPct = investment.investedAmount > 0 ? (gain / investment.investedAmount) * 100 : 0;
@@ -435,14 +438,22 @@ function InvestmentRow({ investment }: { investment: Investment }) {
               <PlusCircle className="h-3.5 w-3.5" /> Aportar
             </Button>
           </div>
-          <button
-            aria-label="Excluir"
-            className="text-onbrand/35 hover:text-danger-300 transition-colors"
-            disabled={pending}
-            onClick={() => startTransition(() => deleteInvestmentAction(investment.id))}
-          >
+          <IconButton label="Excluir" tone="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>
             <Trash2 className="h-4 w-4" />
-          </button>
+          </IconButton>
+          <ConfirmDialog
+            open={confirmDelete}
+            title={`Excluir o investimento "${investment.name}"?`}
+            description="Isso não pode ser desfeito."
+            pending={pending}
+            onCancel={() => setConfirmDelete(false)}
+            onConfirm={() => {
+              startTransition(() => {
+                deleteInvestmentAction(investment.id);
+                setConfirmDelete(false);
+              });
+            }}
+          />
         </div>
       </CardContent>
     </Card>
