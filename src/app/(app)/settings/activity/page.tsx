@@ -42,7 +42,7 @@ export default async function ActivityPage() {
         <p className="text-sm text-onbrand/55 py-12 text-center">Nenhuma atividade registrada ainda.</p>
       ) : (
         <Card>
-          <CardContent className="py-2 divide-y divide-white/10">
+          <CardContent className="py-2 divide-y divide-onbrand/[0.06]">
             {events.map((e) => (
               <div key={e.id} className="py-3 flex items-center justify-between gap-3">
                 <span className="text-sm text-onbrand/85">{describeEvent(e.type, e.payload)}</span>

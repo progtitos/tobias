@@ -19,3 +19,15 @@ export async function requireOnboardedUser(): Promise<SessionUser> {
   if (!user.onboardingCompleted) redirect("/onboarding");
   return user;
 }
+
+/**
+ * Use in the (admin) route group only. Redirects a logged-out visitor to
+ * /login same as requireUser, but sends anyone who IS logged in and just
+ * isn't staff back to their own dashboard instead of a generic 403 — no
+ * point telling a curious end user this area exists at all.
+ */
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "ADMIN") redirect("/dashboard");
+  return user;
+}

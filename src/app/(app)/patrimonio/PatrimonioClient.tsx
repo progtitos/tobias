@@ -80,7 +80,7 @@ function NetWorthSummary({ netWorth }: { netWorth: NetWorth }) {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-white/10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-onbrand/[0.06]">
           <SummaryFigure label="Em contas" value={netWorth.liquidAssets} />
           <SummaryFigure label="Investido" value={netWorth.investedAssets} />
           <SummaryFigure label="Outros bens" value={netWorth.otherAssets} />

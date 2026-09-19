@@ -140,7 +140,7 @@ function QuickAddCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl bg-brand-800 border border-white/10 overflow-hidden">
+    <div className="rounded-xl bg-brand-800 overflow-hidden">
       <button
         type="button"
         onClick={onToggle}

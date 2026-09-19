@@ -34,7 +34,9 @@ export function SignupForm() {
             onClick={() => setCycle(plan.cycle)}
             className={cn(
               "rounded-xl border px-2 py-2.5 text-center transition-colors",
-              cycle === plan.cycle ? "border-gold-400 bg-gold-400/10" : "border-white/10 hover:border-white/25"
+              cycle === plan.cycle
+                ? "border-gold-400 bg-gold-400/10"
+                : "border-transparent bg-onbrand/[0.04] hover:bg-onbrand/[0.08]"
             )}
           >
             <p className={cn("text-xs font-medium", cycle === plan.cycle ? "text-gold-400" : "text-onbrand/70")}>

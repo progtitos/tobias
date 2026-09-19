@@ -89,7 +89,7 @@ export default async function LandingPage() {
             <Button
               variant="outline"
               size="lg"
-              className="w-full sm:w-auto border-cream-100/30 text-onbrand hover:bg-white/5"
+              className="w-full sm:w-auto border-cream-100/30 text-onbrand hover:bg-onbrand/5"
             >
               Já tenho conta
             </Button>
@@ -101,7 +101,7 @@ export default async function LandingPage() {
       <section className="relative px-6 py-16 max-w-5xl mx-auto w-full">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {FEATURES.map((f) => (
-            <div key={f.title} className="flex gap-4 text-left rounded-2xl bg-white/[0.03] border border-white/5 p-5">
+            <div key={f.title} className="flex gap-4 text-left rounded-2xl bg-onbrand/[0.03] p-5">
               <f.icon className="h-6 w-6 text-gold-400 shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-sans font-semibold text-onbrand">{f.title}</h3>

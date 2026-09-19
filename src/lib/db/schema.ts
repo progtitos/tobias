@@ -312,6 +312,10 @@ export const users = pgTable(
 
     onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
     onboardingStep: text("onboarding_step"),
+    // Guia obrigatório de primeiro acesso (pós-onboarding) — separado de
+    // onboardingCompleted porque é sobre *usar* o produto (onde clicar,
+    // o que cada tela mostra), não sobre *cadastrar* os dados iniciais.
+    tourCompleted: boolean("tour_completed").notNull().default(false),
 
     trialStartedAt: timestamp("trial_started_at", { withTimezone: true })
       .notNull()
@@ -1199,3 +1203,47 @@ export const clientTasks = pgTable("client_tasks", {
   dueDate: timestamp("due_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ----------------------------------------------------------------------------
+// ADMIN / CRM (pedido do Thiago 2026-09-18: painel admin com usuários,
+// financeiro, clientes ativos/inativos/trial e um CRM de leads).
+//
+// O que dá pra construir sem nenhuma decisão de fornecedor externo já está
+// aqui e no painel /admin: listagem de usuários/assinaturas (reaproveita
+// `users`, que já tem plano/status/trial — não duplicado) e este cadastro de
+// leads com import de CSV em massa.
+//
+// O que fica de fora POR ENQUANTO, de propósito, porque depende de decisão
+// do Thiago e/ou de coisa fora do nosso controle:
+//  - Disparo de e-mail marketing: precisa escolher um provedor (Resend,
+//    SendGrid, etc.) e configurar domínio/DKIM.
+//  - Disparo de WhatsApp em massa pros leads: a mesma WhatsAppService já
+//    existe (ver setup-whatsapp-business-api.md), mas a Meta exige *template
+//    de mensagem pré-aprovado* e opt-in pra mensagem iniciada pela empresa
+//    (fora da janela de 24h) — mandar pra 50k contatos frios sem isso
+//    arrisca banir o número. `leadStatusEnum`/`source` aqui já deixam o dado
+//    pronto pro dia que isso for decidido.
+// ----------------------------------------------------------------------------
+
+export const leadStatusEnum = pgEnum("lead_status", ["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"]);
+
+export const leads = pgTable(
+  "leads",
+  {
+    id: id(),
+    name: text("name"),
+    email: text("email"),
+    phone: text("phone"), // idealmente E.164, mas import de CSV externo raramente vem normalizado
+    // De onde veio: "csv_import_2026-09-18-thiago.csv", "landing_page",
+    // "indicacao", etc. — livre, só pra rastrear a origem de cada leva.
+    source: text("source"),
+    status: leadStatusEnum("status").notNull().default("NEW"),
+    notes: text("notes"),
+    // Preenchido quando o lead vira um cadastro de verdade no Tobias — link
+    // manual por enquanto (nenhum fluxo automático casa lead <-> user ainda).
+    convertedUserId: text("converted_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("leads_status_idx").on(t.status), index("leads_email_idx").on(t.email)]
+);

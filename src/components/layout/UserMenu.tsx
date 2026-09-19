@@ -26,7 +26,7 @@ export function UserMenu({ user, compact }: { user: SessionUser; compact?: boole
       <button
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex items-center gap-2 rounded-xl hover:bg-white/5 transition-colors text-left",
+          "flex items-center gap-2 rounded-xl hover:bg-onbrand/5 transition-colors text-left",
           compact ? "p-1" : "w-full p-2"
         )}
       >

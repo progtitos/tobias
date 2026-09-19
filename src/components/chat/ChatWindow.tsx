@@ -138,7 +138,7 @@ export function ChatWindow<TReveal = never>({
                       <button
                         key={a.action}
                         onClick={() => onAction?.(a.action)}
-                        className="text-xs font-medium rounded-full border border-gold-400/60 text-gold-400 px-3 py-1 hover:bg-white/5 transition-colors"
+                        className="text-xs font-medium rounded-full border border-gold-400/60 text-gold-400 px-3 py-1 hover:bg-onbrand/5 transition-colors"
                       >
                         {a.label}
                       </button>
@@ -156,7 +156,7 @@ export function ChatWindow<TReveal = never>({
                   <button
                     key={qr}
                     onClick={() => sendText(qr)}
-                    className="text-xs font-medium rounded-full border border-gold-400/50 text-gold-400 px-3.5 py-1.5 hover:bg-white/5 transition-colors"
+                    className="text-xs font-medium rounded-full border border-gold-400/50 text-gold-400 px-3.5 py-1.5 hover:bg-onbrand/5 transition-colors"
                   >
                     {qr}
                   </button>
@@ -176,7 +176,7 @@ export function ChatWindow<TReveal = never>({
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-white/10 bg-brand-950 px-4 py-3">
+      <div className="border-t border-onbrand/[0.06] bg-brand-950 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-end gap-2">
           <textarea
             value={input}

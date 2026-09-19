@@ -84,7 +84,7 @@ function ResultCard({
           </Badge>
         </div>
         <p className="text-onbrand/85">{result.explanation}</p>
-        <p className="text-sm text-gold-400 border-t border-white/10 pt-3">
+        <p className="text-sm text-gold-400 border-t border-onbrand/[0.06] pt-3">
           <span className="font-medium">Impacto: </span>
           {result.impactSummary}
         </p>

@@ -17,17 +17,21 @@ import type { SessionUser } from "@/lib/auth/session";
 import type { Theme } from "@/lib/theme";
 import { UserMenu } from "./UserMenu";
 import { TrialBadge } from "./TrialBadge";
+import { MandatoryTourOverlay } from "@/components/tour/MandatoryTourOverlay";
 import { cn } from "@/lib/utils/cn";
 
+// tourTarget: só nos 3 itens que o guia obrigatório de primeiro acesso
+// (MandatoryTourOverlay) aponta — vira o atributo data-tour tanto aqui
+// quanto na versão mobile do menu, pra funcionar em qualquer largura.
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
   { href: "/chat", label: "Tobias", icon: MessageCircle },
-  { href: "/lancamentos", label: "Transações", icon: Receipt },
-  { href: "/conta", label: "Conta", icon: Wallet },
+  { href: "/lancamentos", label: "Transações", icon: Receipt, tourTarget: "nav-lancamentos" },
+  { href: "/conta", label: "Conta", icon: Wallet, tourTarget: "nav-conta" },
   { href: "/patrimonio", label: "Patrimônio", icon: Landmark },
   { href: "/investimentos", label: "Investimentos", icon: LineChart },
   { href: "/compass", label: "Ponteiro", icon: Compass },
-  { href: "/retirement", label: "Aposentadoria", icon: TrendingUp },
+  { href: "/retirement", label: "Aposentadoria", icon: TrendingUp, tourTarget: "nav-retirement" },
 ];
 
 export function AppShell({
@@ -61,9 +65,10 @@ export function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour={item.tourTarget}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                  active ? "bg-white/10 text-gold-400" : "text-onbrand/45 hover:bg-white/5 hover:text-onbrand/80"
+                  active ? "bg-onbrand/10 text-gold-400" : "text-onbrand/45 hover:bg-onbrand/5 hover:text-onbrand/80"
                 )}
               >
                 <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -98,6 +103,7 @@ export function AppShell({
             <Link
               key={item.href}
               href={item.href}
+              data-tour={item.tourTarget}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[11px]",
                 active ? "text-gold-400" : "text-onbrand/45"
@@ -109,6 +115,8 @@ export function AppShell({
           );
         })}
       </nav>
+
+      <MandatoryTourOverlay tourCompleted={user.tourCompleted} />
     </div>
   );
 }

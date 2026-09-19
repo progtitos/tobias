@@ -126,7 +126,7 @@ export function ContaClient({
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/[0.06]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-onbrand/[0.06]">
               <div>
                 <p className="text-[11px] text-onbrand/50 mb-0.5">Em contas</p>
                 <p className="text-sm font-medium tabular-nums text-onbrand/85">{formatBRL(totalBalance)}</p>
@@ -155,14 +155,14 @@ export function ContaClient({
                 <button
                   type="button"
                   onClick={() => setShowAccountForm((v) => !v)}
-                  className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-white/5"
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-onbrand/5"
                   title="Adicionar conta"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-white/[0.06]">
+              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-onbrand/[0.06]">
                 <span>
                   Total em contas correntes <span className="tabular-nums text-onbrand/80">{formatBRL(totalBalance)}</span>
                 </span>
@@ -173,7 +173,7 @@ export function ContaClient({
               </div>
 
               {showAccountForm && (
-                <div className="py-3 border-b border-white/[0.06] mb-1">
+                <div className="py-3 border-b border-onbrand/[0.06] mb-1">
                   <NewAccountForm
                     formAction={accountFormAction}
                     pending={accountPending}
@@ -188,7 +188,7 @@ export function ContaClient({
                   Nenhuma conta cadastrada ainda — adicione pra o patrimônio refletir a realidade.
                 </p>
               ) : (
-                <div className="divide-y divide-white/[0.04]">
+                <div className="divide-y divide-onbrand/[0.04]">
                   {active.map((a) => (
                     <AccountRow key={a.id} account={a} cards={creditCards.filter((c) => c.bankAccountId === a.id)} />
                   ))}
@@ -216,7 +216,7 @@ export function ContaClient({
                   <button
                     type="button"
                     onClick={() => setShowCardForm((v) => !v)}
-                    className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-white/5"
+                    className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-onbrand/5"
                     title="Adicionar cartão"
                   >
                     <Plus className="h-4 w-4" />
@@ -224,7 +224,7 @@ export function ContaClient({
                 )}
               </div>
 
-              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-white/[0.06]">
+              <div className="flex items-center justify-between text-xs text-onbrand/55 pb-3 mb-1 border-b border-onbrand/[0.06]">
                 <span>
                   Total utilizado em cartões{" "}
                   <span className="tabular-nums text-onbrand/80">
@@ -238,7 +238,7 @@ export function ContaClient({
               </div>
 
               {showCardForm && (
-                <div className="py-3 border-b border-white/[0.06] mb-1">
+                <div className="py-3 border-b border-onbrand/[0.06] mb-1">
                   <NewCreditCardForm accounts={accounts} onDone={() => setShowCardForm(false)} />
                 </div>
               )}
@@ -250,7 +250,7 @@ export function ContaClient({
                     : "Nenhum cartão cadastrado ainda."}
                 </p>
               ) : (
-                <div className="divide-y divide-white/[0.04]">
+                <div className="divide-y divide-onbrand/[0.04]">
                   {creditCards.map((c) => (
                     <CardRow
                       key={c.id}
@@ -620,7 +620,7 @@ function ImportUploadPanel({
             "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
             destination.kind === "account"
               ? "border-gold-400 bg-gold-400/10 text-gold-400"
-              : "border-transparent bg-white/[0.03] text-onbrand/65 hover:bg-white/[0.07]"
+              : "border-transparent bg-onbrand/[0.03] text-onbrand/65 hover:bg-onbrand/[0.07]"
           )}
         >
           {account.bankName && <BankBadge bankName={account.bankName} />}
@@ -635,7 +635,7 @@ function ImportUploadPanel({
               "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
               destination.kind === "card" && destination.cardId === c.id
                 ? "border-gold-400 bg-gold-400/10 text-gold-400"
-                : "border-transparent bg-white/[0.03] text-onbrand/65 hover:bg-white/[0.07]"
+                : "border-transparent bg-onbrand/[0.03] text-onbrand/65 hover:bg-onbrand/[0.07]"
             )}
           >
             <CreditCardIcon className="h-3.5 w-3.5" />
@@ -876,7 +876,7 @@ function CardRow({
               {pct != null && <span className="text-onbrand/45 font-normal"> ({pct}%)</span>}
             </p>
           </div>
-          <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden mt-1.5">
+          <div className="h-1.5 rounded-full bg-onbrand/[0.06] overflow-hidden mt-1.5">
             <div
               className={cn("h-full rounded-full", tone.bar)}
               style={{ width: `${Math.min(100, pct ?? (card.limitAmount == null ? 6 : 0))}%` }}

@@ -35,7 +35,7 @@ export function CreditCardBadge({
       title={nickname}
       className={cn(
         "flex flex-col justify-between shrink-0 w-[168px] h-[100px] rounded-2xl p-3.5 text-left text-white shadow-[0_10px_20px_-8px_rgba(0,0,0,0.45)] transition-transform hover:-translate-y-0.5",
-        bank ? bank.className : "bg-brand-700 text-onbrand",
+        bank ? bank.className : "bg-brand-700",
         className
       )}
     >

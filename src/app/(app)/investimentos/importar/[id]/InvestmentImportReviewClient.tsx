@@ -112,7 +112,7 @@ export function InvestmentImportReviewClient({
                   </button>
                 </div>
 
-                <div className="divide-y divide-white/10">
+                <div className="divide-y divide-onbrand/[0.06]">
                   {items.map((item) => (
                     <div key={item.id} className="py-2.5">
                       <label className="flex items-center gap-3 cursor-pointer">
@@ -159,7 +159,7 @@ export function InvestmentImportReviewClient({
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-white/10 flex-wrap">
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-onbrand/[0.06] flex-wrap">
                   <span className="text-xs text-onbrand/55">
                     {selected.size} selecionado{selected.size === 1 ? "" : "s"}
                     {selected.size > 0 && ` (${createCount} novo${createCount === 1 ? "" : "s"}, ${updateCount} atualizaç${updateCount === 1 ? "ão" : "ões"})`}

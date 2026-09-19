@@ -31,6 +31,7 @@ export type SessionUser = {
   image: string | null;
   role: "USER" | "PLANNER" | "ADMIN";
   onboardingCompleted: boolean;
+  tourCompleted: boolean;
   trialEndsAt: Date;
   subscriptionPlan: string;
   subscriptionStatus: string;
@@ -75,6 +76,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       image: users.image,
       role: users.role,
       onboardingCompleted: users.onboardingCompleted,
+      tourCompleted: users.tourCompleted,
       trialEndsAt: users.trialEndsAt,
       subscriptionPlan: users.subscriptionPlan,
       subscriptionStatus: users.subscriptionStatus,
@@ -102,6 +104,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     image: row.image,
     role: row.role,
     onboardingCompleted: row.onboardingCompleted,
+    tourCompleted: row.tourCompleted,
     trialEndsAt: row.trialEndsAt,
     subscriptionPlan: row.subscriptionPlan,
     subscriptionStatus: row.subscriptionStatus,

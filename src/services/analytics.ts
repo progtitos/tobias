@@ -44,7 +44,9 @@ export type AnalyticsEventName =
   | "trial_expired"
   | "subscription_started"
   | "subscription_canceled"
-  | "account_deleted";
+  | "account_deleted"
+  | "tour_completed"
+  | "tour_skipped";
 
 /**
  * Fire-and-forget product analytics. Never throws into the caller — a

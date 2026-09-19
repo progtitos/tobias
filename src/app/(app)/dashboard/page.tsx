@@ -58,7 +58,7 @@ export default async function DashboardPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <CreditCardAttentionCard card={data.cardNeedingAttention} totalCards={data.totalCreditCards} />
-          <Card className={DARK_CARD}>
+          <Card className={DARK_CARD} data-tour="dashboard-resumo">
             <CardContent className="py-5">
               <h2 className="font-display font-semibold text-base text-onbrand mb-3">Seu mês</h2>
               <MonthFlow
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
 
         {/* Hero: Bússola + curva de aposentadoria + o Tobias, unificados e logo de cara. */}
         <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-4">
-          <Card className={`${DARK_CARD} relative`}>
+          <Card className={`${DARK_CARD} relative`} data-tour="dashboard-ponteiro">
             <TobiasMascot
               src="/avatars/tobias-bussola-financeira.png"
               mood={compassMood}
@@ -112,7 +112,7 @@ export default async function DashboardPage() {
                       {heroChips.map((c) => (
                         <span
                           key={c.dimension}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-onbrand/75"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-onbrand/5 px-3 py-1.5 text-xs font-medium text-onbrand/75"
                         >
                           <span className={`h-1.5 w-1.5 rounded-full ${CHIP_DOT_TONE[c.status]}`} />
                           {c.label} {c.score}
@@ -147,10 +147,13 @@ export default async function DashboardPage() {
                       height={190}
                       dark
                     />
-                    <div className="flex gap-1.5 mt-2">
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                       <Badge tone={data.retirementPreview.base.onTrack ? "ok" : "warn"}>
                         {data.retirementPreview.base.onTrack ? "No alvo" : "Requer ajuste"}
                       </Badge>
+                      <span className="text-[11px] text-onbrand/45">
+                        Projeção do seu patrimônio total (contas + investimentos) em 3 cenários de retorno — não é uma recomendação de investimento.
+                      </span>
                     </div>
                   </>
                 ) : (
@@ -177,7 +180,10 @@ export default async function DashboardPage() {
                   />
                   <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400 mb-1">Tobias</p>
-                    <p className="text-sm leading-relaxed text-onbrand">{data.tobiasMessage}</p>
+                    {/* brand-700 não troca de tom com o tema (de propósito), então o
+                        texto usa brand-50 (também fixo) em vez de onbrand — que
+                        inverteria pra escuro e ficaria ilegível no tema claro */}
+                    <p className="text-sm leading-relaxed text-brand-50">{data.tobiasMessage}</p>
                   </div>
                 </div>
               </CardContent>
@@ -232,7 +238,7 @@ function CreditCardAttentionCard({ card, totalCards }: { card: CreditCardUsage |
               {formatBRL(card.currentCycleSpend)}
             </p>
             {usagePct != null && (
-              <div className="h-1.5 rounded-full bg-white/[0.07] overflow-hidden mb-1.5">
+              <div className="h-1.5 rounded-full bg-onbrand/[0.07] overflow-hidden mb-1.5">
                 <div className={cn("h-full", usageTone)} style={{ width: `${Math.min(usagePct, 100)}%` }} />
               </div>
             )}
@@ -298,7 +304,7 @@ function MonthFlow({
         </p>
       </div>
 
-      <div className="h-2.5 rounded-full bg-white/[0.07] overflow-hidden flex">
+      <div className="h-2.5 rounded-full bg-onbrand/[0.07] overflow-hidden flex">
         {expensePct > 0 && <div className="h-full bg-danger-300/85" style={{ width: `${expensePct}%` }} />}
         {investPct > 0 && <div className="h-full bg-gold-400" style={{ width: `${investPct}%` }} />}
       </div>

@@ -9,7 +9,7 @@ export default async function OnboardingLayout({ children }: { children: React.R
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-brand-950">
-      <header className="flex items-center gap-2.5 px-5 py-4 border-b border-white/10">
+      <header className="flex items-center gap-2.5 px-5 py-4 border-b border-onbrand/[0.06]">
         <Image src="/logo-transparent.png" alt="Tobias" width={28} height={28} />
         <span className="font-display text-lg text-onbrand">Tobias</span>
       </header>

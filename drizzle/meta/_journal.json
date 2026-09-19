@@ -71,6 +71,20 @@
       "when": 1789754044400,
       "tag": "0009_adiciona_proprietario_conta",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789762181330,
+      "tag": "0010_adiciona_leads_crm",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789765673002,
+      "tag": "0011_adiciona_tour_completed",
+      "breakpoints": true
     }
   ]
-}
+}

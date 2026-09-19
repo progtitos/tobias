@@ -36,7 +36,7 @@ export function ThemeToggle({ current }: { current: Theme }) {
             disabled={pending}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-60",
-              active ? "bg-gold-500 text-ink-900" : "text-onbrand/60 hover:text-onbrand hover:bg-white/5"
+              active ? "bg-gold-500 text-ink-900" : "text-onbrand/60 hover:text-onbrand hover:bg-onbrand/5"
             )}
           >
             <Icon className="h-3.5 w-3.5" />

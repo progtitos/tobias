@@ -82,7 +82,7 @@ export function RetirementClient({
         <div>
           <h1 className="font-sans font-bold text-2xl text-onbrand">Curva de aposentadoria</h1>
           <p className="text-sm text-onbrand/55 mt-1">
-            Simule cenários conservador, base e agressivo. Os números usam seu patrimônio real de hoje ({formatBRL(currentNetWorth)}).
+            Simule 3 cenários de retorno sobre seu patrimônio total de hoje ({formatBRL(currentNetWorth)}: contas + investimentos) — não é uma recomendação de investimento nem sua alocação real.
           </p>
         </div>
         <Button size="sm" loading={pending} onClick={save}>

@@ -7,11 +7,42 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  DefaultTooltipContent,
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
+import type { TooltipContentProps } from "recharts/types/component/Tooltip";
+import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
 import type { RetirementSimulation } from "@/services/retirement";
 import { formatBRL } from "@/lib/utils/money";
+
+// As três linhas projetam o PATRIMÔNIO TOTAL (contas + investimentos, não só
+// o que está investido) sob taxas de retorno hipotéticas diferentes — não são
+// uma alocação real nem uma recomendação de quanto investir em renda
+// variável. O rótulo do tooltip deixa isso explícito (pedido do Thiago: os
+// nomes "agressivo"/"base"/"conservador" sozinhos passavam a impressão de que
+// eram opções de investimento, ou de que só dinheiro investido crescia assim).
+const SCENARIO_TOOLTIP_LABEL = {
+  conservador: "Patrimônio · cenário conservador",
+  base: "Patrimônio · cenário base",
+  agressivo: "Patrimônio · cenário agressivo",
+};
+
+// A <Area> usada só pra pintar o gradiente sob a linha "base" tem o mesmo
+// dataKey da <Line> "base" (mesmo dado, dois elementos gráficos) — sem essa
+// dedupe, o tooltip padrão do Recharts mostra "Patrimônio · cenário base"
+// duas vezes seguidas, o que looks like um bug bem na hora que a gente tá
+// tentando deixar o tooltip mais claro, não mais confuso.
+function ScenarioTooltipContent(props: TooltipContentProps<ValueType, NameType>) {
+  const seen = new Set<string>();
+  const payload = (props.payload ?? []).filter((p) => {
+    const key = String(p.dataKey ?? p.name);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return <DefaultTooltipContent {...props} payload={payload} />;
+}
 
 function buildDataset(sim: RetirementSimulation, targetAge: number) {
   const byAge = (series: RetirementSimulation["base"]["series"]) => {
@@ -118,7 +149,11 @@ export function RetirementChart({
           reversed={yReversed}
         />
         <Tooltip
-          formatter={(value, name) => [typeof value === "number" ? formatBRL(value) : value, name]}
+          content={ScenarioTooltipContent}
+          formatter={(value, name) => [
+            typeof value === "number" ? formatBRL(value) : value,
+            SCENARIO_TOOLTIP_LABEL[name as keyof typeof SCENARIO_TOOLTIP_LABEL] ?? name,
+          ]}
           labelFormatter={(age) => `${age} anos`}
           contentStyle={{
             borderRadius: 12,

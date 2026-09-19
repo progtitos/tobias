@@ -221,7 +221,7 @@ export function LancamentosClient({
           <div className="flex items-center gap-1">
             <Link
               href={buildLancamentosUrl(shiftMonth(month, -1), filters)}
-              className="p-1.5 rounded-lg text-onbrand/55 hover:bg-white/5 hover:text-onbrand"
+              className="p-1.5 rounded-lg text-onbrand/55 hover:bg-onbrand/5 hover:text-onbrand"
               aria-label="Mês anterior"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -232,7 +232,7 @@ export function LancamentosClient({
             <Link
               href={buildLancamentosUrl(shiftMonth(month, 1), filters)}
               className={cn(
-                "p-1.5 rounded-lg hover:bg-white/5",
+                "p-1.5 rounded-lg hover:bg-onbrand/5",
                 isCurrentMonth ? "text-onbrand/20 pointer-events-none" : "text-onbrand/55 hover:text-onbrand"
               )}
               aria-label="Próximo mês"
@@ -260,7 +260,7 @@ export function LancamentosClient({
           </CardContent>
         </Card>
 
-        <div className="flex gap-1 mb-5 border-b border-white/10">
+        <div className="flex gap-1 mb-5 border-b border-onbrand/[0.06]">
           <TabButton active={tab === "transacoes"} onClick={() => setTab("transacoes")} icon={Receipt}>
             Transações
           </TabButton>
@@ -885,7 +885,7 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
           ) : (
             <div className="space-y-4">
               {groups.map((group) => (
-                <div key={group[0].id} className="rounded-xl border border-white/10 p-3">
+                <div key={group[0].id} className="rounded-xl bg-onbrand/[0.04] p-3">
                   <div className="space-y-2 mb-2">
                     {group.map((t) => (
                       <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
@@ -967,7 +967,7 @@ function TransactionRow({
 
   return (
     <li>
-      <Card className="cursor-pointer hover:bg-white/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
+      <Card className="cursor-pointer hover:bg-onbrand/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
         {/* Duas linhas em vez de um grid de uma linha só: as duas tentativas
             anteriores de aproximar o selo do banco e o seletor de categoria
             (juntando os dois numa coluna do MESMO grid que também tem a
@@ -1031,7 +1031,7 @@ function TransactionRow({
               {/* Banco + categoria juntos num "chip" destacado — os dois lidos
                   como um bloco só (de onde veio, pra onde foi), em vez de
                   duas informações soltas na linha. */}
-              <div className="flex items-center gap-2 rounded-lg bg-white/[0.06] pl-1.5 pr-2 py-1">
+              <div className="flex items-center gap-2 rounded-lg bg-onbrand/[0.06] pl-1.5 pr-2 py-1">
                 {transaction.bankAccountName ? (
                   transaction.bankAccountBankName ? (
                     <>

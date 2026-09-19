@@ -130,7 +130,7 @@ export function ImportReviewClient({
                   </button>
                 </div>
 
-                <div className="divide-y divide-white/10">
+                <div className="divide-y divide-onbrand/[0.06]">
                   {items.map((item) => (
                     <div
                       key={item.id}
@@ -225,7 +225,7 @@ export function ImportReviewClient({
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-white/10 flex-wrap">
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-onbrand/[0.06] flex-wrap">
                   <span className="text-xs text-onbrand/55">{selected.size} selecionada{selected.size === 1 ? "" : "s"}</span>
                   <Button type="submit" loading={pending} disabled={selected.size === 0}>
                     {pending ? (

@@ -76,7 +76,7 @@ export function ReceiptUploadClient() {
                 </div>
               ))}
               {previews.length < 5 && (
-                <label className="flex items-center justify-center aspect-square rounded-xl border-2 border-dashed border-white/15 cursor-pointer hover:bg-white/5">
+                <label className="flex items-center justify-center aspect-square rounded-xl border-2 border-dashed border-onbrand/20 cursor-pointer hover:bg-onbrand/5">
                   <Camera className="h-6 w-6 text-onbrand/55" />
                   <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
                 </label>

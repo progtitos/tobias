@@ -94,7 +94,7 @@ function AccountsSection({ accounts }: { accounts: InvestmentAccount[] }) {
 
   if (accounts.length === 0 && !showAccountForm) {
     return (
-      <Card className="mb-5 border-dashed border-white/15 bg-transparent">
+      <Card className="mb-5 border-dashed border-onbrand/20 bg-transparent">
         <CardContent className="py-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-sm text-onbrand/60">
             <Landmark className="h-4 w-4 shrink-0" />
@@ -193,7 +193,7 @@ function InvestmentUploadForm({ accountId, onCancel }: { accountId: string; onCa
   );
 
   return (
-    <form action={formAction} className="rounded-xl bg-brand-900/60 border border-white/10 p-3.5 mt-2">
+    <form action={formAction} className="rounded-xl bg-brand-900/60 p-3.5 mt-2">
       <input type="hidden" name="bankAccountId" value={accountId} />
       <p className="text-xs text-onbrand/60 mb-2">
         Suba o extrato/relatório consolidado dessa corretora (PDF ou foto/print) — o Tobias lê as posições e você
