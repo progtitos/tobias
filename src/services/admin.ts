@@ -104,6 +104,46 @@ export type AdminUserEditableFields = {
   trialEndsAt: Date;
 };
 
+/**
+ * Criação de usuário pelo admin — pedido do Thiago 2026-09-19 depois de
+ * tentar criar um acesso admin direto no Supabase e não funcionar: dava pra
+ * escrever `role = 'ADMIN'` via SQL, mas não dava pra gerar um
+ * `password_hash` bcrypt válido por SQL puro sem repetir a mesma lógica de
+ * `hashPassword()` — por isso a conta criada não conseguia logar em
+ * `/admin/login`. Esse caminho aqui usa a função de hash de verdade, então
+ * cobre inclusive criar novos admins (não só clientes comuns).
+ * `onboardingCompleted` começa `true` pra role != USER (staff não passa pela
+ * introdução do produto) e `false` pra USER (cliente criado manualmente
+ * ainda deveria ver o onboarding normal no primeiro login).
+ */
+export async function createUserForAdmin(
+  fields: AdminUserEditableFields & { password: string }
+): Promise<{ id: string }> {
+  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, fields.email)).limit(1);
+  if (existing.length > 0) {
+    throw new Error("Já existe uma conta com esse e-mail.");
+  }
+
+  const { hashPassword } = await import("@/lib/auth/password");
+  const passwordHash = await hashPassword(fields.password);
+
+  const [row] = await db
+    .insert(users)
+    .values({
+      name: fields.name,
+      email: fields.email,
+      passwordHash,
+      role: fields.role,
+      onboardingCompleted: fields.role !== "USER",
+      subscriptionPlan: fields.subscriptionPlan,
+      subscriptionStatus: fields.subscriptionStatus,
+      trialEndsAt: fields.trialEndsAt,
+    })
+    .returning({ id: users.id });
+
+  return row;
+}
+
 /** Edição pontual de usuário pelo `/admin/usuarios` — pedido do Thiago 2026-09-19. */
 export async function updateUserForAdmin(userId: string, fields: AdminUserEditableFields): Promise<void> {
   await db

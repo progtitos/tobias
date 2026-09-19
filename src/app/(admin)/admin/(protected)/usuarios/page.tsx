@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { UserRowActions } from "./UsersClient";
+import { UserRowActions, CreateUserButton } from "./UsersClient";
 import { formatDate } from "../../adminFormat";
 
 const STATUS_TONE: Record<string, "ok" | "gold" | "warn" | "neutral"> = {
@@ -27,7 +27,10 @@ export default async function AdminUsersPage({
 
   return (
     <div>
-      <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Usuários</h1>
+      <div className="flex items-start justify-between gap-4 mb-1">
+        <h1 className="font-sans font-bold text-2xl text-onbrand">Usuários</h1>
+        <CreateUserButton />
+      </div>
       <p className="text-sm text-onbrand/55 mb-6">{total} usuário(s) cadastrado(s) no Tobias.</p>
 
       <form className="flex gap-2 mb-4 flex-wrap items-center" method="get">

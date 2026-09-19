@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/guards";
-import { updateUserForAdmin, softDeleteUserForAdmin, type AdminUserEditableFields } from "@/services/admin";
+import { updateUserForAdmin, softDeleteUserForAdmin, createUserForAdmin, type AdminUserEditableFields } from "@/services/admin";
 import { userRoleEnum, subscriptionPlanEnum, subscriptionStatusEnum } from "@/lib/db/schema";
 
 export type UpdateUserState = { error?: string; success?: boolean } | undefined;
@@ -11,12 +11,8 @@ function isOneOf<T extends string>(values: readonly T[], v: FormDataEntryValue |
   return typeof v === "string" && (values as readonly string[]).includes(v);
 }
 
-export async function updateUserAction(_prev: UpdateUserState, formData: FormData): Promise<UpdateUserState> {
-  await requireAdmin();
-
-  const userId = formData.get("userId");
-  if (typeof userId !== "string" || !userId) return { error: "Usuário inválido." };
-
+/** Lê e valida os campos comuns a criar/editar usuário — devolve o erro pronto pro form ou os campos já tipados. */
+function parseUserFields(formData: FormData): { error: string } | { fields: AdminUserEditableFields } {
   const name = formData.get("name");
   const email = formData.get("email");
   const role = formData.get("role");
@@ -34,19 +30,59 @@ export async function updateUserAction(_prev: UpdateUserState, formData: FormDat
   const parsedTrialEndsAt = new Date(trialEndsAt);
   if (Number.isNaN(parsedTrialEndsAt.getTime())) return { error: "Data de trial inválida." };
 
-  const fields: AdminUserEditableFields = {
-    name: name.trim(),
-    email: email.trim().toLowerCase(),
-    role,
-    subscriptionPlan,
-    subscriptionStatus,
-    trialEndsAt: parsedTrialEndsAt,
+  return {
+    fields: {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      role,
+      subscriptionPlan,
+      subscriptionStatus,
+      trialEndsAt: parsedTrialEndsAt,
+    },
   };
+}
+
+export async function updateUserAction(_prev: UpdateUserState, formData: FormData): Promise<UpdateUserState> {
+  await requireAdmin();
+
+  const userId = formData.get("userId");
+  if (typeof userId !== "string" || !userId) return { error: "Usuário inválido." };
+
+  const parsed = parseUserFields(formData);
+  if ("error" in parsed) return { error: parsed.error };
 
   try {
-    await updateUserForAdmin(userId, fields);
+    await updateUserForAdmin(userId, parsed.fields);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha ao salvar." };
+  }
+
+  revalidatePath("/admin/usuarios");
+  return { success: true };
+}
+
+/**
+ * Cria um usuário direto pelo painel — inclusive outro admin. Pedido do
+ * Thiago 2026-09-19: ele tentou criar um acesso admin direto no Supabase e
+ * não conseguiu logar, porque dava pra escrever `role='ADMIN'` via SQL mas
+ * não dava pra gerar um hash de senha bcrypt válido por SQL puro. Esse
+ * caminho usa a mesma função de hash do cadastro normal.
+ */
+export async function createUserAction(_prev: UpdateUserState, formData: FormData): Promise<UpdateUserState> {
+  await requireAdmin();
+
+  const password = formData.get("password");
+  if (typeof password !== "string" || password.length < 8) {
+    return { error: "A senha precisa ter pelo menos 8 caracteres." };
+  }
+
+  const parsed = parseUserFields(formData);
+  if ("error" in parsed) return { error: parsed.error };
+
+  try {
+    await createUserForAdmin({ ...parsed.fields, password });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Falha ao criar usuário." };
   }
 
   revalidatePath("/admin/usuarios");
