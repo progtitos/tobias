@@ -9,10 +9,14 @@
  */
 export function GoalProgressRing({ pct }: { pct: number | null }) {
   const clamped = pct === null ? null : Math.max(0, Math.min(100, pct));
+  // O trilho neutro usa a variável de brand-700 (não o hex fixo) porque essa
+  // cor FLIPA entre tema claro/escuro — diferente do dourado preenchido
+  // (gold-400), que é um accent fixo por design (ver globals.css). Hardcoded
+  // aqui deixaria o trilho errado no tema claro.
   const gradient =
     clamped === null
-      ? "conic-gradient(#2c3339 0% 100%)" // brand-700 — sem meta definida, anel neutro
-      : `conic-gradient(#ffb648 0% ${clamped}%, #2c3339 ${clamped}% 100%)`; // gold-400 preenchido
+      ? "conic-gradient(var(--color-brand-700) 0% 100%)"
+      : `conic-gradient(#ffb648 0% ${clamped}%, var(--color-brand-700) ${clamped}% 100%)`;
 
   return (
     <div className="relative h-14 w-14 shrink-0 rounded-full" style={{ background: gradient }}>

@@ -72,7 +72,7 @@ function DonutChart({ slices, total }: { slices: Slice[]; total: number }) {
           const end = (acc / total) * 100;
           return `${s.color} ${start}% ${end}%`;
         })
-      : ["#2c3339 0% 100%"]; // brand-700, carteira vazia
+      : ["var(--color-brand-700) 0% 100%"]; // brand-700 (via variável, não hex — flipa com o tema), carteira vazia
 
   return (
     <div

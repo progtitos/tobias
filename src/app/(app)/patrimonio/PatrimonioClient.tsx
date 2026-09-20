@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { Plus, PlusCircle, Pause, Play, Sparkles } from "lucide-react";
+import { Plus, PlusCircle, Pause, Play, Sparkles, LifeBuoy, Home, Palmtree, Target, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/Badge";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { GoalProgressRing } from "./GoalProgressRing";
+import { EmergencyFundTank } from "./EmergencyFundTank";
 import {
   createGoalAction,
   addContributionAction,
@@ -52,6 +53,28 @@ const GOAL_TYPE_LABELS: Record<string, string> = {
   PROPERTY: "Imóvel",
   RETIREMENT: "Aposentadoria",
   CUSTOM: "Outro",
+};
+
+// Ícone + descrição curta por tipo — pedido do Thiago (2026-09-20, depois de
+// duas rodadas achando a tela pouco intuitiva): "que tenha um ícone
+// representando cada coisa". LifeBuoy (boia salva-vidas) pra reserva de
+// emergência não é só decorativo: é o símbolo universal de segurança/socorro,
+// reforçando a mesma ideia do reservatório (EmergencyFundTank) — "isso aqui é
+// seu colchão de segurança", não mais um objetivo genérico entre outros.
+const GOAL_TYPE_ICONS: Record<string, LucideIcon> = {
+  DREAM: Sparkles,
+  EMERGENCY_FUND: LifeBuoy,
+  PROPERTY: Home,
+  RETIREMENT: Palmtree,
+  CUSTOM: Target,
+};
+
+const GOAL_TYPE_DESCRIPTIONS: Record<string, string> = {
+  DREAM: "Um sonho seu, no seu tempo",
+  EMERGENCY_FUND: "Seu colchão de segurança pra imprevistos — perda de renda, emergência médica etc.",
+  PROPERTY: "Um imóvel que você quer conquistar",
+  RETIREMENT: "Reserva extra pra complementar sua aposentadoria",
+  CUSTOM: "Objetivo personalizado",
 };
 
 export function PatrimonioClient({
@@ -294,13 +317,25 @@ function GoalCard({ goal, emergencyFundSuggestion }: { goal: Goal; emergencyFund
   const [contributionKey, setContributionKey] = useState(0);
   const pct = goal.targetAmount ? (goal.currentAmount / goal.targetAmount) * 100 : null;
   const isEmergencyFund = goal.type === "EMERGENCY_FUND";
+  const TypeIcon = GOAL_TYPE_ICONS[goal.type] ?? Target;
 
   return (
     <Card data-testid="goal-card" data-goal-title={goal.title}>
       <CardContent className="py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <GoalProgressRing pct={pct} />
+            <div className="relative shrink-0">
+              {isEmergencyFund ? <EmergencyFundTank pct={pct} /> : <GoalProgressRing pct={pct} />}
+              <span
+                className={cn(
+                  "absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center ring-2 ring-brand-800 text-ink-900",
+                  isEmergencyFund ? "bg-ok-400" : "bg-gold-500"
+                )}
+                title={GOAL_TYPE_LABELS[goal.type]}
+              >
+                <TypeIcon className="h-3 w-3" strokeWidth={2.5} />
+              </span>
+            </div>
             <div className="min-w-0 pt-0.5">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium text-onbrand">{goal.title}</p>
@@ -315,6 +350,7 @@ function GoalCard({ goal, emergencyFundSuggestion }: { goal: Goal; emergencyFund
               ) : (
                 <p className="text-sm text-onbrand/55 mt-0.5">Ainda não quantificado. Conte mais detalhes ao Tobias.</p>
               )}
+              <p className="text-xs text-onbrand/40 mt-0.5">{GOAL_TYPE_DESCRIPTIONS[goal.type]}</p>
             </div>
           </div>
           <button
