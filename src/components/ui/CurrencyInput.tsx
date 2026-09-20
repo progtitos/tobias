@@ -1,17 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
-import { formatBRLInput, parseBRLInput } from "@/lib/utils/money";
+import { formatBRLInput } from "@/lib/utils/money";
 
 /**
- * Campo de valor em reais que aceita o jeito que gente digita no Brasil —
- * vírgula decimal, ponto de milhar ("1.234,56") — em vez do
- * `<input type="number">` nativo, que rejeita vírgula e não agrupa milhar.
+ * Campo de valor em reais com máscara "de banco" — os dígitos digitados vão
+ * sempre entrando pela casa das unidades (centavos) e empurrando o resto pra
+ * esquerda, com o Tobias plantando o ponto de milhar e a vírgula decimal
+ * sozinho a cada tecla (digitar 1,2,3,4,5 vira 0,01 → 0,12 → 1,23 → 12,34 →
+ * 123,45). Pedido do Thiago 2026-09-20: antes o campo deixava digitar livre
+ * e só formatava no blur — bom pra digitar rápido, mas não "vai colocando
+ * ponto e vírgula sempre no preenchimento" como ele queria em todo o
+ * sistema, e ninguém aqui digita vírgula decimal por hábito de boleto/PDV.
  *
- * Fica livre pra digitar (não reformata a cada tecla, senão o cursor pula de
- * lugar) e só normaliza a exibição no blur. O valor numérico em si (pra
- * cálculo/preview ao vivo) é recalculado a cada tecla via `onValueChange`.
+ * Por dentro o valor é guardado em centavos (inteiro) — a cada tecla a gente
+ * ignora tudo que não é dígito e reconstrói o inteiro a partir de todos os
+ * dígitos que sobraram no campo, então funciona igual pra digitar, apagar
+ * (Backspace empurra um dígito de volta) e colar. O cursor é sempre forçado
+ * pro final (só quando o campo está focado) — sem isso dava pra clicar no
+ * meio do número e inserir um dígito ali, o que quebraria a lógica de
+ * "dígito novo sempre na casa das unidades".
  *
  * Dois jeitos de usar, não excludentes:
  *  - `name` — pra formulário não controlado (`<form action={...}>` lendo
@@ -47,15 +56,27 @@ export function CurrencyInput({
   disabled?: boolean;
   autoFocus?: boolean;
 }) {
-  const [text, setText] = useState(() => (defaultValue ? formatBRLInput(defaultValue) : ""));
-  const [numeric, setNumeric] = useState(defaultValue ?? 0);
+  const [cents, setCents] = useState(() => Math.round((defaultValue ?? 0) * 100));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const text = cents ? formatBRLInput(cents / 100) : "";
+
+  // Depois de cada tecla, se o campo ainda está com foco, garante que o
+  // cursor fica no final — é isso que faz o próximo dígito sempre cair na
+  // casa das unidades em vez de entrar onde a pessoa deixou o cursor antes.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (el && document.activeElement === el) {
+      el.setSelectionRange(el.value.length, el.value.length);
+    }
+  }, [text]);
 
   return (
     <>
       <input
+        ref={inputRef}
         id={id}
         type="text"
-        inputMode="decimal"
+        inputMode="numeric"
         autoComplete="off"
         placeholder={placeholder}
         required={required}
@@ -63,23 +84,17 @@ export function CurrencyInput({
         autoFocus={autoFocus}
         value={text}
         onChange={(e) => {
-          // Deixa passar só o que faz parte de um valor em reais — dígitos,
-          // vírgula e ponto — sem tentar validar o formato completo enquanto
-          // a pessoa ainda está digitando.
-          const raw = e.target.value.replace(/[^0-9,.]/g, "");
-          setText(raw);
-          const value = parseBRLInput(raw);
-          setNumeric(value);
-          onValueChange?.(value);
-        }}
-        onBlur={() => {
-          if (!text) return;
-          const value = parseBRLInput(text);
-          setNumeric(value);
-          setText(value ? formatBRLInput(value) : "");
+          // Ignora tudo que não é dígito (o "," e "." que aparecem no campo
+          // são só formatação nossa, nunca vêm de digitação — o teclado
+          // numérico do celular nem oferece esses caracteres) e reconstrói
+          // o valor em centavos a partir do que sobrou.
+          const digits = e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+          const newCents = digits ? Math.min(Number(digits), Number.MAX_SAFE_INTEGER) : 0;
+          setCents(newCents);
+          onValueChange?.(newCents / 100);
         }}
         className={cn(
-          "w-full h-11 rounded-xl border border-black/20 bg-brand-900 px-3.5 text-[15px] text-onbrand text-right tabular-nums",
+          "w-full h-11 rounded-xl border border-transparent bg-brand-800 px-3.5 text-[15px] text-onbrand text-right tabular-nums",
           "placeholder:text-onbrand/35 focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60",
           "disabled:opacity-50 disabled:cursor-not-allowed transition-shadow",
           className
@@ -89,7 +104,7 @@ export function CurrencyInput({
           depende de formData.get(name) ser "vazio" (ex: "valor atual, igual
           ao investido se não preencher") nunca cairia no fallback, já que
           uma string não-vazia como "0.00" é truthy mesmo valendo zero. */}
-      {name && <input type="hidden" name={name} value={text ? numeric.toFixed(2) : ""} />}
+      {name && <input type="hidden" name={name} value={cents ? (cents / 100).toFixed(2) : ""} />}
     </>
   );
 }

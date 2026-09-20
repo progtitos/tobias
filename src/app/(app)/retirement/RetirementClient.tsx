@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Save, Sparkles, Info } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -70,8 +72,17 @@ export function RetirementClient({
 
   function save() {
     startTransition(async () => {
-      await saveRetirementPlanAction(inputs);
-      setSaved(true);
+      // Sem isso, qualquer rejeição da action (ex.: validação de "renda
+      // mensal desejada" zerada) virava uma exceção não tratada dentro da
+      // transição — o clique no botão simplesmente não fazia nada visível,
+      // sem erro nenhum na tela (bug reportado pelo Thiago 2026-09-20:
+      // "botão salvar plano está bugado").
+      try {
+        await saveRetirementPlanAction(inputs);
+        setSaved(true);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Não foi possível salvar o plano.");
+      }
     });
   }
 
@@ -157,17 +168,15 @@ export function RetirementClient({
               onChange={(v) => set("targetRetirementAge", v)}
               step={1}
             />
-            <NumberField
+            <MoneyField
               label="Renda mensal desejada"
-              value={inputs.desiredMonthlyIncome}
+              defaultValue={inputs.desiredMonthlyIncome}
               onChange={(v) => set("desiredMonthlyIncome", v)}
-              prefix="R$"
             />
-            <NumberField
+            <MoneyField
               label="Aporte mensal atual"
-              value={inputs.monthlyContribution}
+              defaultValue={inputs.monthlyContribution}
               onChange={(v) => set("monthlyContribution", v)}
-              prefix="R$"
             />
             <div>
               <Label>Retorno anual esperado (%)</Label>
@@ -205,9 +214,19 @@ export function RetirementClient({
             </div>
             <div>
               <Label>Data de nascimento</Label>
+              {/* defaultValue (não-controlado) em vez de value: um
+                  <input type="date"> controlado, com o `value` sendo
+                  reescrito a cada tecla, brigava com o próprio navegador
+                  enquanto o ano estava incompleto (o `.value` do campo só
+                  existe depois que os 3 blocos — dia/mês/ano — ficam
+                  válidos, então o React ficava tentando forçar de volta um
+                  valor vazio no meio da digitação) — dava pra travar no
+                  meio do preenchimento do ano (bug reportado pelo Thiago
+                  2026-09-20). O valor final só é lido no onChange, quando o
+                  navegador já considera a data completa. */}
               <Input
                 type="date"
-                value={inputs.birthDate ? inputs.birthDate.toISOString().slice(0, 10) : ""}
+                defaultValue={inputs.birthDate ? inputs.birthDate.toISOString().slice(0, 10) : undefined}
                 onChange={(e) => set("birthDate", e.target.value ? parseDateOnly(e.target.value) : null)}
               />
             </div>
@@ -228,17 +247,15 @@ export function RetirementClient({
               onChange={(v) => set("contributionYearsToDate", v || null)}
               step={0.5}
             />
-            <NumberField
+            <MoneyField
               label="Média salarial de contribuição"
-              value={inputs.averageMonthlySalary ?? 0}
+              defaultValue={inputs.averageMonthlySalary ?? 0}
               onChange={(v) => set("averageMonthlySalary", v || null)}
-              prefix="R$"
             />
-            <NumberField
+            <MoneyField
               label="Já sabe o valor do seu benefício? (opcional)"
-              value={inputs.guaranteedMonthlyIncomeOverride ?? 0}
+              defaultValue={inputs.guaranteedMonthlyIncomeOverride ?? 0}
               onChange={(v) => set("guaranteedMonthlyIncomeOverride", v || null)}
-              prefix="R$"
             />
             <p className="text-xs text-onbrand/40 -mt-3">
               Preenchendo isso, ignoramos a estimativa e usamos direto o valor informado (ex.: você já consultou o Meu INSS).
@@ -265,27 +282,40 @@ function NumberField({
   value,
   onChange,
   step = 0.01,
-  prefix,
 }: {
   label?: string;
   value: number;
   onChange: (v: number) => void;
   step?: number;
-  prefix?: string;
 }) {
   return (
     <div>
       {label && <Label>{label}</Label>}
-      <div className="relative">
-        {prefix && <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-onbrand/40">{prefix}</span>}
-        <Input
-          type="number"
-          step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value) || 0)}
-          className={prefix ? "pl-9" : undefined}
-        />
-      </div>
+      <Input type="number" step={step} value={value} onChange={(e) => onChange(Number(e.target.value) || 0)} />
+    </div>
+  );
+}
+
+// Todo valor em reais usa CurrencyInput, sem exceção (design-system-tobias.md
+// §10) — a tela de Aposentadoria era a única que ainda usava
+// `<input type="number">` cru com um "R$" desenhado à mão por cima (achado
+// da auditoria de UX + pedido do Thiago 2026-09-20 pra máscara em tempo
+// real valer em todo o sistema). CurrencyInput não aceita `value` controlado
+// de fora, então aqui ele fica "não-controlado", só reportando pra cima via
+// `onChange` a cada tecla — mesmo padrão já usado em InvestimentosClient.
+function MoneyField({
+  label,
+  defaultValue,
+  onChange,
+}: {
+  label: string;
+  defaultValue: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <CurrencyInput defaultValue={defaultValue} onValueChange={onChange} />
     </div>
   );
 }
