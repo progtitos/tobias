@@ -149,7 +149,7 @@ export function ProfileRevealOverlay({ reveal, onDone }: { reveal: RevealData; o
                   >
                     {reveal.retirementPreview.base.onTrack
                       ? "No alvo para a idade que você quer se aposentar"
-                      : "Um plano inicial — vamos ajustar juntos ao longo do caminho"}
+                      : "Um plano inicial, vamos ajustar juntos ao longo do caminho"}
                   </span>
                 </div>
               </div>

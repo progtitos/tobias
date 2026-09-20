@@ -22,7 +22,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: "dashboard-ponteiro",
     title: "O Ponteiro",
-    body: "Uma nota de 0 a 100 pra sua vida financeira inteira, somando 9 dimensões — controle de gastos, patrimônio, objetivos e mais. É o primeiro lugar pra saber onde focar.",
+    body: "Uma nota de 0 a 100 pra sua vida financeira inteira, somando 9 dimensões: controle de gastos, patrimônio, objetivos e mais. É o primeiro lugar pra saber onde focar.",
     placement: "bottom",
   },
   {
@@ -40,7 +40,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: "nav-retirement",
     title: "Sua curva de aposentadoria",
-    body: "Uma projeção do seu patrimônio total em 3 cenários de retorno, pra acompanhar se você está no caminho certo — não é uma recomendação de investimento, é o seu norte.",
+    body: "Uma projeção do seu patrimônio total em 3 cenários de retorno, pra acompanhar se você está no caminho certo. Não é uma recomendação de investimento, é o seu norte.",
     placement: "right",
   },
 ];

@@ -152,7 +152,7 @@ export default async function DashboardPage() {
                         {data.retirementPreview.base.onTrack ? "No alvo" : "Requer ajuste"}
                       </Badge>
                       <span className="text-[11px] text-onbrand/45">
-                        Projeção do seu patrimônio total (contas + investimentos) em 3 cenários de retorno — não é uma recomendação de investimento.
+                        Projeção do seu patrimônio total (contas + investimentos) em 3 cenários de retorno. Não é uma recomendação de investimento.
                       </span>
                     </div>
                   </>

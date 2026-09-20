@@ -19,7 +19,7 @@ export function ImportLeadsForm() {
         <p className="text-xs text-onbrand/55 mb-3">
           Cabeçalho aceito em qualquer ordem: <span className="text-onbrand/75">name/nome</span>,{" "}
           <span className="text-onbrand/75">email</span>, <span className="text-onbrand/75">phone/telefone</span>.
-          Aceita .csv, .xlsx e .xls. Aguenta arquivos grandes (ex: 50 mil linhas) — a importação roda em blocos.
+          Aceita .csv, .xlsx e .xls. Aguenta arquivos grandes (ex: 50 mil linhas), a importação roda em blocos.
         </p>
         <form action={formAction} className="flex items-center gap-3 flex-wrap">
           <input

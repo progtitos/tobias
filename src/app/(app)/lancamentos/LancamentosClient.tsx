@@ -879,7 +879,7 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
             </button>
           </div>
           <p className="text-xs text-onbrand/55 mb-4">
-            Mesma data, valor e descrição parecida no mês visível — confira antes de excluir, o Tobias pode estar
+            Mesma data, valor e descrição parecida no mês visível. Confira antes de excluir, o Tobias pode estar
             errado.
           </p>
 
@@ -979,7 +979,7 @@ function TransactionRow({
       toast.success(
         appliedCount > 0
           ? `Regra salva. ${appliedCount} transação${appliedCount > 1 ? "ões" : ""} antiga${appliedCount > 1 ? "s" : ""} sem categoria também ${appliedCount > 1 ? "foram" : "foi"} marcada${appliedCount > 1 ? "s" : ""} como ${categoryName}.`
-          : `Regra salva — daqui pra frente, "${keyword.trim()}" cai direto em ${categoryName}.`
+          : `Regra salva. Daqui pra frente, "${keyword.trim()}" cai direto em ${categoryName}.`
       );
     });
   }

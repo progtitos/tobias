@@ -37,7 +37,7 @@ export function ConnectAccountsStep({ onDone }: { onDone: () => void }) {
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold-400 mb-3">Quase lá</p>
       <h2 className="font-display font-bold text-2xl text-onbrand mb-2">Vamos conectar suas contas</h2>
       <p className="text-sm text-onbrand/70 leading-relaxed mb-6 max-w-sm">
-        Adicione ao menos uma conta, cartão ou investimento — isso deixa sua curva de aposentadoria bem mais precisa
+        Adicione ao menos uma conta, cartão ou investimento, isso deixa sua curva de aposentadoria bem mais precisa
         do que só o que você me contou até aqui.
       </p>
 
@@ -76,7 +76,7 @@ export function ConnectAccountsStep({ onDone }: { onDone: () => void }) {
             />
           ) : (
             <p className="text-xs text-onbrand/55 py-2">
-              Adicione uma conta bancária primeiro — todo cartão fica ligado à conta que paga a fatura.
+              Adicione uma conta bancária primeiro: todo cartão fica ligado à conta que paga a fatura.
             </p>
           )}
         </QuickAddCard>

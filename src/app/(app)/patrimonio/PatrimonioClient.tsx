@@ -47,7 +47,7 @@ export function PatrimonioClient({ goals, netWorth }: { goals: Goal[]; netWorth:
       <div className="max-w-3xl mx-auto w-full">
         <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Patrimônio</h1>
         <p className="text-sm text-onbrand/55 mb-6">
-          Seu patrimônio líquido e seus objetivos, num lugar só. Para editar investimentos, vá em Investimentos — para
+          Seu patrimônio líquido e seus objetivos, num lugar só. Para editar investimentos, vá em Investimentos, para
           contas bancárias, vá em Conta.
         </p>
 

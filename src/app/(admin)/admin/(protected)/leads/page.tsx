@@ -20,8 +20,8 @@ export default async function AdminLeadsPage({
     <div>
       <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Leads (CRM)</h1>
       <p className="text-sm text-onbrand/55 mb-6">
-        {total} lead(s) cadastrado(s). Envio de e-mail marketing e WhatsApp em massa ainda não estão conectados aqui
-        — ver nota no schema (<span className="text-onbrand/70">leads</span>) sobre por quê.
+        {total} lead(s) cadastrado(s). Envio de e-mail marketing e WhatsApp em massa ainda não estão conectados aqui,
+        ver nota no schema (<span className="text-onbrand/70">leads</span>) sobre por quê.
       </p>
 
       <ImportLeadsForm />
@@ -63,10 +63,10 @@ export default async function AdminLeadsPage({
             <tbody>
               {rows.map((l) => (
                 <tr key={l.id} className="even:bg-onbrand/[0.025]">
-                  <td className="px-4 py-3 text-onbrand font-medium">{l.name || "—"}</td>
-                  <td className="px-4 py-3 text-onbrand/70">{l.email || "—"}</td>
-                  <td className="px-4 py-3 text-onbrand/70">{l.phone || "—"}</td>
-                  <td className="px-4 py-3 text-onbrand/50 text-xs">{l.source || "—"}</td>
+                  <td className="px-4 py-3 text-onbrand font-medium">{l.name || "-"}</td>
+                  <td className="px-4 py-3 text-onbrand/70">{l.email || "-"}</td>
+                  <td className="px-4 py-3 text-onbrand/70">{l.phone || "-"}</td>
+                  <td className="px-4 py-3 text-onbrand/50 text-xs">{l.source || "-"}</td>
                   <td className="px-4 py-3">
                     <LeadStatusSelect lead={l} />
                   </td>

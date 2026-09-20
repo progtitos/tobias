@@ -115,7 +115,7 @@ export function ContaClient({
         <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Suas contas</h1>
         <p className="text-sm text-onbrand/55 mb-6">
           Contas bancárias, carteiras digitais e cartões de crédito ligados a elas. Abra uma conta pra atualizar o
-          saldo, importar o extrato ou adicionar um cartão — e importar a fatura direto dele.
+          saldo, importar o extrato ou adicionar um cartão, e importar a fatura direto dele.
         </p>
 
         <Card className="mb-6">
@@ -187,7 +187,7 @@ export function ContaClient({
 
               {accounts.length === 0 ? (
                 <p className="text-sm text-onbrand/55 py-8 text-center">
-                  Nenhuma conta cadastrada ainda — adicione pra o patrimônio refletir a realidade.
+                  Nenhuma conta cadastrada ainda. Adicione pra o patrimônio refletir a realidade.
                 </p>
               ) : (
                 <div className="divide-y divide-onbrand/[0.04]">
@@ -248,7 +248,7 @@ export function ContaClient({
               {creditCards.length === 0 ? (
                 <p className="text-sm text-onbrand/55 py-8 text-center">
                   {accounts.length === 0
-                    ? "Adicione uma conta primeiro — todo cartão fica ligado à conta que paga a fatura."
+                    ? "Adicione uma conta primeiro: todo cartão fica ligado à conta que paga a fatura."
                     : "Nenhum cartão cadastrado ainda."}
                 </p>
               ) : (
@@ -891,7 +891,7 @@ function CardRow({
             {accountName ? `${accountName} · ` : ""}
             {card.limitAmount != null
               ? `Limite disponível: ${formatBRL(available ?? 0)}`
-              : "Sem limite cadastrado — edite pra acompanhar o uso"}
+              : "Sem limite cadastrado, edite pra acompanhar o uso"}
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">

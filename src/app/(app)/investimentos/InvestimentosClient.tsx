@@ -68,8 +68,8 @@ export function InvestimentosClient({
       <div className="max-w-3xl mx-auto w-full">
         <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Investimentos</h1>
         <p className="text-sm text-onbrand/55 mb-6">
-          Seus investimentos alimentam o patrimônio líquido (em Patrimônio), a curva de aposentadoria e o Ponteiro —
-          para editar contas bancárias, vá em Conta.
+          Seus investimentos alimentam o patrimônio líquido (em Patrimônio), a curva de aposentadoria e o Ponteiro.
+          Para editar contas bancárias, vá em Conta.
         </p>
 
         <AccountsSection accounts={accounts} />
@@ -100,7 +100,7 @@ function AccountsSection({ accounts }: { accounts: InvestmentAccount[] }) {
         <CardContent className="py-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-sm text-onbrand/60">
             <Landmark className="h-4 w-4 shrink-0" />
-            Ainda não tem uma corretora cadastrada — adicione uma para poder subir um extrato consolidado.
+            Ainda não tem uma corretora cadastrada. Adicione uma para poder subir um extrato consolidado.
           </div>
           <Button size="sm" variant="outline" onClick={() => setShowAccountForm(true)}>
             <Plus className="h-3.5 w-3.5" /> Adicionar corretora
@@ -198,7 +198,7 @@ function InvestmentUploadForm({ accountId, onCancel }: { accountId: string; onCa
     <form action={formAction} className="rounded-xl bg-brand-900/60 p-3.5 mt-2">
       <input type="hidden" name="bankAccountId" value={accountId} />
       <p className="text-xs text-onbrand/60 mb-2">
-        Suba o extrato/relatório consolidado dessa corretora (PDF ou foto/print) — o Tobias lê as posições e você
+        Suba o extrato/relatório consolidado dessa corretora (PDF ou foto/print): o Tobias lê as posições e você
         confere antes de confirmar.
       </p>
       <input

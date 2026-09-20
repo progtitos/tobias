@@ -93,7 +93,7 @@ export function RetirementClient({
         <div>
           <h1 className="font-sans font-bold text-2xl text-onbrand">Curva de aposentadoria</h1>
           <p className="text-sm text-onbrand/55 mt-1">
-            Simule 3 cenários de retorno sobre seu patrimônio total de hoje ({formatBRL(currentNetWorth)}: contas + investimentos) — não é uma recomendação de investimento nem sua alocação real.
+            Simule 3 cenários de retorno sobre seu patrimônio total de hoje ({formatBRL(currentNetWorth)}: contas + investimentos). Não é uma recomendação de investimento nem sua alocação real.
           </p>
         </div>
         <Button size="sm" loading={pending} onClick={save}>
@@ -138,13 +138,13 @@ export function RetirementClient({
                 <p className="text-onbrand/50 flex items-start gap-1.5">
                   <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   Estimativa de INSS pela {inssEstimate.bestRule.label}: {formatBRL(inssEstimate.bestRule.monthlyBenefit ?? 0)}/mês
-                  {inssEstimate.bestRule.approximate ? " (aproximado — usa fator previdenciário)" : ""}. Confira o valor exato no Meu INSS antes de decidir algo com base nele.
+                  {inssEstimate.bestRule.approximate ? " (aproximado, usa fator previdenciário)" : ""}. Confira o valor exato no Meu INSS antes de decidir algo com base nele.
                 </p>
               )}
               {!inssEstimate?.bestRule && inputs.birthDate && inputs.gender && inputs.contributionYearsToDate != null && inputs.averageMonthlySalary != null && (
                 <p className="text-onbrand/50 flex items-start gap-1.5">
                   <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  Com esses dados, você ainda não teria direito ao INSS na idade-alvo escolhida — a renda garantida está zerada nesta simulação.
+                  Com esses dados, você ainda não teria direito ao INSS na idade-alvo escolhida. A renda garantida está zerada nesta simulação.
                 </p>
               )}
               {!simulation.base.onTrack && (

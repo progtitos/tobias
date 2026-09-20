@@ -74,10 +74,10 @@ export default async function AdminOverviewPage() {
 
       <Card>
         <CardContent className="py-4">
-          <h2 className="font-sans font-semibold text-onbrand mb-1">CRM — Leads</h2>
+          <h2 className="font-sans font-semibold text-onbrand mb-1">CRM: Leads</h2>
           <p className="text-sm text-onbrand/55 mb-3">
             {overview.totalLeads} lead(s) cadastrado(s). Disparo de e-mail/WhatsApp em massa ainda não está
-            conectado — ver <span className="text-onbrand/70">/admin/leads</span> pra importar e gerenciar por
+            conectado, ver <span className="text-onbrand/70">/admin/leads</span> pra importar e gerenciar por
             enquanto.
           </p>
           <div className="flex gap-2 flex-wrap">
