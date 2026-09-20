@@ -29,20 +29,37 @@ export function nowInBrazil(): Date {
 
 /**
  * Normaliza formatos comuns de data pra "YYYY-MM-DD" antes de validar. A
- * extração de extrato/fatura por IA (`schemas.ts`) pede "ISO 8601 date" no
- * schema, mas isso é só uma descrição pro modelo, não uma garantia — um
- * extrato brasileiro mostra a data na tela como "05/03/2026" (DD/MM/AAAA), e
- * o modelo às vezes copia esse formato ao pé da letra em vez de converter.
+ * extração de extrato/fatura/CNIS por IA (`schemas.ts`) pede um formato ISO
+ * específico no schema, mas isso é só uma descrição pro modelo, não uma
+ * garantia — um documento brasileiro mostra a data na tela num formato
+ * local, e o modelo às vezes copia isso ao pé da letra em vez de converter.
  *
- * Bug de produção que motivou isso (2026-09-20, no dia seguinte ao fix
- * anterior): sem essa normalização, um extrato inteiro caía no "nenhuma data
- * veio num formato reconhecível" — não porque os dados estivessem
- * corrompidos, mas porque vieram num formato válido só que diferente do
- * único que `parseDateOnly` aceitava. Como o produto é só pro Brasil,
- * assume-se DD/MM/AAAA (nunca MM/DD/AAAA) quando o formato não é ISO.
+ * Dois casos reais de produção (2026-09-20, ambos no dia seguinte ao fix
+ * anterior que passou a *validar* data em vez de deixar passar um
+ * `Invalid Date` silencioso — e por isso só aí ficaram visíveis):
+ * - Extrato/fatura: data completa em "05/03/2026" (DD/MM/AAAA) em vez de
+ *   ISO — tratado abaixo por `brFull`/`brShort`.
+ * - Extrato do CNIS: competência em "10/2008" (MM/AAAA, sem dia — é assim
+ *   que o Meu INSS mostra, competência é mês/ano, não uma data com dia)
+ *   em vez de "2008-10-01" como o schema pede — tratado abaixo por
+ *   `competenciaMesAno`, assumindo dia 01 (mesma convenção documentada no
+ *   próprio schema de `rawCnisSalaryRecordSchema`).
+ *
+ * Sem essa normalização, um documento inteiro caía no "nenhuma data veio
+ * num formato reconhecível" — não porque os dados estivessem corrompidos,
+ * mas porque vieram num formato válido só que diferente do único que
+ * `parseDateOnly` aceitava. Como o produto é só pro Brasil, assume-se
+ * sempre dia/mês nessa ordem (nunca mês/dia) quando o formato não é ISO.
  */
 function normalizeDateFormats(dateStr: string): string {
   if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return dateStr;
+
+  // MM/AAAA ou MM-AAAA — competência do CNIS (mês/ano, sem dia)
+  const competenciaMesAno = /^(\d{2})[/-](\d{4})$/.exec(dateStr);
+  if (competenciaMesAno) {
+    const [, m, y] = competenciaMesAno;
+    return `${y}-${m}-01`;
+  }
 
   // DD/MM/AAAA ou DD-MM-AAAA
   const brFull = /^(\d{2})[/-](\d{2})[/-](\d{4})$/.exec(dateStr);

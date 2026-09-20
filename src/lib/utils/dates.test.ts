@@ -37,6 +37,25 @@ describe("parseDateOnly", () => {
     expect(d.getUTCDate()).toBe(5);
   });
 
+  it("aceita MM/AAAA assumindo dia 01 (competência do CNIS, sem dia)", () => {
+    const d = parseDateOnly("10/2008");
+    expect(d.getUTCFullYear()).toBe(2008);
+    expect(d.getUTCMonth()).toBe(9); // outubro = índice 9
+    expect(d.getUTCDate()).toBe(1);
+  });
+
+  it("aceita MM-AAAA", () => {
+    const d = parseDateOnly("03-2020");
+    expect(d.getUTCFullYear()).toBe(2020);
+    expect(d.getUTCMonth()).toBe(2);
+    expect(d.getUTCDate()).toBe(1);
+  });
+
+  it("rejeita mês impossível em MM/AAAA", () => {
+    expect(() => parseDateOnly("13/2020")).toThrow();
+    expect(() => parseDateOnly("00/2020")).toThrow();
+  });
+
   it("rejeita dia/mês impossível mesmo em formato BR", () => {
     expect(() => parseDateOnly("31/02/2026")).toThrow();
   });
