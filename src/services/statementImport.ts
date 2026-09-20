@@ -8,7 +8,7 @@ import { parseCsvStatement } from "@/lib/utils/csvStatement";
 import { getUserCategories, matchCategoryByGuess, matchRecurringCategoryRule, getRecurringCategoryRules, learnRecurringCategoryRule } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { adjustBankAccountBalance } from "./bankAccounts";
-import { parseDateOnly, parseDateOnlyOrNull } from "@/lib/utils/dates";
+import { parseDateOnly, parseDateOnlyOrNull, completeDayMonthOnly, nowInBrazil } from "@/lib/utils/dates";
 
 export type UploadedFile = { buffer: Buffer; mimeType: string; fileName: string };
 export type ImportTarget = { bankAccountId: string } | { creditCardId: string };
@@ -126,6 +126,18 @@ export async function uploadStatementDocument(userId: string, file: UploadedFile
     return { document, items: [] };
   }
 
+  // Muitas faturas de cartão mostram cada linha só como "13/09" (sem ano —
+  // o ano fica implícito no período da fatura, que é um campo à parte na
+  // extração). A IA às vezes copia a linha ao pé da letra em vez de
+  // completar com o ano, então completamos aqui usando o período do
+  // documento como referência antes de validar — sem isso, uma fatura
+  // inteira caía no "nenhuma data reconhecível" mesmo com dados válidos
+  // (bug de produção, 2026-09-20). `periodEnd` é preferido a `periodStart`
+  // por ser o mais próximo da maioria das transações de uma fatura (perto
+  // do fechamento); cai pra "agora" só se nenhum dos dois vier legível.
+  const referenceDate = parseDateOnlyOrNull(periodEnd) ?? parseDateOnlyOrNull(periodStart) ?? nowInBrazil();
+  const completedExtracted = extracted.map((t) => ({ ...t, date: completeDayMonthOnly(t.date, referenceDate) }));
+
   // Descarta só as linhas com data ilegível em vez de deixar o `Invalid
   // Date` estourar lá na hora de gravar no banco — bug de produção
   // (2026-09-20): a IA devolveu uma data fora do formato ISO pra uma linha
@@ -133,7 +145,7 @@ export async function uploadStatementDocument(userId: string, file: UploadedFile
   // servidor genérico, sem nenhuma linha chegando na tela de Revisão. Mesmo
   // espírito de "descartar, não derrubar tudo" já usado pra amount <= 0 (ver
   // rawStatementTransactionSchema em schemas.ts).
-  const validExtracted = extracted.filter((t) => {
+  const validExtracted = completedExtracted.filter((t) => {
     try {
       parseDateOnly(t.date);
       return true;

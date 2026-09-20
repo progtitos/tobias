@@ -140,6 +140,47 @@ export function parseDateOnlyOrNull(dateStr: string | null | undefined): Date | 
 }
 
 /**
+ * Completa uma data "DD/MM" ou "DD-MM" (sem ano) usando uma data de
+ * referência pra decidir o ano — terceiro caso real de produção
+ * (2026-09-20) na mesma família dos dois anteriores: uma fatura de cartão
+ * mostra cada linha só como "13/09", sem ano (o ano fica implícito no
+ * período da fatura, mostrado em outro lugar do documento), e a IA às
+ * vezes copia a linha ao pé da letra em vez de completar com o ano.
+ *
+ * Sem uma referência (`periodStart`/`periodEnd` do próprio documento,
+ * capturados à parte pela extração), não tem como adivinhar o ano com
+ * segurança só a partir de "DD/MM" — por isso essa função pede
+ * `referenceDate` explicitamente, ao contrário de `normalizeDateFormats`
+ * (que só reescreve formatos já inequívocos). Quem chama decide o
+ * fallback quando não há referência nenhuma (ver `statementImport.ts`).
+ *
+ * Datas a mais de 6 meses do mês de referência são tratadas como do ano
+ * anterior/seguinte — cobre o caso de fatura que fecha em janeiro
+ * cobrindo compras feitas em dezembro do ano anterior.
+ *
+ * Se `dateStr` não for "DD/MM" puro (já tem ano, ou é outro formato
+ * qualquer), devolve sem alteração — quem chama passa o resultado adiante
+ * pra `parseDateOnly` normalmente.
+ *
+ * Lê `referenceDate` com getters UTC (`getUTCFullYear`/`getUTCMonth`), não
+ * locais — coerente com `parseDateOnly` (que sempre devolve datas ancoradas
+ * em UTC) e válido também para um fallback via `nowInBrazil()` porque o
+ * processo roda em UTC (Vercel; conferido no ambiente de teste também),
+ * mesma premissa já documentada em `aggregations.ts`/`monthRange`.
+ */
+export function completeDayMonthOnly(dateStr: string, referenceDate: Date): string {
+  const match = /^(\d{2})[/-](\d{2})$/.exec(dateStr ?? "");
+  if (!match) return dateStr;
+  const [, dStr, mStr] = match;
+  const month = Number(mStr);
+  let year = referenceDate.getUTCFullYear();
+  const refMonth = referenceDate.getUTCMonth() + 1;
+  if (month - refMonth > 6) year -= 1;
+  else if (refMonth - month > 6) year += 1;
+  return `${year}-${mStr}-${dStr}`;
+}
+
+/**
  * Soma meses a uma data sem o overflow silencioso de `Date#setMonth` — por
  * exemplo, 31/01 + 1 mês vira 28/02 (ou 29 em ano bissexto), nunca 03/03.
  * `Date#setMonth` estoura porque ele soma o mês primeiro e só depois

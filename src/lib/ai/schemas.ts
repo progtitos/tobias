@@ -231,7 +231,11 @@ export const receiptExtractionJsonSchema = {
 // ----------------------------------------------------------------------------
 
 const rawStatementTransactionSchema = z.object({
-  date: z.string().describe("ISO 8601 date"),
+  date: z
+    .string()
+    .describe(
+      "Data no formato ISO 8601 (AAAA-MM-DD), SEMPRE com o ano incluído. Muitas faturas mostram cada linha só como \"DD/MM\" (sem ano) — nesse caso, infira o ano a partir do período/vencimento da fatura (não deixe o ano de fora)."
+    ),
   description: z.string(),
   // Aceita 0/negativo aqui de propósito — ver o .transform abaixo. Se
   // exigíssemos positive() diretamente neste item, UMA linha de "saldo
