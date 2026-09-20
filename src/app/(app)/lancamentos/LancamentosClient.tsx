@@ -973,12 +973,12 @@ function TransactionRow({
   function saveRule() {
     if (!categoryId || !keyword.trim()) return;
     startTransition(async () => {
-      const appliedCount = await saveRecurringRuleAction(keyword.trim(), categoryId);
+      const appliedCount = await saveRecurringRuleAction(keyword.trim(), categoryId, transaction.id);
       setShowRule(false);
       const categoryName = categories.find((c) => c.id === categoryId)?.name ?? "essa categoria";
       toast.success(
         appliedCount > 0
-          ? `Regra salva. ${appliedCount} transação${appliedCount > 1 ? "ões" : ""} antiga${appliedCount > 1 ? "s" : ""} sem categoria também ${appliedCount > 1 ? "foram" : "foi"} marcada${appliedCount > 1 ? "s" : ""} como ${categoryName}.`
+          ? `Regra salva. ${appliedCount} transação${appliedCount > 1 ? "ões" : ""} antiga${appliedCount > 1 ? "s" : ""} também ${appliedCount > 1 ? "foram atualizadas" : "foi atualizada"} pra ${categoryName}.`
           : `Regra salva. Daqui pra frente, "${keyword.trim()}" cai direto em ${categoryName}.`
       );
     });
@@ -1121,7 +1121,18 @@ function TransactionRow({
                       if (!next) return;
                       setCategoryId(next);
                       setShowRule(false);
-                      startTransition(() => updateCategoryAction(transaction.id, next));
+                      startTransition(async () => {
+                        const { retroCount } = await updateCategoryAction(transaction.id, next);
+                        // Só avisa quando corrigiu outras juntas — trocar a
+                        // categoria de uma transação isolada (a maioria dos
+                        // casos) não precisa de um toast pra cada clique.
+                        if (retroCount > 0) {
+                          const categoryName = categories.find((c) => c.id === next)?.name ?? "essa categoria";
+                          toast.success(
+                            `${retroCount} outra${retroCount > 1 ? "s" : ""} transação${retroCount > 1 ? "ões" : ""} com a mesma descrição também ${retroCount > 1 ? "foram atualizadas" : "foi atualizada"} pra ${categoryName}.`
+                          );
+                        }
+                      });
                     }}
                   >
                     <option value="">Sem categoria</option>

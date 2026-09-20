@@ -5,7 +5,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db/client";
 import { transactions, categories, goals, bankAccounts, creditCards } from "@/lib/db/schema";
 import type { CreateTransactionInput } from "@/lib/validations/transaction";
-import { suggestCategory, learnMerchantCategory } from "./categorization";
+import { suggestCategory, learnMerchantCategory, applyCategoryToMatchingDescriptions } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { monthRange } from "./aggregations";
 import { applyGoalContribution, reverseGoalContribution } from "./goals";
@@ -275,6 +275,14 @@ export async function listTransactions(
     .limit(filters.limit ?? 200);
 }
 
+/**
+ * Além de mudar a categoria dessa transação, corrige de tabalada as outras
+ * do mesmo usuário com a MESMA descrição (ver `applyCategoryToMatchingDescriptions`)
+ * — sem isso, corrigir um Pix recorrente pro mesmo nome exigia repetir a
+ * correção manualmente em cada ocorrência antiga na lista (pedido do
+ * Thiago, 2026-09-20). Retorna também `retroCount` pra tela poder avisar
+ * quantas outras foram corrigidas junto.
+ */
 export async function updateTransactionCategory(userId: string, transactionId: string, categoryId: string) {
   const [tx] = await db
     .update(transactions)
@@ -282,8 +290,11 @@ export async function updateTransactionCategory(userId: string, transactionId: s
     .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)))
     .returning();
 
-  if (tx?.merchant) await learnMerchantCategory(userId, tx.merchant, categoryId);
-  return tx;
+  if (!tx) return { tx, retroCount: 0 };
+
+  if (tx.merchant) await learnMerchantCategory(userId, tx.merchant, categoryId);
+  const retroCount = await applyCategoryToMatchingDescriptions(userId, transactionId, tx.description, categoryId);
+  return { tx, retroCount };
 }
 
 export async function deleteTransaction(userId: string, transactionId: string) {

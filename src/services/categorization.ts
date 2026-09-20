@@ -1,5 +1,5 @@
 import "server-only";
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { eq, and, ne, isNull, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { categories, merchantCategoryMemories, recurringCategoryRules, transactions } from "@/lib/db/schema";
 import { AIService, isAIConfigured } from "@/lib/ai/AIService";
@@ -149,21 +149,36 @@ export async function saveRecurringCategoryRule(userId: string, keyword: string,
 
 /**
  * Aplica uma regra "contém" retroativamente às transações que já existem —
- * chamado logo depois de criar/atualizar a regra. Só preenche LACUNAS
- * (categoryId nulo): nunca troca uma categoria que a pessoa já escolheu de
- * propósito pra uma transação específica, mesmo que a descrição bata com a
- * palavra-chave nova. Compara em memória (não com ILIKE no SQL) porque a
- * normalização tira acento — "Condomínio" só bate com a regra "condominio"
- * assim, e o volume de transações sem categoria de uma pessoa é pequeno o
+ * chamado logo depois de criar/atualizar a regra. SOBRESCREVE mesmo uma
+ * transação que já tinha outra categoria (decisão do Thiago, 2026-09-20):
+ * uma transação recorrente costuma ter sido categorizada automaticamente
+ * (guess da IA) antes de a pessoa notar o padrão e criar a regra — exigir
+ * que ela corrija cada ocorrência antiga à mão, uma por uma, além de criar
+ * a regra, é o problema que essa função existe pra resolver. Exclui apenas
+ * a própria transação que originou a regra (`excludeTransactionId`), já
+ * atualizada por quem chamou. Compara em memória (não com ILIKE no SQL)
+ * porque a normalização tira acento — "Condomínio" só bate com a regra
+ * "condominio" assim, e o volume de transações de uma pessoa é pequeno o
  * bastante pra isso não pesar.
  */
-async function applyRecurringRuleToExisting(userId: string, keywordNormalized: string, categoryId: string): Promise<number> {
+async function applyRecurringRuleToExisting(
+  userId: string,
+  keywordNormalized: string,
+  categoryId: string,
+  excludeTransactionId?: string
+): Promise<number> {
   if (!keywordNormalized) return 0;
 
   const candidates = await db
     .select({ id: transactions.id, description: transactions.description })
     .from(transactions)
-    .where(and(eq(transactions.userId, userId), eq(transactions.type, "EXPENSE"), isNull(transactions.categoryId)));
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(transactions.type, "EXPENSE"),
+        excludeTransactionId ? ne(transactions.id, excludeTransactionId) : undefined
+      )
+    );
 
   const matchIds = candidates.filter((t) => normalizeForContains(t.description).includes(keywordNormalized)).map((t) => t.id);
   if (matchIds.length === 0) return 0;
@@ -177,17 +192,61 @@ async function applyRecurringRuleToExisting(userId: string, keywordNormalized: s
 
 /**
  * Ponto de entrada único pra "categorizar assim sempre": salva a regra e já
- * aplica pras transações sem categoria que já existem (não só pras
- * futuras) — pra alguém que só percebeu o padrão depois de já ter várias
- * ocorrências soltas na lista (ex: aluguel dos últimos meses todos "Sem
- * categoria"), marcar a regra uma vez resolve o passado junto, não só o que
- * vier depois. Retorna quantas transações antigas foram corrigidas, pra tela
- * poder avisar.
+ * aplica pra TODAS as transações que baterem com a palavra-chave, não só
+ * pras futuras nem só pras sem categoria — pra alguém que só percebeu o
+ * padrão depois de já ter várias ocorrências soltas na lista (algumas até
+ * já categorizadas errado por um guess automático), marcar a regra uma vez
+ * resolve o passado inteiro junto, não só o que vier depois. Retorna
+ * quantas transações antigas foram atualizadas, pra tela poder avisar.
  */
-export async function learnRecurringCategoryRule(userId: string, keyword: string, categoryId: string): Promise<number> {
+export async function learnRecurringCategoryRule(
+  userId: string,
+  keyword: string,
+  categoryId: string,
+  excludeTransactionId?: string
+): Promise<number> {
   await saveRecurringCategoryRule(userId, keyword, categoryId);
   const keywordNormalized = normalizeForContains(keyword);
-  return applyRecurringRuleToExisting(userId, keywordNormalized, categoryId);
+  return applyRecurringRuleToExisting(userId, keywordNormalized, categoryId, excludeTransactionId);
+}
+
+/**
+ * Aplica a mesma categoria a todas as outras transações do usuário com a
+ * MESMA descrição (comparação exata após normalizar acento/caixa — não
+ * "contém" como a regra de palavra-chave acima) — chamado direto do
+ * seletor simples de categoria na lista de Transações, sem precisar abrir
+ * o painel de "categorizar assim sempre" e digitar uma palavra-chave.
+ * Descrição idêntica já é um sinal forte o bastante pra dispensar isso (ex:
+ * um Pix recorrente pro mesmo nome/CPF gera sempre o mesmo texto).
+ *
+ * SOBRESCREVE mesmo uma transação que já tinha outra categoria, mesmo
+ * espírito de `applyRecurringRuleToExisting` (ver comentário lá): corrigir
+ * uma transação errada deveria corrigir junto as outras iguais, não só
+ * preencher as que estavam em branco. Exclui a própria transação que
+ * originou a mudança (já atualizada por quem chamou).
+ */
+export async function applyCategoryToMatchingDescriptions(
+  userId: string,
+  excludeTransactionId: string,
+  description: string,
+  categoryId: string
+): Promise<number> {
+  const normalizedDescription = normalizeForContains(description);
+  if (!normalizedDescription) return 0;
+
+  const candidates = await db
+    .select({ id: transactions.id, description: transactions.description })
+    .from(transactions)
+    .where(and(eq(transactions.userId, userId), eq(transactions.type, "EXPENSE"), ne(transactions.id, excludeTransactionId)));
+
+  const matchIds = candidates.filter((t) => normalizeForContains(t.description) === normalizedDescription).map((t) => t.id);
+  if (matchIds.length === 0) return 0;
+
+  await db
+    .update(transactions)
+    .set({ categoryId, source: "MANUAL", confidence: 1.0, updatedAt: new Date() })
+    .where(inArray(transactions.id, matchIds));
+  return matchIds.length;
 }
 
 /** Called whenever a user confirms or corrects a category — this is what makes Tobias "learn" (spec §11). */

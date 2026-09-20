@@ -89,10 +89,12 @@ export async function updateTransactionAction(
   return { success: true };
 }
 
-export async function updateCategoryAction(transactionId: string, categoryId: string) {
+/** `retroCount` no retorno: quantas outras transações com a mesma descrição também foram corrigidas junto (ver updateTransactionCategory) — a tela usa isso pra avisar quando for mais de zero. */
+export async function updateCategoryAction(transactionId: string, categoryId: string): Promise<{ retroCount: number }> {
   const user = await requireOnboardedUser();
-  await updateTransactionCategory(user.id, transactionId, categoryId);
+  const { retroCount } = await updateTransactionCategory(user.id, transactionId, categoryId);
   revalidateAll();
+  return { retroCount };
 }
 
 export async function deleteTransactionAction(transactionId: string) {
@@ -106,13 +108,19 @@ export async function deleteTransactionAction(transactionId: string) {
  * Revisão de um extrato importado, onde a ideia nasceu) — pra um gasto fixo
  * mensal (ex: aluguel via Pix) cuja descrição muda um pouco a cada mês, mas
  * sempre contém o mesmo trecho. Além de valer pra futuras transações
- * (importadas ou lançadas à mão), já corrige na hora qualquer transação
- * "Sem categoria" existente cuja descrição bata com a palavra-chave —
- * retorna quantas foram corrigidas, pra tela poder avisar.
+ * (importadas ou lançadas à mão), já corrige na hora TODAS as transações
+ * existentes cuja descrição bata com a palavra-chave, mesmo as que já
+ * tinham outra categoria — retorna quantas foram corrigidas, pra tela poder
+ * avisar. `originTransactionId` é excluído da contagem: é a própria
+ * transação que abriu o painel, já atualizada antes de chegar aqui.
  */
-export async function saveRecurringRuleAction(keyword: string, categoryId: string): Promise<number> {
+export async function saveRecurringRuleAction(
+  keyword: string,
+  categoryId: string,
+  originTransactionId?: string
+): Promise<number> {
   const user = await requireOnboardedUser();
-  const appliedCount = await learnRecurringCategoryRule(user.id, keyword, categoryId);
+  const appliedCount = await learnRecurringCategoryRule(user.id, keyword, categoryId, originTransactionId);
   revalidateAll();
   return appliedCount;
 }
