@@ -199,6 +199,24 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
+/* O <select> fechado já é 100% nosso (Select.tsx: appearance-none + seta
+   própria), mas a lista que abre ao clicar é renderizada pelo SO/navegador
+   e ignora quase todo CSS de layout — só background-color/color de <option>
+   são respeitados (Chrome, Edge e Firefox; Safari continua nativo, sem
+   alternativa via CSS). Sem isso a lista abre branca/clara mesmo com o
+   resto da tela no tema escuro ("cade o DS, entrando" — Thiago 2026-09-20).
+   Aplica pra qualquer <select> do app, não só um componente específico. */
+select {
+  color-scheme: dark;
+}
+[data-theme="light"] select {
+  color-scheme: light;
+}
+select option {
+  background-color: var(--color-brand-700);
+  color: var(--color-onbrand);
+}
+
 /* Tobias mascot — a big, "alive" avatar that leans into a hero card from
    its top-right corner, breathing continuously so it reads as company
    rather than static art, and reacting on hover/focus with a stronger

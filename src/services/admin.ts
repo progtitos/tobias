@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, isNull, or, sql } from "drizzle-orm";
 import type ExcelJS from "exceljs";
 import { db } from "@/lib/db/client";
 import { users, sessions, leads, leadStatusEnum, userRoleEnum, subscriptionPlanEnum, subscriptionStatusEnum } from "@/lib/db/schema";
@@ -28,11 +28,22 @@ export async function getAdminOverview() {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
+  // isNull(deletedAt) em toda contagem de usuário — desde que excluir pelo
+  // admin virou soft delete, uma conta desativada não deve inflar "total de
+  // usuários"/"por status"/"por plano".
   const [totalRow, byStatusRows, byPlanRows, newLast30Row, totalLeadsRow, leadsByStatusRows] = await Promise.all([
-    db.select({ n: count() }).from(users),
-    db.select({ status: users.subscriptionStatus, n: count() }).from(users).groupBy(users.subscriptionStatus),
-    db.select({ plan: users.subscriptionPlan, n: count() }).from(users).groupBy(users.subscriptionPlan),
-    db.select({ n: count() }).from(users).where(gte(users.createdAt, thirtyDaysAgo)),
+    db.select({ n: count() }).from(users).where(isNull(users.deletedAt)),
+    db
+      .select({ status: users.subscriptionStatus, n: count() })
+      .from(users)
+      .where(isNull(users.deletedAt))
+      .groupBy(users.subscriptionStatus),
+    db
+      .select({ plan: users.subscriptionPlan, n: count() })
+      .from(users)
+      .where(isNull(users.deletedAt))
+      .groupBy(users.subscriptionPlan),
+    db.select({ n: count() }).from(users).where(and(isNull(users.deletedAt), gte(users.createdAt, thirtyDaysAgo))),
     db.select({ n: count() }).from(leads),
     db.select({ status: leads.status, n: count() }).from(leads).groupBy(leads.status),
   ]);
@@ -61,15 +72,19 @@ export async function listUsersForAdmin(opts: {
   const page = Math.max(1, opts.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 25));
 
-  const conditions = [];
+  // Bug real reportado pelo Thiago 2026-09-19: excluir um usuário "não fazia
+  // nada" — na verdade fazia (soft delete + derruba sessão), só que a lista
+  // nunca escondia quem já tinha `deletedAt` setado, então a linha continuava
+  // aparecendo igual antes de excluir.
+  const conditions = [isNull(users.deletedAt)];
   if (opts.search) {
     const term = `%${opts.search}%`;
-    conditions.push(or(ilike(users.name, term), ilike(users.email, term)));
+    conditions.push(or(ilike(users.name, term), ilike(users.email, term))!);
   }
   if (opts.status) {
     conditions.push(eq(users.subscriptionStatus, opts.status as (typeof users.subscriptionStatus.enumValues)[number]));
   }
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
   const [rows, totalRow] = await Promise.all([
     db
@@ -342,14 +357,60 @@ async function parseExcelRows(buffer: ArrayBuffer): Promise<string[][]> {
 export async function importLeadsFromRows(rows: string[][], source: string): Promise<{ imported: number; skipped: number; total: number }> {
   if (rows.length === 0) return { imported: 0, skipped: 0, total: 0 };
 
-  const header = rows[0].map((h) => h.trim().toLowerCase());
-  const idx = {
-    name: header.findIndex((h) => ["name", "nome", "nome completo"].includes(h)),
-    email: header.findIndex((h) => ["email", "e-mail", "e_mail"].includes(h)),
-    phone: header.findIndex((h) => ["phone", "telefone", "celular", "whatsapp"].includes(h)),
-  };
+  // Acha o cabeçalho procurando nas primeiras linhas, não assumindo que é
+  // sempre a linha 0 — planilha Excel exportada com uma linha de título
+  // acima da tabela de verdade (comum, diferente de CSV) fazia o cabeçalho
+  // "de fato" cair na linha 1 ou 2, e como nada batia com nome/email/telefone
+  // na linha 0, TODAS as linhas de dado eram descartadas como "vazias" (bug
+  // reportado pelo Thiago 2026-09-19: 0 de 39 importados).
+  // Casa por substring depois de normalizar (minúsculo, sem acento, sem
+  // pontuação/espaço) em vez de comparar a célula inteira contra uma lista
+  // fechada — cabeçalho real de CRM varia muito ("E-mail do lead", "Nome
+  // Completo", "Telefone/WhatsApp", "Contato"...) e uma comparação exata
+  // batia só com "nome"/"email"/"telefone" sozinhos, descartando qualquer
+  // variação como se a coluna não existisse.
+  const normalize = (s: string) =>
+    s
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  const NAME_KEYWORDS = ["nome", "name", "cliente", "lead"];
+  const EMAIL_KEYWORDS = ["email", "mail"];
+  const PHONE_KEYWORDS = ["telefone", "celular", "whatsapp", "fone", "contato", "phone", "tel"];
+  const findByKeyword = (header: string[], keywords: string[]) =>
+    header.findIndex((h) => keywords.some((k) => h.includes(k)));
 
-  const dataRows = rows.slice(1);
+  const HEADER_SCAN_LIMIT = 5;
+  let headerRowIndex = -1;
+  let idx = { name: -1, email: -1, phone: -1 };
+  for (let i = 0; i < Math.min(HEADER_SCAN_LIMIT, rows.length); i++) {
+    const header = rows[i].map(normalize);
+    // "email"/"mail" é o sinal mais confiável (dificilmente aparece em outra
+    // coluna) — resolve ele primeiro pra não deixar "nome" grudar num
+    // cabeçalho tipo "Nome do e-mail" achando a coluna errada.
+    const emailCol = findByKeyword(header, EMAIL_KEYWORDS);
+    const nameCol = findByKeyword(
+      header.map((h, i2) => (i2 === emailCol ? "" : h)),
+      NAME_KEYWORDS
+    );
+    const phoneCol = findByKeyword(
+      header.map((h, i2) => (i2 === emailCol || i2 === nameCol ? "" : h)),
+      PHONE_KEYWORDS
+    );
+    if (nameCol >= 0 || emailCol >= 0 || phoneCol >= 0) {
+      headerRowIndex = i;
+      idx = { name: nameCol, email: emailCol, phone: phoneCol };
+      break;
+    }
+  }
+  if (headerRowIndex === -1) {
+    throw new Error(
+      "Não encontrei uma coluna de nome, e-mail ou telefone nas primeiras linhas do arquivo. Confira se o cabeçalho usa um desses nomes."
+    );
+  }
+
+  const dataRows = rows.slice(headerRowIndex + 1);
   const toInsert: (typeof leads.$inferInsert)[] = [];
   let skipped = 0;
 

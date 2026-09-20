@@ -91,7 +91,12 @@ export function RetirementClient({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 mt-6">
-        <Card>
+        {/* self-start: sem isso o card do gráfico (mais baixo que o card de
+            inputs ao lado) esticava até a altura da linha do grid inteira
+            (align-items: stretch é o padrão do CSS Grid), deixando um vão
+            vazio enorme dentro do próprio card — feedback do Thiago
+            2026-09-20 ("puta espaço sobrando"). */}
+        <Card className="self-start">
           <CardContent className="py-5">
             <RetirementChart simulation={simulation} targetAge={inputs.targetRetirementAge} height={300} dark />
             <div className="flex flex-wrap gap-1.5 mt-3">
