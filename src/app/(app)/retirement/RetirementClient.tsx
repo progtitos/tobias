@@ -90,13 +90,18 @@ export function RetirementClient({
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 mt-6">
-        {/* self-start: sem isso o card do gráfico (mais baixo que o card de
-            inputs ao lado) esticava até a altura da linha do grid inteira
-            (align-items: stretch é o padrão do CSS Grid), deixando um vão
-            vazio enorme dentro do próprio card — feedback do Thiago
-            2026-09-20 ("puta espaço sobrando"). */}
-        <Card className="self-start">
+      {/* Gráfico em linha própria, largura cheia — antes ele dividia uma
+          grid de 2 colunas com uma coluna lateral de 260px empilhando os
+          dois cards de formulário, então a coluna do gráfico (bem mais
+          curta que as duas de formulário juntas) ou esticava por dentro
+          (align-items: stretch, 1ª tentativa) ou sobrava vazio abaixo dela
+          na página (2ª tentativa) — em ambos os casos um vão vazio enorme.
+          Feedback do Thiago 2026-09-20 ("continua uma coluna gigante e um
+          vão vazio"). Tirando o gráfico da grid ele só ocupa a altura que
+          precisa, e os dois cards de formulário abaixo, lado a lado, têm
+          alturas parecidas o bastante pra não sobrar vão perceptível. */}
+      <div className="mt-6 space-y-6">
+        <Card>
           <CardContent className="py-5">
             <RetirementChart simulation={simulation} targetAge={inputs.targetRetirementAge} height={300} dark />
             <div className="flex flex-wrap gap-1.5 mt-3">
@@ -142,6 +147,7 @@ export function RetirementClient({
           </CardContent>
         </Card>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="h-fit">
           <CardContent className="py-5 space-y-4">
             <NumberField label="Sua idade" value={inputs.currentAge} onChange={(v) => set("currentAge", v)} step={1} />
@@ -188,7 +194,7 @@ export function RetirementClient({
           </CardContent>
         </Card>
 
-        <Card className="h-fit lg:col-start-2">
+        <Card className="h-fit">
           <CardContent className="py-5 space-y-4">
             <div>
               <Label>Renda garantida (INSS)</Label>
@@ -239,6 +245,7 @@ export function RetirementClient({
             </p>
           </CardContent>
         </Card>
+        </div>
       </div>
       </div>
     </div>
