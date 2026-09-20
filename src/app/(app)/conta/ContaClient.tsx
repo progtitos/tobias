@@ -40,7 +40,12 @@ import {
   type ContaFormState,
   type CreditCardFormState,
 } from "./actions";
-import { uploadStatementAction, type UploadStatementState } from "./importActions";
+import {
+  uploadStatementAction,
+  uploadInvestmentStatementAction,
+  type UploadStatementState,
+  type UploadInvestmentStatementState,
+} from "./importActions";
 
 type BankAccount = {
   id: string;
@@ -293,7 +298,9 @@ function NewAccountForm({
   const [customBank, setCustomBank] = useState("");
   const [name, setName] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
+  const [type, setType] = useState("CHECKING");
   const isOther = selectedBank === OTHER_BANK_ID;
+  const isInvestment = type === "INVESTMENT";
   const bankLabel = isOther ? customBank : BANKS.find((b) => b.id === selectedBank)?.label ?? "";
 
   return (
@@ -360,7 +367,7 @@ function NewAccountForm({
         </div>
         <div>
           <Label htmlFor="acc-type">Tipo</Label>
-          <Select id="acc-type" name="type" defaultValue="CHECKING">
+          <Select id="acc-type" name="type" value={type} onChange={(e) => setType(e.target.value)}>
             {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -369,10 +376,24 @@ function NewAccountForm({
           </Select>
         </div>
       </div>
-      <div>
-        <Label htmlFor="acc-balance">Saldo em conta</Label>
-        <CurrencyInput id="acc-balance" name="balance" required />
-      </div>
+      {isInvestment ? (
+        <>
+          {/* Corretora/conta de investimento: o saldo em dinheiro não é o
+              ponto (o que importa são as posições, cadastradas depois em
+              Investimentos ou lidas de um extrato consolidado), então nasce
+              zerada em vez de pedir um número que a pessoa não tem de cabeça. */}
+          <input type="hidden" name="balance" value="0" />
+          <p className="text-xs text-onbrand/45 -mt-1">
+            Contas de investimento começam com saldo zero — cadastre as posições ou suba o extrato consolidado depois
+            de criar.
+          </p>
+        </>
+      ) : (
+        <div>
+          <Label htmlFor="acc-balance">Saldo em conta</Label>
+          <CurrencyInput id="acc-balance" name="balance" required />
+        </div>
+      )}
       <FieldError>{error}</FieldError>
       <div className="flex gap-2">
         <Button type="submit" size="sm" loading={pending}>
@@ -478,8 +499,9 @@ function AccountRow({ account }: { account: BankAccount }) {
   const [pending, startTransition] = useTransition();
   const [editingBalance, setEditingBalance] = useState(false);
   const [balanceInput, setBalanceInput] = useState(account.balance);
-  const [panel, setPanel] = useState<"upload" | null>(null);
+  const [panel, setPanel] = useState<"upload" | "investment-upload" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const isInvestment = account.type === "INVESTMENT";
 
   return (
     <div className="py-3">
@@ -572,16 +594,28 @@ function AccountRow({ account }: { account: BankAccount }) {
               {account.isActive ? "Desativar" : "Reativar"}
             </button>
             <span className="text-onbrand/20">·</span>
-            <button
-              className="flex items-center gap-1.5 text-onbrand/70 hover:text-gold-400 text-xs"
-              onClick={() => setPanel(panel === "upload" ? null : "upload")}
-            >
-              <Upload className="h-3.5 w-3.5" /> Importar extrato ou fatura
-            </button>
+            {isInvestment ? (
+              <button
+                className="flex items-center gap-1.5 text-onbrand/70 hover:text-gold-400 text-xs"
+                onClick={() => setPanel(panel === "investment-upload" ? null : "investment-upload")}
+              >
+                <Upload className="h-3.5 w-3.5" /> Importar extrato consolidado
+              </button>
+            ) : (
+              <button
+                className="flex items-center gap-1.5 text-onbrand/70 hover:text-gold-400 text-xs"
+                onClick={() => setPanel(panel === "upload" ? null : "upload")}
+              >
+                <Upload className="h-3.5 w-3.5" /> Importar extrato ou fatura
+              </button>
+            )}
           </div>
 
           {panel === "upload" && (
             <StatementUploadForm target={{ kind: "account", accountId: account.id }} onCancel={() => setPanel(null)} />
+          )}
+          {panel === "investment-upload" && (
+            <InvestmentStatementUploadForm accountId={account.id} onCancel={() => setPanel(null)} />
           )}
         </div>
       )}
@@ -623,6 +657,48 @@ function StatementUploadForm({ target, onCancel }: { target: UploadTarget; onCan
       <div className="flex gap-2 mt-2">
         <Button type="submit" size="sm" loading={pending}>
           {pending ? "Lendo..." : submitLabel}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Extrato consolidado de uma corretora/conta de investimento — extrai
+// POSIÇÕES (o que se tem investido), não transações, então usa seu próprio
+// serviço (services/investmentStatementImport.ts) e desemboca numa tela de
+// revisão dentro de Investimentos (/investimentos/importar/[id]), onde as
+// posições lidas viram investimentos de verdade. Ver comentário em
+// AccountRow: só aparece pra contas type="INVESTMENT".
+// ---------------------------------------------------------------------------
+
+function InvestmentStatementUploadForm({ accountId, onCancel }: { accountId: string; onCancel: () => void }) {
+  const [state, formAction, pending] = useActionState<UploadInvestmentStatementState, FormData>(
+    uploadInvestmentStatementAction,
+    undefined
+  );
+
+  return (
+    <form action={formAction} className="rounded-xl bg-brand-900/60 p-3.5 mt-3">
+      <input type="hidden" name="bankAccountId" value={accountId} />
+      <p className="text-xs text-onbrand/60 mb-2">
+        Suba o extrato/relatório consolidado dessa corretora (PDF ou foto/print): o Tobias lê as posições e você
+        confere antes de confirmar, em Investimentos.
+      </p>
+      <input
+        type="file"
+        name="file"
+        accept=".pdf,image/*"
+        required
+        className="block w-full text-onbrand/80 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:bg-gold-500 file:text-ink-900 file:font-medium text-xs file:text-xs"
+      />
+      <FieldError>{state?.error}</FieldError>
+      <div className="flex gap-2 mt-2">
+        <Button type="submit" size="sm" loading={pending}>
+          {pending ? "Lendo..." : "Enviar extrato"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancelar

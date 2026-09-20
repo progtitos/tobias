@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireOnboardedUser } from "@/lib/auth/guards";
 import { uploadStatementDocument, confirmStatementImport, type ImportTarget } from "@/services/statementImport";
+import { uploadInvestmentStatementDocument } from "@/services/investmentStatementImport";
 
 export type UploadStatementState = { error?: string } | undefined;
 
@@ -40,6 +41,45 @@ export async function uploadStatementAction(
   }
 
   redirect(`/conta/importar/${document.id}`);
+}
+
+// ---------------------------------------------------------------------------
+// Extrato consolidado de investimentos — mesma ideia do upload de extrato de
+// conta/fatura acima, adaptada pra posições em vez de transações
+// (services/investmentStatementImport.ts). Antes esse botão morava dentro da
+// aba Investimentos, com sua própria UI de "adicionar corretora"; agora a
+// conta/corretora se cria e se abre daqui mesmo, em Conta (ver AccountRow em
+// ContaClient.tsx) — a revisão das posições lidas continua em
+// /investimentos/importar/[id], porque virar investimento de verdade é
+// assunto de Investimentos.
+// ---------------------------------------------------------------------------
+
+export type UploadInvestmentStatementState = { error?: string } | undefined;
+
+export async function uploadInvestmentStatementAction(
+  _prev: UploadInvestmentStatementState,
+  formData: FormData
+): Promise<UploadInvestmentStatementState> {
+  const user = await requireOnboardedUser();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Selecione um arquivo (PDF ou foto/print)." };
+  }
+  const bankAccountId = formData.get("bankAccountId") as string | null;
+  if (!bankAccountId) return { error: "Conta não encontrada" };
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const { document } = await uploadInvestmentStatementDocument(
+    user.id,
+    { buffer, mimeType: file.type || "application/octet-stream", fileName: file.name },
+    bankAccountId
+  );
+
+  if (document.status === "FAILED") {
+    return { error: document.errorMessage ?? "Não consegui ler este arquivo." };
+  }
+
+  redirect(`/investimentos/importar/${document.id}`);
 }
 
 export type ConfirmImportState = { error?: string } | undefined;

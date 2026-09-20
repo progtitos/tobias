@@ -9,7 +9,6 @@ import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatBRL } from "@/lib/utils/money";
 import { IncomeExpenseChart } from "./IncomeExpenseChart";
 import {
@@ -78,8 +77,6 @@ export function RendaDespesasClient({
   summary,
   incomeCategories,
   expenseCategories,
-  reserve,
-  emergencyGoal,
 }: {
   sources: IncomeSource[];
   fixedExpenses: FixedExpense[];
@@ -94,8 +91,6 @@ export function RendaDespesasClient({
   };
   incomeCategories: CategoryOption[];
   expenseCategories: CategoryOption[];
-  reserve: number;
-  emergencyGoal: { id: string; targetAmount: number | null; currentAmount: number } | null;
 }) {
   const incomeRows = [...summary.income]
     .sort((a, b) => b.net - a.net)
@@ -103,9 +98,6 @@ export function RendaDespesasClient({
   const expenseRows = [...summary.fixedExpenses]
     .sort((a, b) => b.amount - a.amount)
     .map((e) => ({ label: e.label, value: e.amount }));
-
-  const reserveTarget = emergencyGoal?.targetAmount ?? (summary.totalFixedExpenses * 6 || null);
-  const reservePct = reserveTarget ? Math.min(100, (reserve / reserveTarget) * 100) : null;
 
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
@@ -115,6 +107,14 @@ export function RendaDespesasClient({
           <p className="text-sm text-onbrand/55">
             Cadastre sua renda e seus gastos fixos uma vez — todo mês o Tobias já lança sozinho, você só confirma ou
             ajusta.
+          </p>
+          <p className="text-xs text-onbrand/45 mt-1">
+            Procurando sua reserva de emergência? Ela é um cofre de patrimônio, não uma renda ou despesa — acompanhe e
+            aporte nela em{" "}
+            <Link href="/patrimonio#sonhos" className="text-gold-400 hover:underline">
+              Patrimônio → Sonhos
+            </Link>
+            .
           </p>
         </div>
 
@@ -141,28 +141,6 @@ export function RendaDespesasClient({
           <CardContent className="py-5">
             <h2 className="font-display font-semibold text-onbrand mb-4">Renda x gastos fixos</h2>
             <IncomeExpenseChart incomeRows={incomeRows} expenseRows={expenseRows} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="py-5">
-            <div className="flex items-baseline justify-between gap-2 mb-1">
-              <h2 className="font-display font-semibold text-onbrand">Reserva de emergência</h2>
-              <Link href="/patrimonio#sonhos" className="text-xs text-gold-400 hover:underline">
-                {emergencyGoal ? "Ajustar meta" : "Criar meta"}
-              </Link>
-            </div>
-            <p className="text-sm text-onbrand/55 mb-3">
-              {formatBRL(reserve)}
-              {reserveTarget ? ` de ${formatBRL(reserveTarget)} (${(reserve / (summary.totalFixedExpenses || 1)).toFixed(1)} meses de gastos fixos)` : ""}
-            </p>
-            {reservePct !== null ? (
-              <ProgressBar value={reservePct} />
-            ) : (
-              <p className="text-xs text-onbrand/45">
-                Cadastre um gasto fixo abaixo ou crie a meta em Patrimônio pra calcular sua meta de reserva.
-              </p>
-            )}
           </CardContent>
         </Card>
 

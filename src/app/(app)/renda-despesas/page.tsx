@@ -7,10 +7,16 @@ import {
   listPendingConfirmations,
   getIncomeExpenseSummary,
 } from "@/services/incomeExpenseSources";
-import { computeEmergencyReserve } from "@/services/aggregations";
-import { listGoals } from "@/services/goals";
 import { RendaDespesasClient } from "./RendaDespesasClient";
 
+// Reserva de emergência propositalmente NÃO entra nessa tela: ela é um
+// pilar de patrimônio (um "cofre" que se acompanha e se aporta), não uma
+// renda ou despesa — mora em Patrimônio → Sonhos, calculada ao vivo por
+// withLiveEmergencyFundAmount/computeEmergencyReserve (ver
+// services/aggregations.ts). Um card próprio já existiu aqui com um alvo
+// inventado (totalFixedExpenses * 6, sem relação com a meta real de
+// Patrimônio) e foi removido por gerar um número sem sentido e duplicar a
+// fonte da verdade (Thiago, 2026-09-20).
 export default async function RendaDespesasPage() {
   const user = await requireOnboardedUser();
 
@@ -18,19 +24,16 @@ export default async function RendaDespesasPage() {
   // ativa antes de listar — ver comentário em ensureCurrentMonthGenerated.
   await ensureCurrentMonthGenerated(user.id);
 
-  const [sources, fixedExpenses, pending, summary, categories, reserve, goals] = await Promise.all([
+  const [sources, fixedExpenses, pending, summary, categories] = await Promise.all([
     listIncomeSources(user.id),
     listFixedExpenses(user.id),
     listPendingConfirmations(user.id),
     getIncomeExpenseSummary(user.id),
     getUserCategories(user.id),
-    computeEmergencyReserve(user.id),
-    listGoals(user.id),
   ]);
 
   const incomeCategories = categories.filter((c) => c.type === "INCOME" && !c.parentId);
   const expenseCategories = categories.filter((c) => c.type === "EXPENSE" && !c.parentId);
-  const emergencyGoal = goals.find((g) => g.type === "EMERGENCY_FUND" && g.status === "ACTIVE") ?? null;
 
   return (
     <RendaDespesasClient
@@ -63,8 +66,6 @@ export default async function RendaDespesasPage() {
       summary={summary}
       incomeCategories={incomeCategories.map((c) => ({ id: c.id, name: c.name }))}
       expenseCategories={expenseCategories.map((c) => ({ id: c.id, name: c.name }))}
-      reserve={reserve}
-      emergencyGoal={emergencyGoal ? { id: emergencyGoal.id, targetAmount: emergencyGoal.targetAmount, currentAmount: emergencyGoal.currentAmount } : null}
     />
   );
 }
