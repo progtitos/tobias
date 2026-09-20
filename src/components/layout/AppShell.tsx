@@ -8,7 +8,6 @@ import {
   MessageCircle,
   Receipt,
   Wallet,
-  Compass,
   TrendingUp,
   Landmark,
   LineChart,
@@ -30,7 +29,9 @@ const NAV_ITEMS = [
   { href: "/conta", label: "Conta", icon: Wallet, tourTarget: "nav-conta" },
   { href: "/patrimonio", label: "Patrimônio", icon: Landmark },
   { href: "/investimentos", label: "Investimentos", icon: LineChart },
-  { href: "/compass", label: "Ponteiro", icon: Compass },
+  // "/compass" (Ponteiro) saiu do menu por decisão do Thiago (2026-09-20) —
+  // a rota continua existindo e acessível pelo link "Ver tudo" no card do
+  // Dashboard, só não tem mais aba própria aqui.
   { href: "/retirement", label: "Aposentadoria", icon: TrendingUp, tourTarget: "nav-retirement" },
 ];
 

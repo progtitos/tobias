@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gte, desc } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   financialCompassSnapshots,
@@ -250,42 +250,25 @@ export async function saveCompassSnapshot(userId: string) {
   return results;
 }
 
+/**
+ * Antes esta função lia o último snapshot gravado em
+ * financial_compass_snapshots — uma tabela só atualizada no fim do
+ * onboarding ou quando a pessoa clicava "Recalcular" à mão em /compass. Na
+ * prática isso deixava o Ponteiro "travado": preencher o perfil financeiro,
+ * lançar transações, criar objetivos/dívidas etc. não mudava a nota até
+ * alguém lembrar de clicar recalcular (bug relatado pelo Thiago,
+ * 2026-09-20 — "mesmo preenchendo as coisas o ponteiro não esta mudando").
+ *
+ * Agora computa ao vivo (computeCompass) toda vez que dashboard, /compass
+ * ou o chat pedem a nota — é só leitura de banco + aritmética (nenhuma
+ * chamada de IA), então recalcular a cada carregamento não pesa.
+ *
+ * `saveCompassSnapshot` continua existindo à parte: grava o histórico em
+ * financial_compass_snapshots (útil pra uma futura tela de evolução) e
+ * recalcula o Perfil Comportamental junto — chamada no fim do onboarding e
+ * pelo botão "Recalcular" de /compass, que agora serve pra registrar esse
+ * histórico, não pra "destravar" a nota (que já é sempre atual).
+ */
 export async function getLatestCompass(userId: string): Promise<CompassDimensionResult[]> {
-  const rows = await db
-    .select()
-    .from(financialCompassSnapshots)
-    .where(eq(financialCompassSnapshots.userId, userId))
-    .orderBy(desc(financialCompassSnapshots.computedAt))
-    .limit(50);
-
-  const seen = new Set<string>();
-  const latest: CompassDimensionResult[] = [];
-  for (const row of rows) {
-    if (seen.has(row.dimension)) continue;
-    seen.add(row.dimension);
-    latest.push({
-      dimension: row.dimension,
-      label: dimensionLabel(row.dimension),
-      score: row.score,
-      status: row.status as CompassDimensionResult["status"],
-      diagnosis: row.diagnosis,
-      nextAction: row.nextAction,
-    });
-  }
-  return latest;
-}
-
-function dimensionLabel(dim: CompassDimensionResult["dimension"]): string {
-  const map: Record<CompassDimensionResult["dimension"], string> = {
-    EMERGENCY_RESERVE: "Reserva de emergência",
-    SPENDING_CONTROL: "Controle de gastos",
-    DEBT: "Dívidas",
-    PROTECTION: "Proteção",
-    INVESTMENTS: "Investimentos",
-    RETIREMENT: "Aposentadoria",
-    NET_WORTH: "Patrimônio",
-    GOALS: "Objetivos",
-    BEHAVIOR: "Comportamento financeiro",
-  };
-  return map[dim];
+  return computeCompass(userId);
 }
