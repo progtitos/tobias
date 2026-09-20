@@ -17,6 +17,9 @@ import {
   investmentStatementExtractionSchema,
   investmentStatementExtractionJsonSchema,
   type InvestmentStatementExtraction,
+  cnisExtractionSchema,
+  cnisExtractionJsonSchema,
+  type CnisExtraction,
   classificationSchema,
   classificationJsonSchema,
   type Classification,
@@ -126,6 +129,28 @@ export const AIService = {
       jsonSchema: investmentStatementExtractionJsonSchema,
       zodSchema: investmentStatementExtractionSchema,
       maxOutputTokens: 16384,
+    });
+  },
+
+  /**
+   * Document Agent: Extrato de Contribuições do CNIS (Meu INSS), em PDF.
+   * Cada linha é a remuneração de UMA competência (mês/ano) de UM vínculo —
+   * o mesmo documento que o INSS usa pra calcular o benefício de verdade
+   * (ver aviso de escopo no topo de services/inss.ts). Alimenta o histórico
+   * salarial real em vez do campo único estimado à mão.
+   */
+  async extractCnisStatement(images: { mimeType: string; base64: string }[]): Promise<CnisExtraction> {
+    return generateVisionJSON({
+      system: `${TOBIAS_PERSONA}\n\nVocê está extraindo o Extrato de Contribuições do CNIS (Cadastro Nacional de Informações Sociais), baixado do Meu INSS. O documento lista, competência por competência (mês/ano) e vínculo por vínculo (empregador), a remuneração usada como salário de contribuição. Extraia CADA competência como uma linha própria: mês/ano (competência), nome do empregador/vínculo daquele período (se identificável) e o valor da remuneração daquele mês, exatamente como aparece no documento — nunca invente ou estime um valor que não esteja explícito. Se o mesmo vínculo aparecer com várias competências (o normal: um emprego de vários anos lista uma linha por mês), extraia uma linha POR competência, não uma linha resumindo o vínculo inteiro. Ignore linhas que não sejam remuneração de competência (ex.: cabeçalhos, totais, dados cadastrais da pessoa, indicadores de qualidade do vínculo). Se houver várias páginas, consolide como um único histórico contínuo, sem repetir a mesma competência+vínculo que aparecer em mais de uma página.`,
+      message:
+        "Extraia todas as competências (mês/ano) e remunerações deste Extrato do CNIS: competência, nome do empregador/vínculo (quando identificável) e valor da remuneração. Retorne também uma confiança geral de 0 a 1.",
+      images,
+      jsonSchema: cnisExtractionJsonSchema,
+      zodSchema: cnisExtractionSchema,
+      // Um extrato de carreira inteira pode ter 300+ competências (25+ anos
+      // de contribuição) — mesma folga usada em extractStatement pelo mesmo
+      // motivo (ver comentário lá sobre truncamento em produção).
+      maxOutputTokens: 32768,
     });
   },
 

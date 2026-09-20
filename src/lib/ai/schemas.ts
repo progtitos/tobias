@@ -346,6 +346,55 @@ export const investmentStatementExtractionJsonSchema = {
 };
 
 // ----------------------------------------------------------------------------
+// Extrato do CNIS (Meu INSS) — Document Agent, mesma família dos extratos
+// acima, mas cada linha é uma REMUNERAÇÃO de uma competência (mês/ano)
+// específica, com o vínculo/empregador daquele período — exatamente como o
+// Extrato de Contribuições do Meu INSS lista, competência por competência.
+// Usado por services/cnisImport.ts pra alimentar o histórico salarial real
+// (services/inss.ts, computeAverageSalaryFromHistory), em vez do único campo
+// "média salarial de contribuição" estimado à mão.
+// ----------------------------------------------------------------------------
+
+const rawCnisSalaryRecordSchema = z.object({
+  competencia: z
+    .string()
+    .describe("Mês/ano de referência da remuneração, formato ISO 8601 com dia 01 (ex: '2010-03-01' para março/2010)."),
+  employerName: z.string().nullable().describe("Nome do empregador/vínculo daquela competência, como aparece no extrato. Null se o documento não identificar."),
+  salaryAmount: z.number().positive().describe("Salário de contribuição daquela competência, em reais, exatamente como consta no extrato (sem nenhuma correção aplicada)."),
+});
+
+export const cnisExtractionSchema = z.object({
+  confidence: z.number().min(0).max(1),
+  records: z
+    .array(rawCnisSalaryRecordSchema)
+    // Mesmo motivo de descartar em vez de derrubar o lote inteiro (ver
+    // rawStatementTransactionSchema acima): um Extrato do CNIS real pode ter
+    // 300+ competências, uma linha ilegível não pode jogar fora as outras.
+    .transform((records) => records.filter((r) => r.salaryAmount > 0)),
+});
+export type CnisExtraction = z.infer<typeof cnisExtractionSchema>;
+
+export const cnisExtractionJsonSchema = {
+  type: "object",
+  properties: {
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    records: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          competencia: { type: "string" },
+          employerName: { type: ["string", "null"] },
+          salaryAmount: { type: "number" },
+        },
+        required: ["competencia", "salaryAmount"],
+      },
+    },
+  },
+  required: ["confidence", "records"],
+};
+
+// ----------------------------------------------------------------------------
 // Transaction classification
 // ----------------------------------------------------------------------------
 

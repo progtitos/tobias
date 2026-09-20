@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { simulateInssBenefit, TETO_INSS_2026, PISO_INSS_2026, type InssProfile } from "./inss";
+import {
+  simulateInssBenefit,
+  computeAverageSalaryFromHistory,
+  computeGuaranteedMonthlyIncome,
+  TETO_INSS_2026,
+  PISO_INSS_2026,
+  type InssProfile,
+} from "./inss";
+import { ULTIMO_ANO_FECHADO as ULTIMO_ANO_FECHADO_TEST } from "./inpcIndex";
 
 const REFORM_DATE = new Date(Date.UTC(2019, 10, 13));
 
@@ -126,5 +134,64 @@ describe("simulateInssBenefit", () => {
 
     expect(simulateInssBenefit(baixaRenda, evalDate).estimatedMonthlyBenefit).toBeCloseTo(PISO_INSS_2026, 2);
     expect(simulateInssBenefit(altaRenda, evalDate).estimatedMonthlyBenefit).toBeCloseTo(TETO_INSS_2026, 2);
+  });
+});
+
+describe("computeAverageSalaryFromHistory", () => {
+  it("retorna null sem competências elegíveis", () => {
+    expect(computeAverageSalaryFromHistory([])).toBeNull();
+    expect(computeAverageSalaryFromHistory([{ competencia: new Date(Date.UTC(1994, 0, 1)), salaryAmount: 1000 }])).toBeNull();
+  });
+
+  it("soma vínculos concorrentes na mesma competência antes de corrigir", () => {
+    const competencia = new Date(Date.UTC(ULTIMO_ANO_FECHADO_TEST, 0, 1));
+    const semConcorrencia = computeAverageSalaryFromHistory([{ competencia, salaryAmount: 3000 }]);
+    const comConcorrencia = computeAverageSalaryFromHistory([
+      { competencia, salaryAmount: 2000 },
+      { competencia, salaryAmount: 1000 },
+    ]);
+    expect(comConcorrencia).toBeCloseTo(semConcorrencia!, 5);
+  });
+
+  it("capa cada competência no teto atual do INSS", () => {
+    const competencia = new Date(Date.UTC(ULTIMO_ANO_FECHADO_TEST, 0, 1));
+    const media = computeAverageSalaryFromHistory([{ competencia, salaryAmount: 999999 }]);
+    expect(media).toBeCloseTo(TETO_INSS_2026, 2);
+  });
+
+  it("corrige competências antigas para cima antes de tirar a média", () => {
+    const antiga = computeAverageSalaryFromHistory([{ competencia: new Date(Date.UTC(2010, 0, 1)), salaryAmount: 1000 }]);
+    const recente = computeAverageSalaryFromHistory([{ competencia: new Date(Date.UTC(ULTIMO_ANO_FECHADO_TEST, 0, 1)), salaryAmount: 1000 }]);
+    expect(antiga!).toBeGreaterThan(recente!);
+  });
+});
+
+describe("computeGuaranteedMonthlyIncome com histórico do CNIS", () => {
+  it("a média do histórico vence o campo manual quando ambos estão presentes", () => {
+    const evalDate = new Date(Date.UTC(2050, 0, 1));
+    const birthDate = birthDateForAge(evalDate, 66);
+
+    const comHistorico = computeGuaranteedMonthlyIncome({
+      targetRetirementAge: 66,
+      birthDate,
+      gender: "M",
+      contributionYearsToDate: 20,
+      contributionYearsAsOfDate: evalDate,
+      averageMonthlySalary: 1000, // deveria ser ignorado
+      salaryHistory: [{ competencia: new Date(Date.UTC(2024, 0, 1)), salaryAmount: 6000 }],
+    });
+    expect(comHistorico.averageSalarySource).toBe("cnis");
+
+    const soManual = computeGuaranteedMonthlyIncome({
+      targetRetirementAge: 66,
+      birthDate,
+      gender: "M",
+      contributionYearsToDate: 20,
+      contributionYearsAsOfDate: evalDate,
+      averageMonthlySalary: 1000,
+      salaryHistory: [],
+    });
+    expect(soManual.averageSalarySource).toBe("manual");
+    expect(comHistorico.guaranteedMonthlyIncome).toBeGreaterThan(soManual.guaranteedMonthlyIncome);
   });
 });

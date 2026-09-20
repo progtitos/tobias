@@ -50,6 +50,7 @@
  */
 
 import { yearsBetween } from "@/lib/utils/dates";
+import { corrigirPeloInpc, isCompetenciaElegivel } from "./inpcIndex";
 
 export type Gender = "M" | "F";
 
@@ -380,7 +381,54 @@ export type GuaranteedIncomeInput = {
   guaranteedMonthlyIncomeOverride?: number | null;
   /** Usado como fallback de `contributionYearsAsOfDate` quando o plano ainda não foi salvo com uma data própria. */
   updatedAt?: Date | null;
+  /**
+   * Histórico salarial real importado do Extrato do CNIS (ver
+   * services/cnisImport.ts). Quando presente e não-vazio, a média calculada
+   * a partir dele (corrigida pelo INPC, ver computeAverageSalaryFromHistory
+   * abaixo) VENCE `averageMonthlySalary` — o campo manual continua existindo
+   * só como estimativa pra quem ainda não importou o extrato.
+   */
+  salaryHistory?: SalaryHistoryRecord[] | null;
 };
+
+export type SalaryHistoryRecord = { competencia: Date; salaryAmount: number };
+
+/**
+ * Média real dos salários de contribuição, a partir do histórico do Extrato
+ * do CNIS — substitui a estimativa de um único campo digitado à mão. Duas
+ * aproximações deliberadas, documentadas (mesmo espírito do resto deste
+ * arquivo):
+ *
+ * 1) Vínculos concorrentes no mesmo mês (duas competências iguais, dois
+ *    empregadores) são SOMADOS antes de aplicar o teto — corrigido para o
+ *    teto ATUAL (TETO_INSS_2026), não o teto histórico daquele ano (que não
+ *    está tabelado aqui), então o resultado tende a superestimar levemente
+ *    competências muito antigas cujo teto real era mais baixo em termos
+ *    proporcionais.
+ * 2) A lei manda descartar os 20% menores salários só na regra de transição
+ *    "antiga" (pré-existente à reforma), que este simulador não modela — a
+ *    Regra Geral/Pontos/Idade Progressiva já implementadas aqui usam 100%
+ *    do histórico, sem descarte, então mantemos a mesma premissa aqui.
+ *
+ * Retorna `null` se não houver nenhuma competência elegível (a partir de
+ * jul/1994 — ver inpcIndex.ts) no histórico informado.
+ */
+export function computeAverageSalaryFromHistory(records: SalaryHistoryRecord[]): number | null {
+  const byCompetencia = new Map<number, number>();
+  for (const r of records) {
+    if (!isCompetenciaElegivel(r.competencia)) continue;
+    const key = Date.UTC(r.competencia.getUTCFullYear(), r.competencia.getUTCMonth(), 1);
+    byCompetencia.set(key, (byCompetencia.get(key) ?? 0) + r.salaryAmount);
+  }
+  if (byCompetencia.size === 0) return null;
+
+  let sum = 0;
+  for (const [key, total] of byCompetencia) {
+    const capped = Math.min(total, TETO_INSS_2026);
+    sum += corrigirPeloInpc(capped, new Date(key));
+  }
+  return sum / byCompetencia.size;
+}
 
 /**
  * Renda garantida mensal (INSS/previdência) a ser usada na curva. Prioridade:
@@ -393,12 +441,19 @@ export type GuaranteedIncomeInput = {
 export function computeGuaranteedMonthlyIncome(plan: GuaranteedIncomeInput): {
   guaranteedMonthlyIncome: number;
   inssEstimate: InssSimulation | null;
+  /** De onde veio a média usada: histórico importado do CNIS, campo manual, ou nenhuma das duas (null). */
+  averageSalarySource: "cnis" | "manual" | null;
 } {
   if (plan.guaranteedMonthlyIncomeOverride != null) {
-    return { guaranteedMonthlyIncome: plan.guaranteedMonthlyIncomeOverride, inssEstimate: null };
+    return { guaranteedMonthlyIncome: plan.guaranteedMonthlyIncomeOverride, inssEstimate: null, averageSalarySource: null };
   }
-  if (!plan.birthDate || !plan.gender || plan.contributionYearsToDate == null || plan.averageMonthlySalary == null) {
-    return { guaranteedMonthlyIncome: 0, inssEstimate: null };
+
+  const historyAverage =
+    plan.salaryHistory && plan.salaryHistory.length > 0 ? computeAverageSalaryFromHistory(plan.salaryHistory) : null;
+  const averageMonthlySalary = historyAverage ?? plan.averageMonthlySalary ?? null;
+
+  if (!plan.birthDate || !plan.gender || plan.contributionYearsToDate == null || averageMonthlySalary == null) {
+    return { guaranteedMonthlyIncome: 0, inssEstimate: null, averageSalarySource: null };
   }
 
   const contributionYearsAsOfDate = plan.contributionYearsAsOfDate ?? plan.updatedAt ?? new Date();
@@ -409,11 +464,15 @@ export function computeGuaranteedMonthlyIncome(plan: GuaranteedIncomeInput): {
     {
       gender: plan.gender,
       birthDate: plan.birthDate,
-      averageMonthlySalary: plan.averageMonthlySalary,
+      averageMonthlySalary,
       contributionYearsToDate: plan.contributionYearsToDate,
       contributionYearsAsOfDate,
     },
     evalDate
   );
-  return { guaranteedMonthlyIncome: sim.estimatedMonthlyBenefit, inssEstimate: sim };
+  return {
+    guaranteedMonthlyIncome: sim.estimatedMonthlyBenefit,
+    inssEstimate: sim,
+    averageSalarySource: historyAverage != null ? "cnis" : "manual",
+  };
 }

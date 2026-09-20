@@ -239,6 +239,7 @@ export const documentKindEnum = pgEnum("document_kind", [
   "BANK_STATEMENT",
   "RECEIPT_PDF",
   "INVESTMENT_STATEMENT",
+  "CNIS_EXTRACT",
   "OTHER",
 ]);
 export const conversationTypeEnum = pgEnum("conversation_type", [
@@ -871,6 +872,55 @@ export const investmentDocumentItems = pgTable(
     isSelected: boolean("is_selected").notNull().default(true),
   },
   (t) => [index("investment_document_items_document_idx").on(t.documentId)]
+);
+
+// Equivalente a investmentDocumentItems, mas pra leitura do Extrato do CNIS
+// (services/cnisImport.ts) — cada linha é uma REMUNERAÇÃO de uma competência
+// (mês/ano) específica, com o empregador daquele vínculo, exatamente como o
+// extrato do Meu INSS lista. Fica em staging até a pessoa confirmar na tela
+// de Revisão; confirmar grava em `salaryContributionRecords` (histórico
+// permanente, ver abaixo), igual ao padrão de documentItems/investments.
+export const cnisDocumentItems = pgTable(
+  "cnis_document_items",
+  {
+    id: id(),
+    documentId: text("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+    // Sempre normalizado pro dia 1 do mês (a competência é só mês/ano, o dia
+    // não tem significado nenhum aqui) — ver parseCompetencia em cnisImport.ts.
+    competencia: timestamp("competencia", { withTimezone: true }).notNull(),
+    employerName: text("employer_name"),
+    salaryAmount: money("salary_amount").notNull(),
+    isSelected: boolean("is_selected").notNull().default(true),
+  },
+  (t) => [index("cnis_document_items_document_idx").on(t.documentId)]
+);
+
+// Histórico salarial de contribuição PERMANENTE de um usuário, uma linha por
+// competência (mês) + empregador — o dado real usado por
+// computeAverageSalaryFromHistory (services/inss.ts) pra calcular a média
+// corrigida pelo INPC, em vez do único campo `averageMonthlySalary` estimado
+// à mão. Alimentado só pela confirmação da importação do Extrato do CNIS por
+// enquanto; nada aqui impede adicionar outra fonte no futuro (ex.: edição
+// manual linha a linha), a tabela já está no formato certo pra isso.
+export const salaryContributionRecords = pgTable(
+  "salary_contribution_records",
+  {
+    id: id(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    competencia: timestamp("competencia", { withTimezone: true }).notNull(),
+    employerName: text("employer_name"),
+    salaryAmount: money("salary_amount").notNull(),
+    // Documento do qual essa linha veio — só pra rastreabilidade/auditoria
+    // (ex.: "essa linha veio de qual PDF"). `set null` em vez de cascade: se
+    // o documento for apagado, o histórico salarial em si continua valendo,
+    // só perde o rastro de origem.
+    sourceDocumentId: text("source_document_id").references(() => documents.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("salary_contribution_records_user_idx").on(t.userId),
+    index("salary_contribution_records_user_competencia_idx").on(t.userId, t.competencia),
+  ]
 );
 
 // ----------------------------------------------------------------------------

@@ -9,12 +9,42 @@ import {
   Tooltip,
   DefaultTooltipContent,
   ReferenceLine,
+  ReferenceDot,
   ResponsiveContainer,
 } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
 import type { RetirementSimulation } from "@/services/retirement";
 import { formatBRL } from "@/lib/utils/money";
+
+// Um Sonho/Objetivo (Patrimônio) já convertido pra idade (eixo X do
+// gráfico) — ver a conversão de `yearsFromNow` -> `age` em RetirementClient.
+// RETIREMENT fica de fora de propósito (ver comentário em retirement/page.tsx
+// sobre os "dois conceitos de aposentadoria coexistindo hoje").
+export type ChartGoalMarker = {
+  id: string;
+  title: string;
+  type: string;
+  targetAmount: number | null;
+  achieved: boolean;
+  age: number;
+};
+
+// Uma letra curta por tipo, pra caber dentro do círculo do marcador — mesmos
+// tipos de GoalsClient.tsx (TYPE_LABELS), sem RETIREMENT (nunca chega aqui).
+const GOAL_TYPE_GLYPH: Record<string, string> = {
+  DREAM: "S", // Sonho
+  EMERGENCY_FUND: "R", // Reserva de emergência
+  PROPERTY: "I", // Imóvel
+  CUSTOM: "O", // Outro
+};
+
+const GOAL_TYPE_LABEL: Record<string, string> = {
+  DREAM: "Sonho",
+  EMERGENCY_FUND: "Reserva de emergência",
+  PROPERTY: "Imóvel",
+  CUSTOM: "Outro",
+};
 
 // As três linhas projetam o PATRIMÔNIO TOTAL (contas + investimentos, não só
 // o que está investido) sob taxas de retorno hipotéticas diferentes — não são
@@ -72,12 +102,15 @@ export function RetirementChart({
   targetAge,
   height = 260,
   dark = false,
+  goalMarkers = [],
 }: {
   simulation: RetirementSimulation;
   targetAge: number;
   height?: number;
   /** Use the light-on-dark-green palette for cards on the redesigned dashboard. */
   dark?: boolean;
+  /** Sonhos/Objetivos com data-alvo, plotados como marcadores na linha do tempo (ver ChartGoalMarker acima). */
+  goalMarkers?: ChartGoalMarker[];
 }) {
   const data = buildDataset(simulation, targetAge);
 
@@ -123,6 +156,21 @@ export function RetirementChart({
       };
 
   const gradientId = dark ? "retirementBaseFillDark" : "retirementBaseFillLight";
+
+  const goalColor: Record<string, string> = {
+    DREAM: palette.agressivo,
+    EMERGENCY_FUND: palette.base,
+    PROPERTY: palette.conservador,
+    CUSTOM: palette.tick,
+  };
+
+  // Só plota marcador dentro do intervalo de idade que a curva realmente
+  // desenha — um Sonho com data-alvo fora desse intervalo (ex.: muito além
+  // do horizonte simulado) ficaria "pendurado" fora do gráfico.
+  const minAge = data[0]?.age;
+  const maxAge = data[data.length - 1]?.age;
+  const visibleGoalMarkers =
+    minAge != null && maxAge != null ? goalMarkers.filter((g) => g.age >= minAge && g.age <= maxAge) : [];
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -208,7 +256,58 @@ export function RetirementChart({
           strokeLinecap="round"
           dot={false}
         />
+        {visibleGoalMarkers.map((marker) => (
+          <ReferenceDot
+            key={marker.id}
+            x={marker.age}
+            y={0}
+            shape={(props: { cx?: number; cy?: number }) => (
+              <GoalMarkerShape cx={props.cx} cy={props.cy} marker={marker} color={goalColor[marker.type] ?? palette.tick} ringColor={palette.tooltipBg} />
+            )}
+          />
+        ))}
       </ComposedChart>
     </ResponsiveContainer>
+  );
+}
+
+/**
+ * Um marcador de Sonho/Objetivo na linha do tempo: círculo colorido (por
+ * tipo, reaproveitando as cores das 3 linhas de cenário), com uma letra
+ * (S/R/I/O) ou "✓" se já alcançado, e um <title> nativo pra tooltip ao
+ * passar o mouse — evita embutir um ícone Lucide inteiro dentro de um shape
+ * customizado do Recharts, que é mais frágil de acertar sem preview ao vivo.
+ */
+function GoalMarkerShape({
+  cx,
+  cy,
+  marker,
+  color,
+  ringColor,
+}: {
+  cx?: number;
+  cy?: number;
+  marker: ChartGoalMarker;
+  color: string;
+  ringColor: string;
+}) {
+  if (cx == null || cy == null) return null;
+  const glyph = marker.achieved ? "✓" : (GOAL_TYPE_GLYPH[marker.type] ?? "?");
+  const tooltip = [
+    marker.title,
+    GOAL_TYPE_LABEL[marker.type] ?? marker.type,
+    marker.targetAmount ? formatBRL(marker.targetAmount) : null,
+    marker.achieved ? "alcançado" : `previsto aos ${Math.round(marker.age)} anos`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <g>
+      <title>{tooltip}</title>
+      <circle cx={cx} cy={cy} r={8} fill={color} stroke={ringColor} strokeWidth={1.5} />
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={9} fontWeight={700} fill="#ffffff">
+        {glyph}
+      </text>
+    </g>
   );
 }
