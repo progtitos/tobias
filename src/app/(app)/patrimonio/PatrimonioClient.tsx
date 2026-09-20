@@ -1,17 +1,23 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { Plus, PlusCircle, Pause, Play } from "lucide-react";
+import { Plus, PlusCircle, Pause, Play, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
-import { createGoalAction, addContributionAction, updateGoalStatusAction, type GoalFormState } from "../goals/actions";
+import { GoalProgressRing } from "./GoalProgressRing";
+import {
+  createGoalAction,
+  addContributionAction,
+  updateGoalStatusAction,
+  updateGoalTargetAction,
+  type GoalFormState,
+} from "../goals/actions";
 
 type Goal = {
   id: string;
@@ -24,6 +30,13 @@ type Goal = {
   targetDate: string | null;
   isQuantified: boolean;
 };
+
+type EmergencyFundSuggestion = {
+  months: number;
+  monthlyEssentialExpenses: number;
+  suggestedTarget: number;
+  reason: string;
+} | null;
 
 type NetWorth = {
   liquidAssets: number;
@@ -41,7 +54,15 @@ const GOAL_TYPE_LABELS: Record<string, string> = {
   CUSTOM: "Outro",
 };
 
-export function PatrimonioClient({ goals, netWorth }: { goals: Goal[]; netWorth: NetWorth }) {
+export function PatrimonioClient({
+  goals,
+  netWorth,
+  emergencyFundSuggestion,
+}: {
+  goals: Goal[];
+  netWorth: NetWorth;
+  emergencyFundSuggestion: EmergencyFundSuggestion;
+}) {
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
       <div className="max-w-3xl mx-auto w-full">
@@ -57,7 +78,7 @@ export function PatrimonioClient({ goals, netWorth }: { goals: Goal[]; netWorth:
           Seus objetivos
         </h2>
 
-        <GoalsSection goals={goals} />
+        <GoalsSection goals={goals} emergencyFundSuggestion={emergencyFundSuggestion} />
       </div>
     </div>
   );
@@ -107,12 +128,22 @@ function SummaryFigure({ label, value, negative }: { label: string; value: numbe
 // Sonhos (saiu do menu principal, mora aqui agora — mesmo conteúdo de sempre)
 // ---------------------------------------------------------------------------
 
-function GoalsSection({ goals }: { goals: Goal[] }) {
+function GoalsSection({
+  goals,
+  emergencyFundSuggestion,
+}: {
+  goals: Goal[];
+  emergencyFundSuggestion: EmergencyFundSuggestion;
+}) {
   const [showForm, setShowForm] = useState(false);
+  const [type, setType] = useState("DREAM");
+  const [targetAmountKey, setTargetAmountKey] = useState(0);
+  const [targetAmountDefault, setTargetAmountDefault] = useState<number | undefined>(undefined);
   const [state, formAction, pending] = useActionState<GoalFormState, FormData>(createGoalAction, undefined);
 
   const active = goals.filter((g) => g.status === "ACTIVE");
   const others = goals.filter((g) => g.status !== "ACTIVE");
+  const hasEmergencyFundGoal = goals.some((g) => g.type === "EMERGENCY_FUND");
 
   return (
     <div>
@@ -141,7 +172,7 @@ function GoalsSection({ goals }: { goals: Goal[] }) {
               </div>
               <div>
                 <Label htmlFor="type">Tipo</Label>
-                <Select id="type" name="type" defaultValue="DREAM">
+                <Select id="type" name="type" value={type} onChange={(e) => setType(e.target.value)}>
                   {Object.entries(GOAL_TYPE_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
@@ -151,8 +182,19 @@ function GoalsSection({ goals }: { goals: Goal[] }) {
               </div>
               <div>
                 <Label htmlFor="targetAmount">Quanto custa? (opcional)</Label>
-                <CurrencyInput id="targetAmount" name="targetAmount" />
+                <CurrencyInput key={targetAmountKey} id="targetAmount" name="targetAmount" defaultValue={targetAmountDefault} />
               </div>
+              {type === "EMERGENCY_FUND" && !hasEmergencyFundGoal && (
+                <div className="col-span-2 -mt-1">
+                  <EmergencyFundSuggestionBox
+                    suggestion={emergencyFundSuggestion}
+                    onUse={(amount) => {
+                      setTargetAmountDefault(amount);
+                      setTargetAmountKey((k) => k + 1);
+                    }}
+                  />
+                </div>
+              )}
               <div>
                 <Label htmlFor="targetDate">Prazo (opcional)</Label>
                 <Input id="targetDate" name="targetDate" type="date" />
@@ -184,13 +226,13 @@ function GoalsSection({ goals }: { goals: Goal[] }) {
       ) : (
         <div className="space-y-3">
           {active.map((g) => (
-            <GoalCard key={g.id} goal={g} />
+            <GoalCard key={g.id} goal={g} emergencyFundSuggestion={emergencyFundSuggestion} />
           ))}
           {others.length > 0 && (
             <>
               <p className="text-xs font-medium text-onbrand/55 pt-4">Outros</p>
               {others.map((g) => (
-                <GoalCard key={g.id} goal={g} />
+                <GoalCard key={g.id} goal={g} emergencyFundSuggestion={emergencyFundSuggestion} />
               ))}
             </>
           )}
@@ -200,32 +242,80 @@ function GoalsSection({ goals }: { goals: Goal[] }) {
   );
 }
 
-function GoalCard({ goal }: { goal: Goal }) {
+// ---------------------------------------------------------------------------
+// Sugestão de meta de reserva de emergência — resposta direta à pergunta do
+// Thiago (2026-09-20) "o Tobias precisa entender o quanto de reserva de
+// emergência o cliente tem que ter": aplica a recomendação da Ameriprise (3
+// a 6 meses de despesas essenciais, mais para renda única/variável) em cima
+// do que a pessoa já cadastrou em Renda e Despesas. Ver
+// computeEmergencyFundTarget em services/incomeExpenseSources.ts.
+// ---------------------------------------------------------------------------
+
+function EmergencyFundSuggestionBox({
+  suggestion,
+  onUse,
+}: {
+  suggestion: EmergencyFundSuggestion;
+  onUse: (amount: number) => void;
+}) {
+  if (!suggestion) {
+    return (
+      <p className="text-xs text-onbrand/45 rounded-lg bg-brand-900/60 px-3 py-2.5">
+        Cadastre seus gastos fixos em Renda e Despesas pra o Tobias sugerir uma meta baseada no que você realmente
+        gasta por mês.
+      </p>
+    );
+  }
+  return (
+    <div className="flex items-start gap-2.5 rounded-lg bg-gold-100/[0.06] border border-gold-500/20 px-3 py-2.5">
+      <Sparkles className="h-4 w-4 text-gold-400 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-onbrand/75">
+          Sugestão: <b className="text-onbrand">{formatBRL(suggestion.suggestedTarget)}</b> ({suggestion.months} meses de
+          gastos fixos, {formatBRL(suggestion.monthlyEssentialExpenses)}/mês) — {suggestion.reason}.
+        </p>
+        <button
+          type="button"
+          className="text-xs font-semibold text-gold-400 hover:underline mt-1"
+          onClick={() => onUse(suggestion.suggestedTarget)}
+        >
+          Usar esta meta
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GoalCard({ goal, emergencyFundSuggestion }: { goal: Goal; emergencyFundSuggestion: EmergencyFundSuggestion }) {
   const [pending, startTransition] = useTransition();
   const [contribution, setContribution] = useState(0);
   // CurrencyInput não aceita `value` controlado (ver componente); mudar essa
   // key força ele a remontar em branco depois de um aporte confirmado.
   const [contributionKey, setContributionKey] = useState(0);
-  const pct = goal.targetAmount ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100)) : null;
+  const pct = goal.targetAmount ? (goal.currentAmount / goal.targetAmount) * 100 : null;
+  const isEmergencyFund = goal.type === "EMERGENCY_FUND";
 
   return (
     <Card data-testid="goal-card" data-goal-title={goal.title}>
       <CardContent className="py-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-onbrand">{goal.title}</p>
-              <Badge tone="brand">{GOAL_TYPE_LABELS[goal.type]}</Badge>
-              {goal.status !== "ACTIVE" && <Badge tone="neutral">{goal.status}</Badge>}
+          <div className="flex items-start gap-3 min-w-0">
+            <GoalProgressRing pct={pct} />
+            <div className="min-w-0 pt-0.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-medium text-onbrand">{goal.title}</p>
+                <Badge tone="brand">{GOAL_TYPE_LABELS[goal.type]}</Badge>
+                {goal.status !== "ACTIVE" && <Badge tone="neutral">{goal.status}</Badge>}
+              </div>
+              {goal.targetAmount ? (
+                <p className="text-sm text-onbrand/55 mt-0.5">
+                  {formatBRL(goal.currentAmount)} de {formatBRL(goal.targetAmount)}
+                  {goal.targetDate ? ` · até ${new Date(goal.targetDate).toLocaleDateString("pt-BR")}` : ""}
+                </p>
+              ) : (
+                <p className="text-sm text-onbrand/55 mt-0.5">Ainda não quantificado. Conte mais detalhes ao Tobias.</p>
+              )}
             </div>
-            {goal.targetAmount ? (
-              <p className="text-sm text-onbrand/55 mt-0.5">
-                {formatBRL(goal.currentAmount)} de {formatBRL(goal.targetAmount)}
-                {goal.targetDate ? ` · até ${new Date(goal.targetDate).toLocaleDateString("pt-BR")}` : ""}
-              </p>
-            ) : (
-              <p className="text-sm text-onbrand/55 mt-0.5">Ainda não quantificado. Conte mais detalhes ao Tobias.</p>
-            )}
           </div>
           <button
             className="text-onbrand/40 hover:text-gold-400 shrink-0"
@@ -238,16 +328,24 @@ function GoalCard({ goal }: { goal: Goal }) {
           </button>
         </div>
 
-        {pct !== null && <ProgressBar value={pct} className="mt-3" />}
-
         {goal.status === "ACTIVE" &&
-          (goal.type === "EMERGENCY_FUND" ? (
-            <p className="text-xs text-onbrand/45 mt-3">
-              Esse valor é calculado automaticamente a partir do seu saldo em conta e investimentos de liquidez
-              imediata. Não precisa registrar aporte aqui.
-            </p>
+          (isEmergencyFund ? (
+            <div className="mt-3 pl-[68px]">
+              <p className="text-xs text-onbrand/45">
+                Esse valor é calculado automaticamente a partir do seu saldo em conta e investimentos de liquidez
+                imediata. Não precisa registrar aporte aqui.
+              </p>
+              {!goal.targetAmount && (
+                <div className="mt-2">
+                  <EmergencyFundSuggestionBox
+                    suggestion={emergencyFundSuggestion}
+                    onUse={(amount) => startTransition(() => updateGoalTargetAction(goal.id, amount))}
+                  />
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="mt-3 flex items-center gap-2">
+            <div className="mt-3 pl-[68px] flex items-center gap-2">
               <CurrencyInput
                 key={contributionKey}
                 placeholder="Registrar aporte (R$)"

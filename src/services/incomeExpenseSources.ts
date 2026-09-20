@@ -248,6 +248,53 @@ export async function ensureCurrentMonthGenerated(userId: string) {
   }
 }
 
+export type EmergencyFundSuggestion = {
+  months: number;
+  monthlyEssentialExpenses: number;
+  suggestedTarget: number;
+  reason: string;
+};
+
+/**
+ * Sugestão de meta de reserva de emergência — antes o Tobias não tinha
+ * NENHUMA resposta pra "quanto eu preciso guardar pra me manter num aperto",
+ * só mostrava o valor já guardado sem alvo nenhum (Thiago, 2026-09-20: "o
+ * tobias precisa entender o quanto de reserva de emergência o cliente tem
+ * que ter"). Aplica a recomendação da Ameriprise (3 a 6 meses de despesas
+ * essenciais, mais pra quem tem renda única ou variável — ver
+ * claude/analise-metodologia-ameriprise.md, lacuna 4) em cima do que a
+ * pessoa já cadastrou aqui: usa os gastos fixos obrigatórios como
+ * aproximação de "essencial" (a categorização fina essencial/estilo-de-vida
+ * de todo o orçamento é uma fase futura, não uma dependência desta conta) e
+ * o perfil de renda cadastrado (única/variável vs. dupla e estável) pra
+ * decidir 6 ou 3 meses. Retorna null quando não há gasto fixo cadastrado
+ * ainda — nesse caso não dá pra sugerir nada de concreto.
+ */
+export async function computeEmergencyFundTarget(userId: string): Promise<EmergencyFundSuggestion | null> {
+  const [sources, expenses] = await Promise.all([listIncomeSources(userId), listFixedExpenses(userId)]);
+  const monthlyEssentialExpenses = expenses.filter((e) => e.isActive).reduce((s, e) => s + Number(e.amount), 0);
+  if (monthlyEssentialExpenses <= 0) return null;
+
+  const activeSources = sources.filter((s) => s.isActive);
+  const stableSalaryCount = activeSources.filter((s) => s.category === "SALARY").length;
+  const hasVariableIncome = activeSources.some((s) => s.category !== "SALARY" && s.category !== "BENEFIT");
+
+  let months: number;
+  let reason: string;
+  if (hasVariableIncome) {
+    months = 6;
+    reason = "você tem renda variável ou autônoma cadastrada (Uber, aluguel, freelance...), que pede uma reserva maior";
+  } else if (stableSalaryCount >= 2) {
+    months = 3;
+    reason = "duas rendas fixas cadastradas cobrem uma reserva menor (ex: casal com dois salários)";
+  } else {
+    months = 6;
+    reason = "com uma única fonte de renda cadastrada, a recomendação é uma reserva maior";
+  }
+
+  return { months, monthlyEssentialExpenses, suggestedTarget: monthlyEssentialExpenses * months, reason };
+}
+
 /** Resumo do mês corrente pras fontes cadastradas — usado no gráfico da
  * aba: renda esperada por fonte vs. gastos fixos esperados, além do total
  * de descontos/despesas associados a cada renda. Não depende de o mês já

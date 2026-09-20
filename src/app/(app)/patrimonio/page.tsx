@@ -1,11 +1,16 @@
 import { requireOnboardedUser } from "@/lib/auth/guards";
 import { listGoals } from "@/services/goals";
 import { computeNetWorth } from "@/services/aggregations";
+import { computeEmergencyFundTarget } from "@/services/incomeExpenseSources";
 import { PatrimonioClient } from "./PatrimonioClient";
 
 export default async function PatrimonioPage() {
   const user = await requireOnboardedUser();
-  const [goals, netWorth] = await Promise.all([listGoals(user.id), computeNetWorth(user.id)]);
+  const [goals, netWorth, emergencyFundSuggestion] = await Promise.all([
+    listGoals(user.id),
+    computeNetWorth(user.id),
+    computeEmergencyFundTarget(user.id),
+  ]);
 
   return (
     <PatrimonioClient
@@ -14,6 +19,7 @@ export default async function PatrimonioPage() {
         targetDate: g.targetDate?.toISOString() ?? null,
       }))}
       netWorth={netWorth}
+      emergencyFundSuggestion={emergencyFundSuggestion}
     />
   );
 }

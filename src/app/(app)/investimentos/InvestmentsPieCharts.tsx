@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/Card";
 import { formatBRL } from "@/lib/utils/money";
 
@@ -103,11 +104,22 @@ function Legend({ slices, total }: { slices: Slice[]; total: number }) {
   );
 }
 
-function PieCard({ title, slices, total }: { title: string; slices: Slice[]; total: number }) {
+function PieCard({
+  title,
+  caption,
+  slices,
+  total,
+}: {
+  title: string;
+  caption?: React.ReactNode;
+  slices: Slice[];
+  total: number;
+}) {
   return (
     <Card>
       <CardContent className="py-5">
-        <h3 className="font-display font-semibold text-onbrand mb-4">{title}</h3>
+        <h3 className="font-display font-semibold text-onbrand mb-1">{title}</h3>
+        {caption && <p className="text-xs text-onbrand/45 mb-4">{caption}</p>}
         {slices.length === 0 ? (
           <p className="text-sm text-onbrand/45">Nada por aqui ainda.</p>
         ) : (
@@ -143,8 +155,27 @@ export function InvestmentsPieCharts({ investments }: { investments: Investment[
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-      <PieCard title="Por tipo de investimento" slices={buildSlices(byType)} total={total} />
-      <PieCard title="Por objetivo (sonho)" slices={buildSlices(byGoal)} total={total} />
+      <PieCard
+        title="Por tipo de investimento"
+        caption="Como o total investido se divide entre renda fixa, ações, fundos..."
+        slices={buildSlices(byType)}
+        total={total}
+      />
+      <PieCard
+        title="Por objetivo (sonho)"
+        caption={
+          <>
+            Quanto do investido já está reservado pra cada objetivo. Pra ver o progresso de cada um (quanto falta,
+            não só a fatia), veja em{" "}
+            <Link href="/patrimonio#sonhos" className="text-gold-400 hover:underline">
+              Patrimônio → Sonhos
+            </Link>
+            .
+          </>
+        }
+        slices={buildSlices(byGoal)}
+        total={total}
+      />
     </div>
   );
 }

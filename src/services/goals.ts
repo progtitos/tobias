@@ -106,3 +106,17 @@ export async function reverseGoalContribution(userId: string, goalId: string, am
 export async function updateGoalStatus(userId: string, goalId: string, status: "ACTIVE" | "PAUSED" | "ABANDONED") {
   await db.update(goals).set({ status, updatedAt: new Date() }).where(and(eq(goals.id, goalId), eq(goals.userId, userId)));
 }
+
+/**
+ * Define ou ajusta a meta (valor-alvo) de um objetivo já existente — não
+ * existia nenhum jeito de fazer isso depois da criação. Usado principalmente
+ * pra "usar a meta sugerida" na Reserva de emergência (ver
+ * computeEmergencyFundTarget em services/incomeExpenseSources.ts), mas serve
+ * pra qualquer objetivo que a pessoa queira requantificar.
+ */
+export async function updateGoalTarget(userId: string, goalId: string, targetAmount: number) {
+  await db
+    .update(goals)
+    .set({ targetAmount, isQuantified: true, updatedAt: new Date() })
+    .where(and(eq(goals.id, goalId), eq(goals.userId, userId)));
+}
