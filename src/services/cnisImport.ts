@@ -5,7 +5,7 @@ import { documents, cnisDocumentItems, salaryContributionRecords } from "@/lib/d
 import { AIService, isAIConfigured } from "@/lib/ai/AIService";
 import { saveDocumentFile } from "@/lib/storage";
 import { trackEvent, logFinancialEvent } from "./analytics";
-import { parseDateOnly } from "@/lib/utils/dates";
+import { parseDateOnly, parseDateOnlyOrNull } from "@/lib/utils/dates";
 
 export type UploadedFile = { buffer: Buffer; mimeType: string; fileName: string };
 
@@ -56,19 +56,43 @@ export async function uploadCnisDocument(userId: string, file: UploadedFile) {
     return { document, items: [] };
   }
 
+  // Mesmo padrão de "descarta a linha ruim, não derruba a importação
+  // inteira" já usado em statementImport.ts: uma competência com data
+  // malformada (leitura de IA) não pode travar o upload inteiro com um
+  // `RangeError: Invalid time value` lá na hora de gravar no banco.
+  const validExtracted = extracted.filter((r) => {
+    const parsed = parseDateOnlyOrNull(r.competencia);
+    if (!parsed) {
+      console.warn(`[cnisImport] descartando competência inválida: "${r.competencia}"`);
+    }
+    return parsed !== null;
+  });
+
+  if (validExtracted.length === 0) {
+    const [document] = await db
+      .insert(documents)
+      .values({
+        ...baseValues,
+        status: "FAILED",
+        errorMessage: "Não consegui ler nenhuma competência válida neste extrato.",
+      })
+      .returning();
+    return { document, items: [] };
+  }
+
   const [document] = await db
     .insert(documents)
     .values({
       ...baseValues,
       status: "NEEDS_REVIEW",
-      extractedSummary: `${extracted.length} competência${extracted.length === 1 ? "" : "s"} lida${extracted.length === 1 ? "" : "s"}`,
+      extractedSummary: `${validExtracted.length} competência${validExtracted.length === 1 ? "" : "s"} lida${validExtracted.length === 1 ? "" : "s"}`,
     })
     .returning();
 
   const items = await db
     .insert(cnisDocumentItems)
     .values(
-      extracted.map((r) => ({
+      validExtracted.map((r) => ({
         documentId: document.id,
         competencia: parseDateOnly(r.competencia),
         employerName: r.employerName,

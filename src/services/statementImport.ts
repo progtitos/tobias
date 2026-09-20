@@ -8,7 +8,7 @@ import { parseCsvStatement } from "@/lib/utils/csvStatement";
 import { getUserCategories, matchCategoryByGuess, matchRecurringCategoryRule, getRecurringCategoryRules, learnRecurringCategoryRule } from "./categorization";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { adjustBankAccountBalance } from "./bankAccounts";
-import { parseDateOnly } from "@/lib/utils/dates";
+import { parseDateOnly, parseDateOnlyOrNull } from "@/lib/utils/dates";
 
 export type UploadedFile = { buffer: Buffer; mimeType: string; fileName: string };
 export type ImportTarget = { bankAccountId: string } | { creditCardId: string };
@@ -126,14 +126,43 @@ export async function uploadStatementDocument(userId: string, file: UploadedFile
     return { document, items: [] };
   }
 
+  // Descarta só as linhas com data ilegível em vez de deixar o `Invalid
+  // Date` estourar lá na hora de gravar no banco — bug de produção
+  // (2026-09-20): a IA devolveu uma data fora do formato ISO pra uma linha
+  // de uma fatura, e isso derrubava a importação inteira com um erro de
+  // servidor genérico, sem nenhuma linha chegando na tela de Revisão. Mesmo
+  // espírito de "descartar, não derrubar tudo" já usado pra amount <= 0 (ver
+  // rawStatementTransactionSchema em schemas.ts).
+  const validExtracted = extracted.filter((t) => {
+    try {
+      parseDateOnly(t.date);
+      return true;
+    } catch {
+      console.warn("[statementImport] linha descartada por data inválida", { date: t.date, description: t.description });
+      return false;
+    }
+  });
+
+  if (validExtracted.length === 0) {
+    const [document] = await db
+      .insert(documents)
+      .values({
+        ...baseValues,
+        status: "FAILED",
+        errorMessage: "Consegui ler o arquivo, mas nenhuma das datas veio num formato reconhecível. Tenta outro arquivo ou fale com o suporte.",
+      })
+      .returning();
+    return { document, items: [] };
+  }
+
   const [document] = await db
     .insert(documents)
     .values({
       ...baseValues,
       status: "NEEDS_REVIEW",
-      periodStart: periodStart ? parseDateOnly(periodStart) : null,
-      periodEnd: periodEnd ? parseDateOnly(periodEnd) : null,
-      extractedSummary: `${extracted.length} transações lidas`,
+      periodStart: parseDateOnlyOrNull(periodStart),
+      periodEnd: parseDateOnlyOrNull(periodEnd),
+      extractedSummary: `${validExtracted.length} transações lidas`,
     })
     .returning();
 
@@ -141,7 +170,7 @@ export async function uploadStatementDocument(userId: string, file: UploadedFile
     .insert(documentItems)
     .values(
       await Promise.all(
-        extracted.map(async (t) => {
+        validExtracted.map(async (t) => {
           const isDuplicate = await findExistingDuplicate(userId, target, parseDateOnly(t.date), t.amount);
           return {
             documentId: document.id,

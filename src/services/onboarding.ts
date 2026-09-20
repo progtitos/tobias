@@ -28,7 +28,7 @@ import {
   BEHAVIORAL_PROFILE_DESCRIPTIONS,
   type BehavioralProfile,
 } from "./behavioralProfile";
-import { parseDateOnly } from "@/lib/utils/dates";
+import { parseDateOnlyOrNull } from "@/lib/utils/dates";
 
 const FIRST_MESSAGE = `Olá, eu sou o Tobias.
 
@@ -122,7 +122,18 @@ async function applyExtractedData(userId: string, extracted: NonNullable<Awaited
   if (extracted.focus) fpUpdates.primaryFocus = extracted.focus;
   // Os 4 dados do INSS coletados na conversa (ramo aposentadoria) — ficam
   // aqui até finalizeOnboarding copiá-los pra retirement_plans.
-  if (extracted.birthDate) fpUpdates.statedBirthDate = parseDateOnly(extracted.birthDate);
+  if (extracted.birthDate) {
+    // Data extraída por IA da conversa — se vier malformada, ignora só esse
+    // campo (mesmo padrão de "descarta o dado ruim, não derruba a operação
+    // inteira" usado em statementImport.ts/cnisImport.ts) em vez de estourar
+    // um erro não tratado no meio da conversa de onboarding.
+    const parsedBirthDate = parseDateOnlyOrNull(extracted.birthDate);
+    if (parsedBirthDate) {
+      fpUpdates.statedBirthDate = parsedBirthDate;
+    } else {
+      console.warn(`[onboarding] descartando birthDate inválida: "${extracted.birthDate}"`);
+    }
+  }
   if (extracted.gender) fpUpdates.statedGender = extracted.gender;
   if (extracted.contributionYearsToDate !== undefined) fpUpdates.statedContributionYearsToDate = extracted.contributionYearsToDate;
   if (extracted.averageMonthlySalary !== undefined) fpUpdates.statedAverageMonthlySalary = extracted.averageMonthlySalary;

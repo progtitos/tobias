@@ -48,9 +48,43 @@ export function nowInBrazil(): Date {
  * faixa. Não corrige dados já salvos antes desta função existir, só as
  * novas escritas a partir de agora.
  */
+/**
+ * Lança um erro claro (em vez de devolver silenciosamente um `Invalid Date`)
+ * quando `dateStr` não é mesmo uma data "YYYY-MM-DD" válida. Bug de produção
+ * que motivou isso (2026-09-20): a leitura de um extrato por IA devolveu uma
+ * data que não batia com esse formato pra uma linha; o `Invalid Date`
+ * resultante só estourava várias camadas depois, na hora de gravar no banco
+ * (`RangeError: Invalid time value` dentro do driver do Postgres), como um
+ * erro genérico de servidor sem nenhuma mensagem útil pro usuário. Validando
+ * aqui, quem chama pode decidir descartar só a linha ruim (ver
+ * `parseDateOnlyOrNull`) em vez de derrubar a importação inteira sem
+ * explicação.
+ */
 export function parseDateOnly(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0));
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr ?? "");
+  if (!match) throw new Error(`Data inválida: "${dateStr}"`);
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  // `Date.UTC` normaliza silenciosamente um dia/mês impossível (ex.: 31 de
+  // fevereiro vira 2 ou 3 de março) em vez de sinalizar erro — conferindo os
+  // componentes de volta, pegamos esse caso também, não só string
+  // completamente fora do formato.
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
+    throw new Error(`Data inválida (dia/mês/ano incoerentes): "${dateStr}"`);
+  }
+  return date;
+}
+
+/** Mesma coisa que `parseDateOnly`, mas devolve `null` em vez de lançar erro — para os casos em que uma data ruim deve ser ignorada, não derrubar a operação inteira. */
+export function parseDateOnlyOrNull(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  try {
+    return parseDateOnly(dateStr);
+  } catch {
+    return null;
+  }
 }
 
 /**
