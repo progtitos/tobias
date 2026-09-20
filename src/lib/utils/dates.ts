@@ -28,9 +28,44 @@ export function nowInBrazil(): Date {
 }
 
 /**
- * Converte uma data "sem hora" (string "YYYY-MM-DD", vinda de um
- * `<input type="date">`, de uma leitura de extrato/fatura por IA ou do CSV)
- * num `Date` de um jeito que sobrevive a fuso horário.
+ * Normaliza formatos comuns de data pra "YYYY-MM-DD" antes de validar. A
+ * extração de extrato/fatura por IA (`schemas.ts`) pede "ISO 8601 date" no
+ * schema, mas isso é só uma descrição pro modelo, não uma garantia — um
+ * extrato brasileiro mostra a data na tela como "05/03/2026" (DD/MM/AAAA), e
+ * o modelo às vezes copia esse formato ao pé da letra em vez de converter.
+ *
+ * Bug de produção que motivou isso (2026-09-20, no dia seguinte ao fix
+ * anterior): sem essa normalização, um extrato inteiro caía no "nenhuma data
+ * veio num formato reconhecível" — não porque os dados estivessem
+ * corrompidos, mas porque vieram num formato válido só que diferente do
+ * único que `parseDateOnly` aceitava. Como o produto é só pro Brasil,
+ * assume-se DD/MM/AAAA (nunca MM/DD/AAAA) quando o formato não é ISO.
+ */
+function normalizeDateFormats(dateStr: string): string {
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return dateStr;
+
+  // DD/MM/AAAA ou DD-MM-AAAA
+  const brFull = /^(\d{2})[/-](\d{2})[/-](\d{4})$/.exec(dateStr);
+  if (brFull) {
+    const [, d, m, y] = brFull;
+    return `${y}-${m}-${d}`;
+  }
+
+  // DD/MM/AA ou DD-MM-AA (assume 20AA — não faz sentido um extrato do
+  // século passado neste produto)
+  const brShort = /^(\d{2})[/-](\d{2})[/-](\d{2})$/.exec(dateStr);
+  if (brShort) {
+    const [, d, m, y] = brShort;
+    return `20${y}-${m}-${d}`;
+  }
+
+  return dateStr;
+}
+
+/**
+ * Converte uma data "sem hora" (string "YYYY-MM-DD" ou um formato BR comum,
+ * vinda de um `<input type="date">`, de uma leitura de extrato/fatura por IA
+ * ou do CSV) num `Date` de um jeito que sobrevive a fuso horário.
  *
  * Bug que isso evita: `new Date("2026-07-01")` (o que o código fazia antes)
  * é interpretado como meia-noite em UTC. Ao exibir de volta no navegador de
@@ -47,21 +82,21 @@ export function nowInBrazil(): Date {
  * UTC-5 e UTC-2) — meio-dia UTC nunca cruza pra outro dia calendário nessa
  * faixa. Não corrige dados já salvos antes desta função existir, só as
  * novas escritas a partir de agora.
- */
-/**
+ *
  * Lança um erro claro (em vez de devolver silenciosamente um `Invalid Date`)
- * quando `dateStr` não é mesmo uma data "YYYY-MM-DD" válida. Bug de produção
- * que motivou isso (2026-09-20): a leitura de um extrato por IA devolveu uma
- * data que não batia com esse formato pra uma linha; o `Invalid Date`
- * resultante só estourava várias camadas depois, na hora de gravar no banco
- * (`RangeError: Invalid time value` dentro do driver do Postgres), como um
- * erro genérico de servidor sem nenhuma mensagem útil pro usuário. Validando
- * aqui, quem chama pode decidir descartar só a linha ruim (ver
- * `parseDateOnlyOrNull`) em vez de derrubar a importação inteira sem
- * explicação.
+ * quando `dateStr` não é mesmo uma data válida em nenhum formato conhecido.
+ * Bug de produção que motivou essa validação (2026-09-20): a leitura de um
+ * extrato por IA devolveu uma data que não batia com o formato esperado pra
+ * uma linha; o `Invalid Date` resultante só estourava várias camadas depois,
+ * na hora de gravar no banco (`RangeError: Invalid time value` dentro do
+ * driver do Postgres), como um erro genérico de servidor sem nenhuma
+ * mensagem útil pro usuário. Validando aqui, quem chama pode decidir
+ * descartar só a linha ruim (ver `parseDateOnlyOrNull`) em vez de derrubar a
+ * importação inteira sem explicação.
  */
 export function parseDateOnly(dateStr: string): Date {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr ?? "");
+  const normalized = normalizeDateFormats(dateStr ?? "");
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(normalized);
   if (!match) throw new Error(`Data inválida: "${dateStr}"`);
   const y = Number(match[1]);
   const m = Number(match[2]);
