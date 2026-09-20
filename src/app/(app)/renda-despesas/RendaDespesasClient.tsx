@@ -60,6 +60,13 @@ const INCOME_KIND_LABELS: Record<string, string> = {
 // INCOME_KINDS_WITH_SECOND_LEG em services/incomeExpenseSources.ts.
 const KINDS_WITH_SECOND_LEG = new Set(["SALARY", "FREELANCE", "RENTAL", "BUSINESS"]);
 
+// Fontes cujo valor tipicamente varia mês a mês (corridas do Uber, diárias
+// do Airbnb...) — só muda o rótulo/aviso do campo de valor pra deixar claro
+// que é uma estimativa de partida, não um valor fixo. O ajuste de verdade
+// mês a mês acontece em "Pra confirmar este mês", que já retroalimenta essa
+// estimativa (ver confirmPendingTransaction).
+const VARIABLE_KINDS = new Set(["FREELANCE", "RENTAL"]);
+
 function secondLegLabel(kind: string) {
   return kind === "SALARY" ? "Descontos (INSS, IR...)" : "Despesas (combustível, limpeza, taxas...)";
 }
@@ -117,7 +124,9 @@ export function RendaDespesasClient({
               <h2 className="font-display font-semibold text-onbrand mb-1">Pra confirmar este mês</h2>
               <p className="text-sm text-onbrand/55 mb-4">
                 Gerados a partir do que você cadastrou abaixo — confira o valor e confirme, ou ajuste se veio
-                diferente.
+                diferente (renda e despesa de uma fonte variável, tipo Uber ou Airbnb, aparecem em linhas separadas
+                pra ajustar cada uma). O valor que você confirmar aqui vira a nova expectativa pro mês que vem, então
+                não precisa editar o cadastro da fonte toda vez que o valor mudar.
               </p>
               <div className="space-y-3">
                 {pending.map((p) => (
@@ -264,16 +273,24 @@ function SourcesSection({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Valor {KINDS_WITH_SECOND_LEG.has(kind) ? "bruto" : ""} mensal</Label>
+                <Label>
+                  {VARIABLE_KINDS.has(kind) ? "Valor estimado (mês atual)" : `Valor${KINDS_WITH_SECOND_LEG.has(kind) ? " bruto" : ""} mensal`}
+                </Label>
                 <CurrencyInput name="amount" required />
               </div>
               {KINDS_WITH_SECOND_LEG.has(kind) && (
                 <div>
-                  <Label>{secondLegLabel(kind)}</Label>
+                  <Label>{secondLegLabel(kind)}{VARIABLE_KINDS.has(kind) ? " (estimado)" : ""}</Label>
                   <CurrencyInput name="deductionAmount" />
                 </div>
               )}
             </div>
+            {VARIABLE_KINDS.has(kind) && (
+              <p className="text-xs text-onbrand/45 -mt-1">
+                Não precisa ser exato — é só o ponto de partida. Todo mês você confirma ou ajusta o valor real em
+                &quot;Pra confirmar este mês&quot;, e o Tobias já usa esse valor como estimativa do mês seguinte.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Categoria da renda</Label>

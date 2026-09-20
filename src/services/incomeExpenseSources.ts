@@ -113,9 +113,20 @@ export async function listPendingConfirmations(userId: string) {
     .orderBy(transactions.date);
 }
 
-/** Confirma um lançamento previsto — se `adjustedAmount` vier preenchido
- * (a pessoa editou o valor sugerido), grava esse valor em vez do original;
- * o cadastro da fonte não muda sozinho, só o lançamento daquele mês. */
+/**
+ * Confirma um lançamento previsto — se `adjustedAmount` vier preenchido (a
+ * pessoa editou o valor sugerido), grava esse valor em vez do original.
+ *
+ * Além de confirmar o lançamento do mês, o valor final também vira o novo
+ * "valor esperado" da fonte que o gerou (renda, desconto/despesa ou gasto
+ * fixo) — é assim que uma renda variável (Uber, Airbnb, freelance) se
+ * ajusta mês a mês sem a pessoa precisar editar o cadastro da fonte à
+ * parte: ela só confirma/ajusta o valor real de cada mês aqui, e a próxima
+ * previsão já nasce a partir desse número (Thiago, 2026-09-20 — "o correto
+ * seria setar o total a cada mês, assim também seta as despesas dessas
+ * rendas extras"). Pra salário fixo isso também é útil (ex: depois de um
+ * reajuste), só não muda nada pra quem confirma sempre o mesmo valor.
+ */
 export async function confirmPendingTransaction(userId: string, transactionId: string, adjustedAmount?: number) {
   const [tx] = await db
     .select()
@@ -124,15 +135,28 @@ export async function confirmPendingTransaction(userId: string, transactionId: s
     .limit(1);
   if (!tx) return null;
 
+  const finalAmount = adjustedAmount !== undefined && adjustedAmount >= 0 ? adjustedAmount : Number(tx.amount);
+
   await db
     .update(transactions)
-    .set({
-      amount: adjustedAmount !== undefined && adjustedAmount >= 0 ? adjustedAmount : tx.amount,
-      needsConfirmation: false,
-      confidence: 1.0,
-      updatedAt: new Date(),
-    })
+    .set({ amount: finalAmount, needsConfirmation: false, confidence: 1.0, updatedAt: new Date() })
     .where(eq(transactions.id, transactionId));
+
+  if (tx.incomeSourceId) {
+    // A perna de renda e a de desconto/despesa da mesma fonte viram
+    // lançamentos separados (ver ensureCurrentMonthGenerated) — o `type` da
+    // transação diz qual das duas esse valor confirmado atualiza.
+    await db
+      .update(incomes)
+      .set(tx.type === "INCOME" ? { amount: finalAmount } : { deductionAmount: finalAmount })
+      .where(and(eq(incomes.id, tx.incomeSourceId), eq(incomes.userId, userId)));
+  } else if (tx.recurringExpenseId) {
+    await db
+      .update(recurringExpenses)
+      .set({ amount: finalAmount })
+      .where(and(eq(recurringExpenses.id, tx.recurringExpenseId), eq(recurringExpenses.userId, userId)));
+  }
+
   return true;
 }
 
