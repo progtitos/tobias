@@ -192,13 +192,13 @@ export function ContaClient({
               ) : (
                 <div className="divide-y divide-onbrand/[0.04]">
                   {active.map((a) => (
-                    <AccountRow key={a.id} account={a} cards={creditCards.filter((c) => c.bankAccountId === a.id)} />
+                    <AccountRow key={a.id} account={a} />
                   ))}
                   {inactive.length > 0 && (
                     <>
                       <p className="text-[11px] font-medium text-onbrand/45 pt-3 pb-1">Desativadas</p>
                       {inactive.map((a) => (
-                        <AccountRow key={a.id} account={a} cards={creditCards.filter((c) => c.bankAccountId === a.id)} />
+                        <AccountRow key={a.id} account={a} />
                       ))}
                     </>
                   )}
@@ -472,7 +472,7 @@ function EditAccountForm({ account, onDone }: { account: BankAccount; onDone: ()
 // clique na linha, pra não competir visualmente com o essencial.
 // ---------------------------------------------------------------------------
 
-function AccountRow({ account, cards }: { account: BankAccount; cards: CreditCard[] }) {
+function AccountRow({ account }: { account: BankAccount }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -580,7 +580,9 @@ function AccountRow({ account, cards }: { account: BankAccount; cards: CreditCar
             </button>
           </div>
 
-          {panel === "upload" && <ImportUploadPanel account={account} cards={cards} onCancel={() => setPanel(null)} />}
+          {panel === "upload" && (
+            <StatementUploadForm target={{ kind: "account", accountId: account.id }} onCancel={() => setPanel(null)} />
+          )}
         </div>
       )}
     </div>
@@ -588,70 +590,26 @@ function AccountRow({ account, cards }: { account: BankAccount; cards: CreditCar
 }
 
 // ---------------------------------------------------------------------------
-// Upload único de extrato/fatura — um só formulário pra conta e todos os
-// cartões ligados a ela, com o destino escolhido explicitamente por um
-// seletor (não por "qual botão eu cliquei lá na árvore da tela"), pra não
-// repetir o erro de uma fatura de cartão entrar como extrato de conta (e
-// distorcer o saldo dela). O texto do botão de enviar e o hidden field que a
-// action usa pra saber o alvo mudam de acordo com a opção selecionada.
+// Upload de extrato/fatura — cada conta e cada cartão tem seu próprio botão
+// e painel (ver AccountRow e CardRow), sem seletor de destino: o alvo já é
+// sabido pelo contexto de onde o upload foi aberto. Antes havia um único
+// formulário compartilhado com um seletor "conta ou qual cartão", que
+// convidava a escolher o destino errado (uma fatura de cartão sendo
+// enviada como extrato de outra conta) — reportado em produção.
 // ---------------------------------------------------------------------------
 
-type UploadDestination = { kind: "account" } | { kind: "card"; cardId: string };
+type UploadTarget = { kind: "account"; accountId: string } | { kind: "card"; creditCardId: string };
 
-function ImportUploadPanel({
-  account,
-  cards,
-  onCancel,
-}: {
-  account: BankAccount;
-  cards: CreditCard[];
-  onCancel: () => void;
-}) {
-  const [destination, setDestination] = useState<UploadDestination>({ kind: "account" });
+function StatementUploadForm({ target, onCancel }: { target: UploadTarget; onCancel: () => void }) {
   const [state, formAction, pending] = useActionState<UploadStatementState, FormData>(uploadStatementAction, undefined);
-
-  const submitLabel = destination.kind === "account" ? "Enviar extrato" : "Enviar fatura";
+  const submitLabel = target.kind === "account" ? "Enviar extrato" : "Enviar fatura";
 
   return (
     <form action={formAction} className="rounded-xl bg-brand-900/60 p-3.5 mt-3">
-      <p className="text-xs text-onbrand/60 mb-2">Isso é o extrato de qual conta, ou a fatura de qual cartão?</p>
-
-      <div className="flex flex-wrap gap-2 mb-3">
-        <button
-          type="button"
-          onClick={() => setDestination({ kind: "account" })}
-          className={cn(
-            "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
-            destination.kind === "account"
-              ? "border-gold-400 bg-gold-400/10 text-gold-400"
-              : "border-transparent bg-onbrand/[0.03] text-onbrand/65 hover:bg-onbrand/[0.07]"
-          )}
-        >
-          {account.bankName && <BankBadge bankName={account.bankName} />}
-          Conta {account.name}
-        </button>
-        {cards.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => setDestination({ kind: "card", cardId: c.id })}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border-[1.5px] transition-colors",
-              destination.kind === "card" && destination.cardId === c.id
-                ? "border-gold-400 bg-gold-400/10 text-gold-400"
-                : "border-transparent bg-onbrand/[0.03] text-onbrand/65 hover:bg-onbrand/[0.07]"
-            )}
-          >
-            <CreditCardIcon className="h-3.5 w-3.5" />
-            Cartão {c.nickname}
-          </button>
-        ))}
-      </div>
-
-      {destination.kind === "account" ? (
-        <input type="hidden" name="bankAccountId" value={account.id} />
+      {target.kind === "account" ? (
+        <input type="hidden" name="bankAccountId" value={target.accountId} />
       ) : (
-        <input type="hidden" name="creditCardId" value={destination.cardId} />
+        <input type="hidden" name="creditCardId" value={target.creditCardId} />
       )}
 
       <input
@@ -858,9 +816,11 @@ function CardRow({
   usage: CreditCardUsage | null;
   accountName: string | null;
 }) {
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [panel, setPanel] = useState<"upload" | null>(null);
   const tone = usageTone(usage?.usagePct ?? null);
   const spend = usage?.currentCycleSpend ?? 0;
   const pct = usage?.usagePct != null ? Math.round(usage.usagePct) : null;
@@ -870,7 +830,7 @@ function CardRow({
     <div className="py-3">
       <div className="flex items-center gap-2.5">
         {card.brand ? <BankBadge bankName={card.brand} /> : <CreditCardIcon className="h-5 w-5 shrink-0 text-onbrand/45" />}
-        <div className="flex-1 min-w-0">
+        <button type="button" className="flex-1 min-w-0 text-left" onClick={() => setOpen((v) => !v)}>
           <div className="flex items-center justify-between gap-2">
             <p className="font-medium text-onbrand text-sm truncate">
               {card.nickname}
@@ -893,7 +853,7 @@ function CardRow({
               ? `Limite disponível: ${formatBRL(available ?? 0)}`
               : "Sem limite cadastrado, edite pra acompanhar o uso"}
           </p>
-        </div>
+        </button>
         <div className="flex items-center gap-1 shrink-0">
           <IconButton label="Editar cartão" onClick={() => setEditing((v) => !v)}>
             <Pencil className="h-3.5 w-3.5" />
@@ -918,6 +878,22 @@ function CardRow({
       </div>
 
       {editing && <EditCreditCardForm card={card} accountName={accountName} onDone={() => setEditing(false)} />}
+
+      {open && (
+        <div className="pt-2 pl-8">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-onbrand/70 hover:text-gold-400 text-xs"
+            onClick={() => setPanel(panel === "upload" ? null : "upload")}
+          >
+            <Upload className="h-3.5 w-3.5" /> Importar fatura
+          </button>
+
+          {panel === "upload" && (
+            <StatementUploadForm target={{ kind: "card", creditCardId: card.id }} onCancel={() => setPanel(null)} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
