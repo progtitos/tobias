@@ -92,6 +92,13 @@
       "when": 1789867734814,
       "tag": "0012_thin_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789923907288,
+      "tag": "0013_adiciona_renda_despesas_fixas",
+      "breakpoints": true
     }
   ]
 }

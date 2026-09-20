@@ -22,6 +22,11 @@ const CATEGORY_TREE: { name: string; type: Kind; icon: string; children?: string
   { name: "Dívidas", type: "EXPENSE", icon: "credit-card", children: ["Cartão de crédito", "Empréstimo", "Financiamento"] },
   { name: "Doações", type: "EXPENSE", icon: "hand-heart" },
   { name: "Trabalho", type: "EXPENSE", icon: "briefcase" },
+  // Faltava uma categoria pra pensão paga (ex: pensão alimentícia) — não
+  // cabia em nenhuma existente (Família não é sobre um pagamento fixo
+  // mensal). Adicionada a pedido do Thiago (2026-09-20), junto da aba
+  // "Renda e Despesas" — ver services/incomeExpenseSources.ts.
+  { name: "Pensão", type: "EXPENSE", icon: "hand-coins" },
   { name: "Outros", type: "EXPENSE", icon: "more-horizontal" },
   { name: "Investimentos", type: "INVESTMENT", icon: "trending-up" },
   { name: "Salário", type: "INCOME", icon: "wallet" },

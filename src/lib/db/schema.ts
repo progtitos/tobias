@@ -697,6 +697,11 @@ export const debts = pgTable(
 // RECURRING / SUBSCRIPTIONS / INCOME
 // ----------------------------------------------------------------------------
 
+// "incomes" existia na schema desde o início mas nunca foi usada por
+// nenhum service/tela (mesa zerada em produção) — é a base pra aba
+// "Renda e Despesas" (Thiago, 2026-09-20): cada linha é uma fonte de renda
+// que a pessoa cadastra uma vez (salário, Uber, Airbnb...) e o Tobias lança
+// sozinho todo mês, pra confirmar/ajustar, em vez de digitar do zero.
 export const incomes = pgTable(
   "incomes",
   {
@@ -704,8 +709,25 @@ export const incomes = pgTable(
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     description: text("description").notNull(),
     amount: money("amount").notNull(),
+    // Só usado quando faz sentido separar bruto de líquido (ver
+    // incomeCategoryEnum): descontos do salário (INSS/IR...) ou despesas de
+    // uma renda autônoma (combustível do Uber, limpeza do Airbnb...). Null
+    // quando a fonte não tem esse desconto (ex: aluguel recebido).
+    deductionAmount: money("deduction_amount"),
     frequency: incomeFrequencyEnum("frequency").notNull().default("MONTHLY"),
     category: incomeCategoryEnum("category").notNull().default("SALARY"),
+    categoryId: text("category_id").references(() => categories.id),
+    // Categoria do desconto/despesa (ex: "Impostos" pro INSS/IR do salário,
+    // "Combustível" pra despesa do Uber) — lançado como uma transação
+    // separada da renda bruta (ver services/incomeExpenseSources.ts), não
+    // subtraído silenciosamente, porque o Thiago quer ver os dois lados
+    // entrando nas transações/categorias, não só o valor líquido.
+    deductionCategoryId: text("deduction_category_id").references(() => categories.id),
+    // Dia do mês em que o lançamento previsto é gerado (ver
+    // services/incomeExpenseSources.ts) — mesma ideia de
+    // recurringExpenses.dayOfMonth, só que pro lado da renda.
+    dayOfMonth: integer("day_of_month"),
+    lastGeneratedAt: timestamp("last_generated_at", { withTimezone: true }),
     isActive: boolean("is_active").notNull().default(true),
     startDate: timestamp("start_date", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -963,11 +985,22 @@ export const transactions = pgTable(
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+
+    // Lançamento previsto gerado sozinho a partir de uma fonte de renda/gasto
+    // fixo (ver services/incomeExpenseSources.ts) — aparece destacado na aba
+    // "Renda e Despesas" pra pessoa confirmar (e ajustar o valor, se precisar)
+    // em vez de aparecer misturado como se já fosse um fato confirmado.
+    // incomeSourceId/recurringExpenseId apontam pra qual fonte originou o
+    // lançamento, só um dos dois preenchido por vez.
+    needsConfirmation: boolean("needs_confirmation").notNull().default(false),
+    incomeSourceId: text("income_source_id").references(() => incomes.id, { onDelete: "set null" }),
+    recurringExpenseId: text("recurring_expense_id").references(() => recurringExpenses.id, { onDelete: "set null" }),
   },
   (t) => [
     index("transactions_user_date_idx").on(t.userId, t.date),
     index("transactions_user_category_idx").on(t.userId, t.categoryId),
     index("transactions_installment_group_idx").on(t.installmentGroupId),
+    index("transactions_needs_confirmation_idx").on(t.userId, t.needsConfirmation),
   ]
 );
 

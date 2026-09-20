@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Landmark,
   LineChart,
+  PiggyBank,
 } from "lucide-react";
 import type { SessionUser } from "@/lib/auth/session";
 import type { Theme } from "@/lib/theme";
@@ -27,6 +28,10 @@ const NAV_ITEMS = [
   { href: "/chat", label: "Tobias", icon: MessageCircle },
   { href: "/lancamentos", label: "Transações", icon: Receipt, tourTarget: "nav-lancamentos" },
   { href: "/conta", label: "Conta", icon: Wallet, tourTarget: "nav-conta" },
+  // Aba nova (Thiago, 2026-09-20): renda e gastos fixos obrigatórios
+  // (salário, Uber, Airbnb, aluguel, pensão) com lançamento automático
+  // mensal — ver services/incomeExpenseSources.ts.
+  { href: "/renda-despesas", label: "Renda e Despesas", icon: PiggyBank },
   { href: "/patrimonio", label: "Patrimônio", icon: Landmark },
   { href: "/investimentos", label: "Investimentos", icon: LineChart },
   // "/compass" (Ponteiro) saiu do menu por decisão do Thiago (2026-09-20) —
