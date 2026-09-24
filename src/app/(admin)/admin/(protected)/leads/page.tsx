@@ -1,10 +1,8 @@
 import { listLeadsForAdmin } from "@/services/admin";
-import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { ImportLeadsForm, LeadStatusSelect } from "./LeadsClient";
-import { formatDate } from "../../adminFormat";
+import { ImportLeadsForm, LeadsTable } from "./LeadsClient";
 
 export default async function AdminLeadsPage({
   searchParams,
@@ -47,43 +45,10 @@ export default async function AdminLeadsPage({
         </Button>
       </form>
 
-      <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-onbrand/50 text-xs uppercase tracking-wide">
-                <th className="px-4 pt-4 pb-2.5 font-medium">Nome</th>
-                <th className="px-4 pt-4 pb-2.5 font-medium">E-mail</th>
-                <th className="px-4 pt-4 pb-2.5 font-medium">Telefone</th>
-                <th className="px-4 pt-4 pb-2.5 font-medium">Origem</th>
-                <th className="px-4 pt-4 pb-2.5 font-medium">Status</th>
-                <th className="px-4 pt-4 pb-2.5 font-medium">Cadastro</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((l) => (
-                <tr key={l.id} className="even:bg-onbrand/[0.025]">
-                  <td className="px-4 py-3 text-onbrand font-medium">{l.name || "-"}</td>
-                  <td className="px-4 py-3 text-onbrand/70">{l.email || "-"}</td>
-                  <td className="px-4 py-3 text-onbrand/70">{l.phone || "-"}</td>
-                  <td className="px-4 py-3 text-onbrand/50 text-xs">{l.source || "-"}</td>
-                  <td className="px-4 py-3">
-                    <LeadStatusSelect lead={l} />
-                  </td>
-                  <td className="px-4 py-3 text-onbrand/70 tabular-nums">{formatDate(l.createdAt)}</td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-onbrand/50">
-                    Nenhum lead cadastrado ainda. Importe um CSV ou Excel acima pra começar.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      {/* key força remontar a tabela (e limpar qualquer seleção antiga) toda
+          vez que o conjunto de linhas muda de verdade: filtro novo, página
+          nova, ou uma exclusão/importação que muda quem está na lista. */}
+      <LeadsTable key={rows.map((l) => l.id).join(",")} rows={rows} />
 
       {totalPages > 1 && (
         <div className="flex items-center gap-2 mt-4 text-sm text-onbrand/60">

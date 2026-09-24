@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, gte, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import type ExcelJS from "exceljs";
 import { db } from "@/lib/db/client";
 import { users, sessions, leads, leadStatusEnum, userRoleEnum, subscriptionPlanEnum, subscriptionStatusEnum } from "@/lib/db/schema";
@@ -239,6 +239,36 @@ export async function listLeadsForAdmin(opts: {
 
 export async function updateLeadStatus(leadId: string, status: (typeof leadStatusEnum.enumValues)[number]) {
   await db.update(leads).set({ status, updatedAt: new Date() }).where(eq(leads.id, leadId));
+}
+
+export type AdminLeadEditableFields = {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+};
+
+/** Edição manual de um lead pelo painel — pedido do Thiago (2026-09-24): "é necessário podermos editar os leads". */
+export async function updateLeadForAdmin(leadId: string, fields: AdminLeadEditableFields): Promise<void> {
+  await db.update(leads).set({ ...fields, updatedAt: new Date() }).where(eq(leads.id, leadId));
+}
+
+/**
+ * DELETE físico mesmo (diferente de `softDeleteUserForAdmin`): `leads` não é
+ * referenciada por nenhuma outra tabela (só referencia `users` via
+ * `convertedUserId`, com `onDelete: "set null"` nessa direção), então não há
+ * risco de FK quebrar. Faz sentido também porque um lead duplicado/importado
+ * errado deve mesmo sumir da lista, não só ficar escondido.
+ */
+export async function deleteLead(leadId: string): Promise<void> {
+  await db.delete(leads).where(eq(leads.id, leadId));
+}
+
+/** Exclusão em lote — pedido do Thiago (2026-09-24): selecionar vários leads (ex: um import errado) e apagar de uma vez. */
+export async function deleteLeads(leadIds: string[]): Promise<number> {
+  if (leadIds.length === 0) return 0;
+  const result = await db.delete(leads).where(inArray(leads.id, leadIds)).returning({ id: leads.id });
+  return result.length;
 }
 
 /**
