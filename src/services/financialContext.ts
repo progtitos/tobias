@@ -16,6 +16,7 @@ import {
 import { monthRange, sumExpenses, sumIncome, computeNetWorth, computeEmergencyReserve, expensesByCategory } from "./aggregations";
 import { computeGuaranteedMonthlyIncome } from "./inss";
 import { formatBRL } from "@/lib/utils/money";
+import { BEHAVIORAL_PROFILE_LABELS, BEHAVIORAL_PROFILE_DESCRIPTIONS, type BehavioralProfile } from "./behavioralProfile";
 
 /**
  * Assembles the structured financial context Tobias needs before answering
@@ -89,6 +90,13 @@ export async function buildFinancialContextText(userId: string): Promise<string>
     if (profile.riskProfile) lines.push(`Perfil de risco: ${profile.riskProfile}`);
     if (profile.priorities?.length) lines.push(`Prioridades declaradas: ${profile.priorities.join(", ")}`);
     if (profile.concerns?.length) lines.push(`Preocupações: ${profile.concerns.join(", ")}`);
+    if (profile.behavioralProfile) {
+      const bp = profile.behavioralProfile as BehavioralProfile;
+      const confidence = profile.behavioralProfileConfidence === "CONSOLIDATED" ? "consolidado por dados reais" : "palpite inicial";
+      lines.push(
+        `Perfil comportamental (PCA): ${BEHAVIORAL_PROFILE_LABELS[bp]} (${confidence}) — ${BEHAVIORAL_PROFILE_DESCRIPTIONS[bp]}`
+      );
+    }
   }
 
   lines.push(`\n## SITUAÇÃO FINANCEIRA (dados reais do banco de dados)`);

@@ -121,14 +121,31 @@ export function ChatWindow<TReveal = never>({
             <p className="text-xs text-onbrand/60">{hero.subtitle}</p>
           </div>
         )}
-        {messages.map((m, i) => (
+        {messages.map((m, i) => {
+          // Mensagens consecutivas do mesmo papel formam um "grupo": o avatar
+          // do Tobias só aparece uma vez, na primeira mensagem do grupo, e só
+          // a última mensagem do grupo ganha o "rabinho" do balão — o mesmo
+          // padrão que WhatsApp/iMessage usam pra não repetir o avatar a cada
+          // linha quando o Tobias manda vários balões seguidos.
+          const isGroupStart = i === 0 || messages[i - 1].role !== m.role;
+          const isGroupEnd = i === messages.length - 1 || messages[i + 1].role !== m.role;
+          return (
           <div key={m.id}>
             <div className={cn("flex items-end gap-2", m.role === "USER" ? "justify-end" : "justify-start")}>
-              {m.role === "ASSISTANT" && <TobiasAvatar />}
+              {m.role === "ASSISTANT" && (isGroupStart ? <TobiasAvatar /> : <div className="h-8 w-8 shrink-0" aria-hidden="true" />)}
               <div
                 className={cn(
                   "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap",
-                  m.role === "USER" ? "bg-gold-500 text-ink-900 rounded-br-sm" : "bg-brand-800 text-onbrand rounded-bl-sm"
+                  // Pedido do Thiago: o dourado continua sendo o único acento
+                  // de marca (botões, foco, "isso é seu" em outras telas),
+                  // mas dentro do chat ele fica só como detalhe pontual (essa
+                  // borda) — a bolha do usuário não é mais um preenchimento
+                  // sólido amarelo, que pesava demais numa tela onde as duas
+                  // pessoas da conversa (usuário e Tobias) já se distinguem
+                  // pelo alinhamento esquerda/direita.
+                  m.role === "USER"
+                    ? cn("bg-brand-600 text-onbrand border border-gold-400/25", isGroupEnd && "rounded-br-sm")
+                    : cn("bg-brand-800 text-onbrand border border-brand-600", isGroupEnd && "rounded-bl-sm")
                 )}
               >
                 {m.content}
@@ -164,11 +181,12 @@ export function ChatWindow<TReveal = never>({
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
         {pending && (
           <div className="flex items-end gap-2 justify-start">
             <TobiasAvatar />
-            <div className="rounded-2xl rounded-bl-sm bg-brand-800 px-4 py-2.5">
+            <div className="rounded-2xl rounded-bl-sm bg-brand-800 border border-brand-600 px-4 py-2.5">
               <Loader2 className="h-4 w-4 animate-spin text-onbrand/60" />
             </div>
           </div>

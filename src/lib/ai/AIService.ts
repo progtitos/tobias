@@ -1,6 +1,6 @@
 import "server-only";
 import { generateText, generateJSON, generateVisionJSON, type ChatTurn as GeminiChatTurn } from "./generate";
-import { ONBOARDING_SYSTEM, CHAT_SYSTEM, TOBIAS_PERSONA } from "./prompts";
+import { ONBOARDING_SYSTEM, CHAT_SYSTEM, TOBIAS_PERSONA, BEHAVIORAL_TONE_GUIDANCE } from "./prompts";
 import {
   onboardingTurnSchema,
   onboardingTurnJsonSchema,
@@ -174,7 +174,7 @@ export const AIService = {
   /** Spending Behavior Agent: turns already-computed facts into a plain-language insight. Never invents the numbers — they're passed in. */
   async generateInsight(financialContext: string, triggerFacts: string): Promise<string> {
     return generateText({
-      system: `${TOBIAS_PERSONA}\n\nEscreva um insight curto (2-4 frases) conectando o fato observado ao plano financeiro da pessoa. Use APENAS os números fornecidos nos fatos abaixo — não invente nenhum outro número.\n\n## CONTEXTO\n${financialContext}`,
+      system: `${TOBIAS_PERSONA}\n\nEscreva um insight curto (2-4 frases) conectando o fato observado ao plano financeiro da pessoa. Use APENAS os números fornecidos nos fatos abaixo — não invente nenhum outro número.\n\n${BEHAVIORAL_TONE_GUIDANCE}\n\n## CONTEXTO\n${financialContext}`,
       message: `Fatos observados (calculados pelo sistema, não pela IA):\n${triggerFacts}\n\nEscreva o insight para o usuário.`,
       temperature: 0.5,
       maxOutputTokens: 300,
@@ -184,7 +184,7 @@ export const AIService = {
   /** Generates the narrative summary for FinancialPlan, grounded in the full context. */
   async generatePlanSummary(financialContext: string): Promise<string> {
     return generateText({
-      system: `${TOBIAS_PERSONA}\n\nEscreva um resumo do plano financeiro da pessoa em até 6 frases: onde ela está, para onde está indo, e o que fazer a seguir. Use apenas os dados do contexto.`,
+      system: `${TOBIAS_PERSONA}\n\nEscreva um resumo do plano financeiro da pessoa em até 6 frases: onde ela está, para onde está indo, e o que fazer a seguir. Use apenas os dados do contexto.\n\n${BEHAVIORAL_TONE_GUIDANCE}`,
       message: `Contexto financeiro:\n${financialContext}\n\nEscreva o resumo do plano.`,
       temperature: 0.5,
       maxOutputTokens: 500,
@@ -227,7 +227,7 @@ export const AIService = {
   /** Decision Agent: "Posso comprar?" */
   async checkAffordability(financialContext: string, purchaseDescription: string, amount: number): Promise<AffordabilityResult> {
     return generateJSON({
-      system: `${TOBIAS_PERSONA}\n\nVocê analisa se uma compra hipotética cabe no plano financeiro da pessoa. Considere renda, patrimônio, dívidas, reserva de emergência, objetivos ativos e o plano de aposentadoria do contexto abaixo. Nunca diga apenas "sim" ou "não" sem explicar a consequência concreta.\n\n## CONTEXTO FINANCEIRO\n${financialContext}`,
+      system: `${TOBIAS_PERSONA}\n\nVocê analisa se uma compra hipotética cabe no plano financeiro da pessoa. Considere renda, patrimônio, dívidas, reserva de emergência, objetivos ativos e o plano de aposentadoria do contexto abaixo. Nunca diga apenas "sim" ou "não" sem explicar a consequência concreta.\n\n${BEHAVIORAL_TONE_GUIDANCE}\n\n## CONTEXTO FINANCEIRO\n${financialContext}`,
       message: `A pessoa está considerando: "${purchaseDescription}", no valor de R$ ${amount.toFixed(2)}. Ela pode comprar isso sem comprometer o plano?`,
       jsonSchema: affordabilityJsonSchema,
       zodSchema: affordabilitySchema,
