@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db/client";
@@ -35,7 +35,19 @@ export async function signupAction(_prev: AuthActionState, formData: FormData): 
   }
   const { name, email, password, cycle } = parsed.data;
 
-  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  // isNull(deletedAt) é essencial aqui: o admin só faz soft delete (a linha
+  // continua no banco pra não quebrar FK de contas/transações já existentes
+  // — ver softDeleteUserForAdmin em services/admin.ts), então sem esse
+  // filtro um e-mail removido no admin ficava bloqueado pra sempre no
+  // cadastro ("já existe uma conta com esse e-mail"), mesmo a conta antiga
+  // não existindo mais pra ninguém. O índice único de users.email também
+  // virou parcial (WHERE deleted_at IS NULL, ver schema.ts) pelo mesmo
+  // motivo — sem isso o INSERT logo abaixo ainda quebraria.
+  const existing = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.email, email), isNull(users.deletedAt)))
+    .limit(1);
   if (existing.length > 0) {
     return { error: "Já existe uma conta com esse e-mail. Faça login." };
   }

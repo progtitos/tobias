@@ -102,6 +102,36 @@ export async function activateTrialFromPreapproval(preapprovalId: string) {
   return { ...user, subscriptionStatus: "TRIALING" as const, trialStartedAt, trialEndsAt };
 }
 
+/**
+ * Fallback ativo pro webhook — pedido do Thiago (2026-09-20) depois de achar
+ * a tela de "aguardando pagamento" estranha ao testar o onboarding: se o
+ * webhook do Mercado Pago nunca chegar (endpoint não registrado, secret
+ * errado, ambiente de teste sem HTTPS público alcançável pelo MP...), a
+ * conta ficava presa em PENDING_PAYMENT pra sempre — o botão "Já confirmei"
+ * só relia o próprio banco (router.refresh()), então não tinha como se
+ * recuperar sozinho. Esta função pergunta direto pro Mercado Pago qual é o
+ * status atual do preapproval e, se já foi autorizado, aplica a mesma
+ * transição que o webhook aplicaria (mesma função, activateTrialFromPreapproval,
+ * pra não duplicar a lógica de "o que significa autorizado").
+ */
+export async function reconcilePreapprovalStatus(userId: string): Promise<{ status: string } | null> {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user?.mpPreapprovalId) return null;
+  if (user.subscriptionStatus !== "PENDING_PAYMENT") return { status: user.subscriptionStatus };
+
+  const preapproval = await getPreApprovalClient().get({ id: user.mpPreapprovalId });
+
+  if (preapproval.status === "authorized") {
+    const updated = await activateTrialFromPreapproval(user.mpPreapprovalId);
+    return { status: updated?.subscriptionStatus ?? user.subscriptionStatus };
+  }
+
+  // "cancelled"/"paused"/ainda "pending" do lado do MP — nada a fazer aqui,
+  // a pessoa continua vendo a tela de espera (ou pode gerar um novo checkout
+  // pelo botão "Tentar pagamento novamente").
+  return { status: user.subscriptionStatus };
+}
+
 export async function markSubscriptionActive(preapprovalId: string) {
   const [user] = await db.select().from(users).where(eq(users.mpPreapprovalId, preapprovalId)).limit(1);
   if (!user) return;

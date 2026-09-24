@@ -218,7 +218,7 @@ export function LancamentosClient({
           fixa nas colunas resolve alinhamento, mas não resolve espaço
           insuficiente no total. */}
       <div className="max-w-4xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3" data-tour="lancamentos-lista">
           <h1 className="font-sans font-bold text-2xl text-onbrand">Transações</h1>
           <div className="flex items-center gap-1">
             <Link

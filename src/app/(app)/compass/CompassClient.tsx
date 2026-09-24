@@ -49,7 +49,7 @@ export function CompassClient({ dimensions, overallScore }: { dimensions: Dimens
         </Button>
       </div>
 
-      <div className="flex items-baseline gap-2 my-6">
+      <div className="flex items-baseline gap-2 my-6" data-tour="compass-pontuacao">
         <span className={`font-sans font-semibold text-5xl tabular-nums ${scoreColor(overallScore)}`}>{overallScore}</span>
         <span className="text-onbrand/55 text-sm">/ 100 (pontuação geral)</span>
       </div>

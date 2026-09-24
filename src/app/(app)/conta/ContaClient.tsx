@@ -123,7 +123,7 @@ export function ContaClient({
           saldo, importar o extrato ou adicionar um cartão, e importar a fatura direto dele.
         </p>
 
-        <Card className="mb-6">
+        <Card className="mb-6" data-tour="conta-resumo">
           <CardContent className="py-5">
             <div className="flex items-end justify-between flex-wrap gap-3 mb-1">
               <div>

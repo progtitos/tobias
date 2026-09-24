@@ -68,18 +68,34 @@ export function SettingsClient({
       <h1 className="font-sans font-bold text-2xl text-onbrand">Configurações</h1>
 
       <Card>
-        <CardContent className="py-5 space-y-3">
-          <h2 className="font-display font-semibold text-lg text-onbrand mb-1">Sua conta</h2>
-          <Row label="Nome" value={user.name} />
-          <Row label="E-mail" value={user.email} />
-          <Row label="CPF" value={maskCPF(user.cpf) ?? "Não informado"} />
-          <Row label="Telefone" value={maskPhone(user.phone) ?? "Não informado"} />
-          <Row label="Cliente desde" value={new Date(user.memberSince).toLocaleDateString("pt-BR")} />
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-sm text-onbrand/55">Plano</span>
-            <Badge tone={user.subscriptionStatus === "TRIALING" ? "gold" : "brand"}>
-              {PLAN_LABELS[user.subscriptionPlan] ?? user.subscriptionPlan}
-            </Badge>
+        <CardContent className="py-6 space-y-5">
+          {/* Cabeçalho maior de propósito — pedido do Thiago (2026-09-20):
+              "aumentar também aonde aparece o perfil dele para verificar as
+              informações". Antes era uma lista compacta de linhas
+              nome/e-mail/CPF, fácil de bater o olho e não confirmar nada de
+              verdade; agora nome + e-mail abrem a seção em destaque (com um
+              círculo de iniciais), e os demais dados vêm num grid maior,
+              cada um com o rótulo em cima do valor em vez de lado a lado. */}
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-14 shrink-0 rounded-full bg-gold-400/15 flex items-center justify-center">
+              <span className="font-display font-semibold text-lg text-gold-400">{initials(user.name)}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="font-display font-semibold text-xl text-onbrand truncate">{user.name}</p>
+              <p className="text-sm text-onbrand/55 truncate">{user.email}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-cream-200/10">
+            <Field label="CPF" value={maskCPF(user.cpf) ?? "Não informado"} className="pt-4" />
+            <Field label="Telefone" value={maskPhone(user.phone) ?? "Não informado"} className="pt-4" />
+            <Field label="Cliente desde" value={new Date(user.memberSince).toLocaleDateString("pt-BR")} />
+            <div className="pt-0">
+              <p className="text-xs uppercase tracking-wide text-onbrand/40 mb-1">Plano</p>
+              <Badge tone={user.subscriptionStatus === "TRIALING" ? "gold" : "brand"} className="text-sm px-3 py-1">
+                {PLAN_LABELS[user.subscriptionPlan] ?? user.subscriptionPlan}
+              </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -183,13 +199,22 @@ export function SettingsClient({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Field({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-onbrand/55">{label}</span>
-      <span className="text-onbrand font-medium">{value}</span>
+    <div className={className}>
+      <p className="text-xs uppercase tracking-wide text-onbrand/40 mb-1">{label}</p>
+      <p className="text-base text-onbrand font-medium">{value}</p>
     </div>
   );
+}
+
+// Primeira letra do primeiro e do último nome — pra caber sem quebrar no
+// círculo de 56px do cabeçalho do card "Sua conta".
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
 function SettingsLink({ href, icon: Icon, label }: { href: string; icon: typeof History; label: string }) {

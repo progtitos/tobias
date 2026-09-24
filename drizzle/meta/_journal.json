@@ -99,6 +99,13 @@
       "when": 1789923907288,
       "tag": "0013_adiciona_renda_despesas_fixas",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789939535473,
+      "tag": "0014_indices_unicos_parciais_users_soft_delete",
+      "breakpoints": true
     }
   ]
 }

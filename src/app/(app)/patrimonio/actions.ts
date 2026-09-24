@@ -2,71 +2,99 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOnboardedUser } from "@/lib/auth/guards";
-import { createInvestmentSchema, updateInvestmentValueSchema, investmentContributionSchema } from "@/lib/validations/investment";
-import {
-  createInvestment,
-  updateInvestmentValue,
-  addInvestmentContribution,
-  deleteInvestment,
-} from "@/services/investments";
+import { createAssetSchema, updateAssetValueSchema } from "@/lib/validations/asset";
+import { createDebtSchema, updateDebtRemainingSchema } from "@/lib/validations/debt";
+import { createAsset, updateAssetValue, deleteAsset } from "@/services/assets";
+import { createDebt, updateDebtRemaining, deleteDebt } from "@/services/debts";
 
+// Este arquivo era, até 2026-09-20, uma cópia morta das actions de
+// investimento (que na prática vivem em investimentos/actions.ts — nada aqui
+// era importado por ninguém). Reaproveitado agora pras actions de "Outros
+// bens" e "Dívidas": a lacuna real que o Thiago apontou ("patrimônio líquido
+// não faz sentido, isso é só fluxo de caixa entrando e saindo") — o cálculo
+// em computeNetWorth já somava assets.estimatedValue e debts.remainingAmount,
+// mas não existia NENHUMA forma de cadastrar um bem nem de mexer numa dívida
+// depois de criada. Ver claude/backlog.md.
 export type PatrimonioFormState = { error?: string; success?: boolean } | undefined;
 
 function revalidateAll() {
   revalidatePath("/patrimonio");
   revalidatePath("/dashboard");
-  revalidatePath("/goals");
-  revalidatePath("/retirement");
   revalidatePath("/compass");
 }
 
 // ---------------------------------------------------------------------------
-// Investimentos
+// Outros bens (assets)
 // ---------------------------------------------------------------------------
 
-export async function createInvestmentAction(
-  _prev: PatrimonioFormState,
-  formData: FormData
-): Promise<PatrimonioFormState> {
+export async function createAssetAction(_prev: PatrimonioFormState, formData: FormData): Promise<PatrimonioFormState> {
   const user = await requireOnboardedUser();
 
-  const invested = Number(formData.get("investedAmount") ?? 0);
-  const parsed = createInvestmentSchema.safeParse({
+  const parsed = createAssetSchema.safeParse({
     name: String(formData.get("name") ?? ""),
     type: String(formData.get("type") ?? "OTHER"),
-    investedAmount: invested,
-    // Se a pessoa não souber o valor atual de cara, assume-se igual ao
-    // aportado — ela ajusta depois com "Atualizar valor".
-    currentAmount: formData.get("currentAmount") ? Number(formData.get("currentAmount")) : invested,
-    liquidity: (formData.get("liquidity") as string) || null,
-    institution: (formData.get("institution") as string) || null,
-    goalId: (formData.get("goalId") as string) || null,
+    estimatedValue: Number(formData.get("estimatedValue") ?? 0),
+    acquiredAt: (formData.get("acquiredAt") as string) || null,
+    notes: (formData.get("notes") as string) || null,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
 
-  await createInvestment(user.id, parsed.data);
+  await createAsset(user.id, parsed.data);
   revalidateAll();
   return { success: true };
 }
 
-export async function updateInvestmentValueAction(investmentId: string, currentAmount: number) {
+export async function updateAssetValueAction(assetId: string, estimatedValue: number) {
   const user = await requireOnboardedUser();
-  const parsed = updateInvestmentValueSchema.safeParse({ currentAmount });
+  const parsed = updateAssetValueSchema.safeParse({ estimatedValue });
   if (!parsed.success) return;
-  await updateInvestmentValue(user.id, investmentId, parsed.data.currentAmount);
+  await updateAssetValue(user.id, assetId, parsed.data.estimatedValue);
   revalidateAll();
 }
 
-export async function addInvestmentContributionAction(investmentId: string, amount: number) {
+export async function deleteAssetAction(assetId: string) {
   const user = await requireOnboardedUser();
-  const parsed = investmentContributionSchema.safeParse({ amount });
-  if (!parsed.success) return;
-  await addInvestmentContribution(user.id, investmentId, parsed.data.amount);
+  await deleteAsset(user.id, assetId);
   revalidateAll();
 }
 
-export async function deleteInvestmentAction(investmentId: string) {
+// ---------------------------------------------------------------------------
+// Dívidas
+// ---------------------------------------------------------------------------
+
+export async function createDebtAction(_prev: PatrimonioFormState, formData: FormData): Promise<PatrimonioFormState> {
   const user = await requireOnboardedUser();
-  await deleteInvestment(user.id, investmentId);
+
+  const totalAmount = Number(formData.get("totalAmount") ?? 0);
+  const parsed = createDebtSchema.safeParse({
+    description: String(formData.get("description") ?? ""),
+    type: String(formData.get("type") ?? "OTHER"),
+    totalAmount,
+    // Se a pessoa não souber quanto já pagou, assume que a dívida está
+    // inteira em aberto ainda — ela ajusta depois em "Atualizar saldo".
+    remainingAmount: formData.get("remainingAmount") ? Number(formData.get("remainingAmount")) : totalAmount,
+    interestRateMonthly: formData.get("interestRateMonthly") ? Number(formData.get("interestRateMonthly")) : null,
+    installmentAmount: formData.get("installmentAmount") ? Number(formData.get("installmentAmount")) : null,
+    installmentsRemaining: formData.get("installmentsRemaining") ? Number(formData.get("installmentsRemaining")) : null,
+    dueDay: formData.get("dueDay") ? Number(formData.get("dueDay")) : null,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+
+  await createDebt(user.id, parsed.data);
+  revalidateAll();
+  return { success: true };
+}
+
+export async function updateDebtRemainingAction(debtId: string, remainingAmount: number) {
+  const user = await requireOnboardedUser();
+  const parsed = updateDebtRemainingSchema.safeParse({ remainingAmount });
+  if (!parsed.success) return;
+  await updateDebtRemaining(user.id, debtId, parsed.data.remainingAmount);
+  revalidateAll();
+}
+
+export async function deleteDebtAction(debtId: string) {
+  const user = await requireOnboardedUser();
+  await deleteDebt(user.id, debtId);
   revalidateAll();
 }

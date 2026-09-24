@@ -12,15 +12,21 @@ type Rect = { top: number; left: number; width: number; height: number };
 
 /**
  * Guia obrigatório de primeiro acesso: pedido do Thiago pra "bloquear tudo"
- * até o cliente ver, na tela real, onde fica cada coisa (resumo do mês,
- * Ponteiro, Conta, Transações, Aposentadoria) — em vez de um tutorial numa
- * tela separada. Roda inteiro em cima do Dashboard: os 2 primeiros passos
- * apontam pra cards que só existem ali, e os 3 últimos apontam pros itens
- * do menu lateral (que também estão na tela, só que sempre visíveis).
+ * até o cliente ver, na tela real, onde fica cada coisa, em vez de um
+ * tutorial numa tela separada. Reescrito em 2026-09-24 ("o guia tour tem que
+ * passar por cada detalhe do sistema explicando como funciona"): antes o
+ * tour inteiro rodava em cima do Dashboard e só apontava pro menu lateral
+ * pras outras telas, sem nunca abrir nenhuma delas. Agora cada passo
+ * (tourSteps.ts) carrega sua própria `route`, e o overlay navega de verdade
+ * pra lá antes de medir o alvo: o tour percorre Dashboard, chat, Transações,
+ * Conta, Renda e Despesas, Patrimônio, Investimentos, Aposentadoria e o
+ * Ponteiro completo, na ordem real de uso do produto.
  *
  * Monta em AppShell, só quando `tourCompleted` é false. Se o usuário cair
- * em qualquer página que não seja /dashboard antes de terminar, mandamos
- * ele pra lá — não dá pra apontar pro resumo do mês de outro lugar.
+ * numa página diferente da que o passo atual espera (voltou pelo histórico
+ * do navegador, abriu um link direto etc.), mandamos ele de volta pra rota
+ * certa: isso roda de novo a cada passo, não só uma vez, porque avançar o
+ * tour agora legitimamente muda a rota esperada.
  */
 export function MandatoryTourOverlay({ tourCompleted }: { tourCompleted: boolean }) {
   const pathname = usePathname();
@@ -29,7 +35,6 @@ export function MandatoryTourOverlay({ tourCompleted }: { tourCompleted: boolean
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const [pending, startTransition] = useTransition();
-  const redirected = useRef(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [cardHeight, setCardHeight] = useState(220);
   // O posicionamento inteiro depende de medir o DOM real (getBoundingClientRect,
@@ -44,19 +49,20 @@ export function MandatoryTourOverlay({ tourCompleted }: { tourCompleted: boolean
   const active = !tourCompleted && !dismissed;
   const step = TOUR_STEPS[stepIndex];
   const isLastStep = stepIndex === TOUR_STEPS.length - 1;
+  const route = step?.route ?? "/dashboard";
 
-  // Passos 1-2 dependem de cards que só existem no Dashboard — se o guia
-  // ainda não terminou e o usuário está em outra rota (voltou pelo
-  // histórico do navegador, abriu um link direto etc.), força a volta.
+  // Cada passo espera estar numa rota específica. Sempre que o passo muda
+  // (ou o usuário sai dela por conta própria) e o guia ainda está ativo,
+  // navega pra rota certa. Sem guarda de "só uma vez": diferente da versão
+  // anterior, mudar de passo aqui legitimamente muda a rota esperada.
   useEffect(() => {
-    if (active && pathname !== "/dashboard" && !redirected.current) {
-      redirected.current = true;
-      router.replace("/dashboard");
+    if (active && pathname !== route) {
+      router.replace(route);
     }
-  }, [active, pathname, router]);
+  }, [active, pathname, route, router]);
 
   useEffect(() => {
-    if (!active || pathname !== "/dashboard") return;
+    if (!active || pathname !== route) return;
 
     function measure() {
       const candidates = document.querySelectorAll<HTMLElement>(`[data-tour="${step.target}"]`);
@@ -80,13 +86,13 @@ export function MandatoryTourOverlay({ tourCompleted }: { tourCompleted: boolean
       window.clearInterval(id);
       window.removeEventListener("resize", measure);
     };
-  }, [active, pathname, step?.target]);
+  }, [active, pathname, route, step?.target]);
 
   useLayoutEffect(() => {
     if (cardRef.current) setCardHeight(cardRef.current.getBoundingClientRect().height);
   });
 
-  if (!mounted || !active || pathname !== "/dashboard" || !step) return null;
+  if (!mounted || !active || pathname !== route || !step) return null;
 
   function finish(skipped: boolean) {
     setDismissed(true);

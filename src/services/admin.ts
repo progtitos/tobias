@@ -134,7 +134,15 @@ export type AdminUserEditableFields = {
 export async function createUserForAdmin(
   fields: AdminUserEditableFields & { password: string }
 ): Promise<{ id: string }> {
-  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, fields.email)).limit(1);
+  // isNull(deletedAt): mesma correção de auth/actions.ts#signupAction — uma
+  // conta soft-deletada continua na tabela com o e-mail antigo, então sem
+  // esse filtro o admin nunca conseguiria recriar (nem o próprio usuário se
+  // autocadastrar) com o mesmo e-mail de uma conta já removida.
+  const existing = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.email, fields.email), isNull(users.deletedAt)))
+    .limit(1);
   if (existing.length > 0) {
     throw new Error("Já existe uma conta com esse e-mail.");
   }

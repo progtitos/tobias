@@ -44,7 +44,7 @@ export function ChatPageClient({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-brand-950">
-      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-onbrand/[0.06]">
+      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-onbrand/[0.06]" data-tour="chat-tobias">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/avatars/tobias-sempre-ao-lado.png"

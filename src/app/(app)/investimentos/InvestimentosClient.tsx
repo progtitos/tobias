@@ -84,7 +84,9 @@ export function InvestimentosClient({
           .
         </p>
 
-        <InvestmentsPieCharts investments={investments} />
+        <div data-tour="investimentos-resumo">
+          <InvestmentsPieCharts investments={investments} />
+        </div>
         <InvestmentsSection investments={investments} goals={goals} accounts={accounts} />
       </div>
     </div>

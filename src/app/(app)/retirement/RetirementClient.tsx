@@ -153,7 +153,7 @@ export function RetirementClient({
           precisa, e os dois cards de formulário abaixo, lado a lado, têm
           alturas parecidas o bastante pra não sobrar vão perceptível. */}
       <div className="mt-6 space-y-6">
-        <Card>
+        <Card data-tour="retirement-curva">
           <CardContent className="py-5">
             <RetirementChart
               simulation={simulation}

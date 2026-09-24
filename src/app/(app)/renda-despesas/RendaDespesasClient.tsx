@@ -137,7 +137,7 @@ export function RendaDespesasClient({
           </Card>
         )}
 
-        <Card>
+        <Card data-tour="renda-despesas-resumo">
           <CardContent className="py-5">
             <h2 className="font-display font-semibold text-onbrand mb-4">Renda x gastos fixos</h2>
             <IncomeExpenseChart incomeRows={incomeRows} expenseRows={expenseRows} />

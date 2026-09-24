@@ -339,10 +339,18 @@ export const users = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex("users_email_idx").on(t.email),
-    uniqueIndex("users_phone_idx").on(t.phone),
-    uniqueIndex("users_cpf_idx").on(t.cpf),
-    uniqueIndex("users_mp_preapproval_idx").on(t.mpPreapprovalId),
+    // Parciais (WHERE deleted_at IS NULL) de propósito: o admin só faz soft
+    // delete (softDeleteUserForAdmin em services/admin.ts, pra não quebrar FK
+    // de contas/transações/investimentos já existentes) — a linha antiga
+    // continua no banco com o mesmo e-mail/telefone/cpf pra sempre. Um índice
+    // único "cheio" bloquearia pra sempre um re-cadastro com os mesmos dados
+    // depois de deletado (bug real: usuário removido no admin não conseguia
+    // criar conta de novo, "e-mail já existe"). Com o índice parcial, só as
+    // linhas ativas (deleted_at IS NULL) competem por unicidade.
+    uniqueIndex("users_email_idx").on(t.email).where(sql`${t.deletedAt} IS NULL`),
+    uniqueIndex("users_phone_idx").on(t.phone).where(sql`${t.deletedAt} IS NULL`),
+    uniqueIndex("users_cpf_idx").on(t.cpf).where(sql`${t.deletedAt} IS NULL`),
+    uniqueIndex("users_mp_preapproval_idx").on(t.mpPreapprovalId).where(sql`${t.deletedAt} IS NULL`),
   ]
 );
 

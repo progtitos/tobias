@@ -20,14 +20,11 @@ import { TrialBadge } from "./TrialBadge";
 import { MandatoryTourOverlay } from "@/components/tour/MandatoryTourOverlay";
 import { cn } from "@/lib/utils/cn";
 
-// tourTarget: só nos 3 itens que o guia obrigatório de primeiro acesso
-// (MandatoryTourOverlay) aponta — vira o atributo data-tour tanto aqui
-// quanto na versão mobile do menu, pra funcionar em qualquer largura.
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
   { href: "/chat", label: "Tobias", icon: MessageCircle },
-  { href: "/lancamentos", label: "Transações", icon: Receipt, tourTarget: "nav-lancamentos" },
-  { href: "/conta", label: "Conta", icon: Wallet, tourTarget: "nav-conta" },
+  { href: "/lancamentos", label: "Transações", icon: Receipt },
+  { href: "/conta", label: "Conta", icon: Wallet },
   // Aba nova (Thiago, 2026-09-20): renda e gastos fixos obrigatórios
   // (salário, Uber, Airbnb, aluguel, pensão) com lançamento automático
   // mensal — ver services/incomeExpenseSources.ts.
@@ -37,7 +34,7 @@ const NAV_ITEMS = [
   // "/compass" (Ponteiro) saiu do menu por decisão do Thiago (2026-09-20) —
   // a rota continua existindo e acessível pelo link "Ver tudo" no card do
   // Dashboard, só não tem mais aba própria aqui.
-  { href: "/retirement", label: "Aposentadoria", icon: TrendingUp, tourTarget: "nav-retirement" },
+  { href: "/retirement", label: "Aposentadoria", icon: TrendingUp },
 ];
 
 export function AppShell({
@@ -71,7 +68,6 @@ export function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
-                data-tour={item.tourTarget}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
                   active ? "bg-onbrand/10 text-gold-400" : "text-onbrand/45 hover:bg-onbrand/5 hover:text-onbrand/80"
@@ -83,7 +79,6 @@ export function AppShell({
             );
           })}
         </nav>
-        <TrialBadge user={user} className="mb-3" />
         <UserMenu user={user} />
       </aside>
 
@@ -99,6 +94,17 @@ export function AppShell({
         </div>
       </header>
 
+      {/* Badge de trial — pedido do Thiago (2026-09-20): "poderia ser tipo um
+          banner de canto no alto superior direito da plataforma". No
+          desktop o layout não tem barra superior (só sidebar + conteúdo), e
+          o badge vivia escondido embaixo na sidebar, perto do menu de
+          usuário — fácil de nunca notar. Aqui vira um badge flutuante fixo
+          no canto, visível em qualquer tela do produto. No mobile o cabeçalho
+          já fica no topo (acima), então não duplica o badge ali. */}
+      <div className="hidden md:block fixed top-4 right-4 z-20">
+        <TrialBadge user={user} />
+      </div>
+
       <main className="flex-1 flex flex-col pb-16 md:pb-0 min-w-0">{children}</main>
 
       {/* Mobile bottom nav */}
@@ -109,7 +115,6 @@ export function AppShell({
             <Link
               key={item.href}
               href={item.href}
-              data-tour={item.tourTarget}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[11px]",
                 active ? "text-gold-400" : "text-onbrand/45"
