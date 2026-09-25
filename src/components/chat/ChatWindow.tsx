@@ -145,7 +145,14 @@ export function ChatWindow<TReveal = never>({
                   // pelo alinhamento esquerda/direita.
                   m.role === "USER"
                     ? cn("bg-brand-600 text-onbrand border border-gold-400/25", isGroupEnd && "rounded-br-sm")
-                    : cn("bg-brand-800 text-onbrand border border-brand-600", isGroupEnd && "rounded-bl-sm")
+                    : // A borda do balão do Tobias era `border-brand-600` (#394048) — sólida
+                      // demais contra o fundo quase preto do onboarding/chat, lida como uma
+                      // "borda branca" chapada em vez de um contorno sutil (Thiago, 25/09/2026,
+                      // mesmo padrão de bordas-brancas-demais já corrigido antes em outras telas,
+                      // ver claude/plano-painel-admin-crm-tour-figma.md §1.5). Trocada pra
+                      // `onbrand/[0.06]`, a mesma convenção de divisor sutil usada em todo o
+                      // resto do app (cabeçalho, composer, separadores de card).
+                      cn("bg-brand-800 text-onbrand border border-onbrand/[0.06]", isGroupEnd && "rounded-bl-sm")
                 )}
               >
                 {m.content}
@@ -186,7 +193,7 @@ export function ChatWindow<TReveal = never>({
         {pending && (
           <div className="flex items-end gap-2 justify-start">
             <TobiasAvatar />
-            <div className="rounded-2xl rounded-bl-sm bg-brand-800 border border-brand-600 px-4 py-2.5">
+            <div className="rounded-2xl rounded-bl-sm bg-brand-800 border border-onbrand/[0.06] px-4 py-2.5">
               <Loader2 className="h-4 w-4 animate-spin text-onbrand/60" />
             </div>
           </div>
