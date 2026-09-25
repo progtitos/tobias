@@ -71,7 +71,7 @@ export function SignupForm() {
         </div>
         <FieldError>{state?.error}</FieldError>
         <Button type="submit" className="w-full" loading={pending} variant="secondary">
-          Continuar para o pagamento
+          Continuar cadastro
         </Button>
         <p className="text-center text-xs text-onbrand/40">
           Você será redirecionado ao Mercado Pago para cadastrar o cartão com segurança.
