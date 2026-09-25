@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { X, ArrowRight, Check } from "lucide-react";
 import { TOUR_STEPS } from "./tourSteps";
 import { completeTourAction } from "./actions";
+import { isMandatoryTourSuppressed } from "@/lib/onboarding/reveal";
 
 const MARGIN = 8; // respiro entre o alvo e o recorte do spotlight
 
@@ -27,6 +28,13 @@ type Rect = { top: number; left: number; width: number; height: number };
  * do navegador, abriu um link direto etc.), mandamos ele de volta pra rota
  * certa: isso roda de novo a cada passo, não só uma vez, porque avançar o
  * tour agora legitimamente muda a rota esperada.
+ *
+ * Uma exceção a esse "bloquear tudo": enquanto a revelação final do
+ * onboarding (ProfileRevealOverlay) ainda está em andamento, `active` fica
+ * suprimido (ver `isMandatoryTourSuppressed`) — sem isso, `onboardingCompleted`
+ * já vira `true` antes da pessoa terminar de ver a revelação, e o tour
+ * sequestrava a tela sem nenhum respiro, inclusive numa aba nova aberta pelo
+ * link "Prefiro subir um extrato agora" dentro do próprio onboarding.
  */
 export function MandatoryTourOverlay({ tourCompleted }: { tourCompleted: boolean }) {
   const pathname = usePathname();
@@ -46,7 +54,20 @@ export function MandatoryTourOverlay({ tourCompleted }: { tourCompleted: boolean
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const active = !tourCompleted && !dismissed;
+  // Enquanto a revelação final do onboarding ainda está em andamento (em
+  // QUALQUER aba desta pessoa — inclusive uma aberta pelo link "Prefiro
+  // subir um extrato agora"), o tour não deve sequestrar a tela. Reavaliado
+  // a cada poucos segundos, não só no mount, porque essa janela pode
+  // terminar (ou ser limpa por outra aba) enquanto esta continua aberta —
+  // ver src/lib/onboarding/reveal.ts (Thiago, 25/09/2026, itens 1 e 2).
+  const [, forceRecheck] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => forceRecheck((n) => n + 1), 2000);
+    return () => window.clearInterval(id);
+  }, []);
+  const suppressed = mounted && isMandatoryTourSuppressed();
+
+  const active = !tourCompleted && !dismissed && !suppressed;
   const step = TOUR_STEPS[stepIndex];
   const isLastStep = stepIndex === TOUR_STEPS.length - 1;
   const route = step?.route ?? "/dashboard";

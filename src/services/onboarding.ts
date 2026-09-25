@@ -36,6 +36,23 @@ Meu trabalho é entender como sua vida financeira funciona e transformar isso em
 
 Antes de começarmos, quero entender uma coisa: qual é a principal mudança financeira que você gostaria de conseguir nos próximos anos?`;
 
+/**
+ * Rede de segurança pro caso do modelo marcar "isOnboardingComplete" sem
+ * "currentAge" — o ÚNICO dado realmente obrigatório em `finalizeOnboarding`
+ * pra existir QUALQUER plano de aposentadoria (o resto degrada com
+ * fallbacks). O `ONBOARDING_SYSTEM` já instrui o modelo a nunca fechar sem
+ * esse dado, mas prompts são probabilísticos, não uma garantia — sem essa
+ * rede, uma pessoa cujo foco não fosse aposentadoria podia terminar o
+ * onboarding inteiro sem curva nenhuma (Thiago, 25/09/2026: "não colheu os
+ * dados para a curva, que é o ponto impactando o onboarding"). Comparada
+ * literalmente contra o histórico em `submitOnboardingMessage` pra só forçar
+ * esse turno extra UMA vez — se a pessoa genuinamente não quiser responder,
+ * o onboarding conclui do mesmo jeito (sem plano, comportamento anterior),
+ * em vez de travar pra sempre.
+ */
+const AGE_NUDGE_MESSAGE =
+  "Antes de fechar seu plano, só uma pergunta rápida: quantos anos você tem hoje? Preciso disso pra calcular sua curva de aposentadoria.";
+
 export async function getOrCreateOnboardingConversation(userId: string) {
   const [existing] = await db
     .select()
@@ -275,22 +292,34 @@ export async function submitOnboardingMessage(userId: string, userMessage: strin
   const context = await buildFinancialContextText(userId);
   const turn = await AIService.onboardingTurn(context, history, userMessage);
 
-  await db.insert(conversationMessages).values({
-    conversationId: conversation.id,
-    role: "ASSISTANT",
-    content: turn.reply,
-    extractedData: turn.extracted ?? null,
-  });
-
   if (turn.extracted) await applyExtractedData(userId, turn.extracted);
   await trackEvent(userId, "onboarding_message", { extracted: Boolean(turn.extracted) });
 
   let completed = false;
   let reveal: Awaited<ReturnType<typeof finalizeOnboarding>> | null = null;
+  let replyToUser = turn.reply;
+
   if (turn.isOnboardingComplete) {
-    reveal = await finalizeOnboarding(userId);
-    completed = true;
+    // Ver AGE_NUDGE_MESSAGE acima: currentAge é obrigatório pra existir
+    // qualquer curva de aposentadoria, mas o modelo pode esquecer de pedir
+    // fora do ramo "aposentadoria" da conversa. Só força esse turno extra
+    // uma vez (`alreadyNudged`).
+    const [fp] = await db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).limit(1);
+    const alreadyNudged = priorMessages.some((m) => m.role === "ASSISTANT" && m.content === AGE_NUDGE_MESSAGE);
+    if (!fp?.currentAge && !alreadyNudged) {
+      replyToUser = AGE_NUDGE_MESSAGE;
+    } else {
+      reveal = await finalizeOnboarding(userId);
+      completed = true;
+    }
   }
 
-  return { reply: turn.reply, completed, reveal };
+  await db.insert(conversationMessages).values({
+    conversationId: conversation.id,
+    role: "ASSISTANT",
+    content: replyToUser,
+    extractedData: turn.extracted ?? null,
+  });
+
+  return { reply: replyToUser, completed, reveal };
 }

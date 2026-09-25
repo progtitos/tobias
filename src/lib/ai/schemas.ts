@@ -124,7 +124,8 @@ export const onboardingTurnJsonSchema = {
     },
     isOnboardingComplete: {
       type: "boolean",
-      description: "true somente quando já souber o suficiente para montar um primeiro plano (renda, gastos aproximados, ao menos um objetivo ou foco claro).",
+      description:
+        "true somente quando já souber o suficiente para montar um primeiro plano (renda, gastos aproximados, ao menos um objetivo ou foco claro) E a idade atual da pessoa (currentAge, obrigatório sempre, mesmo fora do ramo aposentadoria).",
     },
   },
   required: ["reply", "isOnboardingComplete"],

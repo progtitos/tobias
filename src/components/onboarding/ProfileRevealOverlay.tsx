@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition, type CSSProperties } from "react";
+import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { BehavioralProfileIcon } from "@/components/profile/BehavioralProfileIcon";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 import { Button } from "@/components/ui/Button";
 import { ConnectAccountsStep } from "@/components/onboarding/ConnectAccountsStep";
+import { refreshOnboardingRetirementPreviewAction } from "@/app/onboarding/actions";
+import { suppressMandatoryTourDuringReveal, clearMandatoryTourSuppression } from "@/lib/onboarding/reveal";
 import type { BehavioralProfile } from "@/services/behavioralProfile";
 import type { RetirementSimulation } from "@/services/retirement";
 
@@ -74,6 +76,48 @@ function Confetti({ seed }: { seed: number }) {
 export function ProfileRevealOverlay({ reveal, onDone }: { reveal: RevealData; onDone: () => void }) {
   const hasRetirement = Boolean(reveal.retirementPreview);
   const [step, setStep] = useState<"profile" | "connect" | "retirement">("profile");
+  // `reveal.retirementPreview` foi calculado em `finalizeOnboarding` ANTES da
+  // pessoa cadastrar qualquer conta no passo "connect" — nasce com o que ela
+  // só contou por texto. `preview`/`targetAge` guardam a versão exibida, que
+  // é substituída pela recém-calculada assim que "connect" termina (ver
+  // `handleConnectDone`), pra curva não ficar congelada com o dado antigo
+  // (Thiago, 25/09/2026: "curva ta tudo errado").
+  const [preview, setPreview] = useState(reveal.retirementPreview);
+  const [targetAge, setTargetAge] = useState(reveal.retirementTargetAge);
+  const [isRefreshing, startRefresh] = useTransition();
+
+  // Enquanto esta revelação existe na tela, o tour obrigatório não deve
+  // sequestrar nenhuma aba desta pessoa (incluindo a que "Prefiro subir um
+  // extrato agora" abre) — ver src/lib/onboarding/reveal.ts.
+  useEffect(() => {
+    suppressMandatoryTourDuringReveal();
+  }, []);
+
+  function finishReveal() {
+    clearMandatoryTourSuppression();
+    onDone();
+  }
+
+  function handleConnectDone() {
+    if (!hasRetirement) {
+      finishReveal();
+      return;
+    }
+    startRefresh(async () => {
+      try {
+        const fresh = await refreshOnboardingRetirementPreviewAction();
+        if (fresh.retirementPreview) {
+          setPreview(fresh.retirementPreview);
+          setTargetAge(fresh.retirementTargetAge);
+        }
+      } catch {
+        // Mantém a curva anterior (a do finalizeOnboarding) se o recálculo
+        // falhar — melhor mostrar um dado um pouco desatualizado do que
+        // travar a pessoa na revelação final por causa de um erro de rede.
+      }
+      setStep("retirement");
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-950/97 backdrop-blur-sm px-5 py-8 overflow-y-auto">
@@ -113,7 +157,15 @@ export function ProfileRevealOverlay({ reveal, onDone }: { reveal: RevealData; o
             </Button>
           </div>
         ) : step === "connect" ? (
-          <ConnectAccountsStep onDone={() => (hasRetirement ? setStep("retirement") : onDone())} />
+          <div className="relative">
+            <ConnectAccountsStep onDone={handleConnectDone} />
+            {isRefreshing && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-brand-950/90 rounded-2xl">
+                <Loader2 className="h-5 w-5 animate-spin text-gold-400" />
+                <p className="text-xs text-onbrand/60">Atualizando sua curva com os dados novos...</p>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="flex flex-col items-center text-center">
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold-400 mb-5 reveal-pop">
@@ -131,23 +183,21 @@ export function ProfileRevealOverlay({ reveal, onDone }: { reveal: RevealData; o
             <p className="text-sm text-onbrand/70 mb-6 reveal-pop" style={{ animationDelay: "0.2s" }}>
               Já calculei sua projeção com os dados que você me contou.
             </p>
-            {reveal.retirementPreview && (
+            {preview && (
               <div className="w-full bg-brand-800 rounded-2xl p-4 mb-6 reveal-pop" style={{ animationDelay: "0.3s" }}>
                 <RetirementChart
-                  simulation={reveal.retirementPreview}
-                  targetAge={reveal.retirementTargetAge ?? reveal.retirementPreview.base.series.at(-1)?.age ?? 65}
+                  simulation={preview}
+                  targetAge={targetAge ?? preview.base.series.at(-1)?.age ?? 65}
                   height={190}
                   dark
                 />
                 <div className="flex justify-center mt-2.5">
                   <span
                     className={
-                      reveal.retirementPreview.base.onTrack
-                        ? "text-xs font-medium text-ok-400"
-                        : "text-xs font-medium text-gold-400"
+                      preview.base.onTrack ? "text-xs font-medium text-ok-400" : "text-xs font-medium text-gold-400"
                     }
                   >
-                    {reveal.retirementPreview.base.onTrack
+                    {preview.base.onTrack
                       ? "No alvo para a idade que você quer se aposentar"
                       : "Um plano inicial, vamos ajustar juntos ao longo do caminho"}
                   </span>
@@ -159,7 +209,7 @@ export function ProfileRevealOverlay({ reveal, onDone }: { reveal: RevealData; o
               size="lg"
               className="reveal-pop"
               style={{ animationDelay: "0.4s" }}
-              onClick={onDone}
+              onClick={finishReveal}
             >
               Ir para o Dashboard
               <ArrowRight className="h-4 w-4 ml-1.5" />

@@ -13,9 +13,13 @@ type Kind = "account" | "card" | "investment";
 
 /**
  * O passo "obrigatório" pedido pelo Thiago entre o Perfil Desbloqueado e a
- * Curva de aposentadoria: antes de ver a curva, a pessoa adiciona pelo menos
- * uma conta, cartão ou investimento de verdade — pra curva já nascer mais
- * precisa, em vez de só com o que ela contou por texto na conversa.
+ * Curva de aposentadoria: antes de ver a curva, a pessoa cadastra pelo menos
+ * uma conta bancária de verdade — pra curva já nascer mais precisa, em vez
+ * de só com o que ela contou por texto na conversa. Cartão e investimento
+ * continuam disponíveis aqui, mas como opcionais (Thiago, 25/09/2026 — "uma
+ * das três coisas" liberava o fluxo com só um cartão ou investimento
+ * cadastrado, o que não alimenta o patrimônio/curva do mesmo jeito que uma
+ * conta bancária alimenta).
  *
  * Escopo desta primeira versão: os 3 cadastros rápidos (conta, cartão,
  * investimento) acontecem aqui mesmo, sem sair do onboarding. Subir um
@@ -26,7 +30,6 @@ type Kind = "account" | "card" | "investment";
  * pelos 3 cadastros rápidos acima.
  */
 export function ConnectAccountsStep({ onDone }: { onDone: () => void }) {
-  const [addedAny, setAddedAny] = useState(false);
   const [open, setOpen] = useState<Kind | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [cardDone, setCardDone] = useState(false);
@@ -37,8 +40,8 @@ export function ConnectAccountsStep({ onDone }: { onDone: () => void }) {
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold-400 mb-3">Quase lá</p>
       <h2 className="font-display font-bold text-2xl text-onbrand mb-2">Vamos conectar suas contas</h2>
       <p className="text-sm text-onbrand/70 leading-relaxed mb-6 max-w-sm">
-        Adicione ao menos uma conta, cartão ou investimento, isso deixa sua curva de aposentadoria bem mais precisa
-        do que só o que você me contou até aqui.
+        Adicione uma conta bancária pra sua curva de aposentadoria nascer com dados de verdade, não só com o que você
+        me contou até aqui. Cartão e investimento são opcionais, mas deixam a curva ainda mais precisa.
       </p>
 
       <div className="w-full space-y-2.5 text-left">
@@ -52,7 +55,6 @@ export function ConnectAccountsStep({ onDone }: { onDone: () => void }) {
           <BankAccountForm
             onSuccess={(id) => {
               setAccountId(id);
-              setAddedAny(true);
               setOpen(null);
             }}
           />
@@ -70,7 +72,6 @@ export function ConnectAccountsStep({ onDone }: { onDone: () => void }) {
               bankAccountId={accountId}
               onSuccess={() => {
                 setCardDone(true);
-                setAddedAny(true);
                 setOpen(null);
               }}
             />
@@ -91,7 +92,6 @@ export function ConnectAccountsStep({ onDone }: { onDone: () => void }) {
           <InvestmentForm
             onSuccess={() => {
               setInvestmentDone(true);
-              setAddedAny(true);
               setOpen(null);
             }}
           />
@@ -111,14 +111,14 @@ export function ConnectAccountsStep({ onDone }: { onDone: () => void }) {
         variant="secondary"
         size="lg"
         className="mt-6"
-        disabled={!addedAny}
+        disabled={accountId === null}
         onClick={onDone}
       >
         Ver minha curva de aposentadoria
         <ArrowRight className="h-4 w-4 ml-1.5" />
       </Button>
-      {!addedAny && (
-        <p className="text-[11px] text-onbrand/40 mt-2">Adicione pelo menos um item acima para continuar.</p>
+      {accountId === null && (
+        <p className="text-[11px] text-onbrand/40 mt-2">Adicione uma conta bancária acima para continuar.</p>
       )}
     </div>
   );

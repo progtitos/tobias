@@ -99,3 +99,29 @@ export async function upsertRetirementPlan(userId: string, input: RetirementPlan
 
   return getRetirementPlan(userId);
 }
+
+/**
+ * Recalcula e persiste só o `currentNetWorth` de um plano já existente, sem
+ * exigir o `RetirementPlanInput` completo que `upsertRetirementPlan` pede.
+ *
+ * Criada pro passo "Vamos conectar suas contas" do onboarding: o plano é
+ * criado em `finalizeOnboarding` (services/onboarding.ts) ANTES da pessoa
+ * cadastrar qualquer conta/cartão/investimento ali, então `currentNetWorth`
+ * nasce zerado (ou só com o que ela relatou por texto). Sem isso, a curva
+ * mostrada na revelação final (ProfileRevealOverlay) ficava congelada com
+ * esse valor inicial mesmo depois da pessoa cadastrar uma conta de verdade
+ * — Thiago, 25/09/2026 ("O tour não pode começar sem ter as informações
+ * básicas de ponteiro, curva ta tudo errado").
+ */
+export async function refreshRetirementPlanNetWorth(userId: string) {
+  const existing = await getRetirementPlan(userId);
+  if (!existing) return null;
+
+  const netWorth = await computeNetWorth(userId);
+  await db
+    .update(retirementPlans)
+    .set({ currentNetWorth: netWorth.netWorth, updatedAt: new Date() })
+    .where(eq(retirementPlans.userId, userId));
+
+  return getRetirementPlan(userId);
+}
