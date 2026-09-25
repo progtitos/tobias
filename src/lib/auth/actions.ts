@@ -10,6 +10,7 @@ import { createSession, destroySession } from "./session";
 import { signupSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/validations/auth";
 import { createSubscriptionCheckout } from "@/services/subscription";
 import { trackEvent } from "@/services/analytics";
+import { getClientIp, isRateLimited, RATE_LIMIT_MESSAGE } from "@/lib/security/rateLimit";
 
 export type AuthActionState = { error?: string; success?: string } | undefined;
 
@@ -34,6 +35,17 @@ export async function signupAction(_prev: AuthActionState, formData: FormData): 
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
   const { name, email, password, cycle } = parsed.data;
+
+  // Segurança (25/09/2026): cadastro cria linha no banco E chama a API do
+  // Mercado Pago a cada POST — sem limite nenhum antes, um script conseguia
+  // criar contas em massa e martelar uma API paga de terceiro.
+  const ip = await getClientIp();
+  if (
+    (await isRateLimited("rl_signup", `ip:${ip}`, { max: 8, windowMs: 60 * 60 * 1000 })) ||
+    (await isRateLimited("rl_signup", `email:${email}`, { max: 3, windowMs: 60 * 60 * 1000 }))
+  ) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
 
   // isNull(deletedAt) é essencial aqui: o admin só faz soft delete (a linha
   // continua no banco pra não quebrar FK de contas/transações já existentes
@@ -97,6 +109,17 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
   }
   const { email, password } = parsed.data;
 
+  // Segurança (25/09/2026): sem isso, login era vulnerável a credential
+  // stuffing (testar senhas vazadas de outros vazamentos em massa) sem
+  // nenhum bloqueio. Checa ANTES de tocar no banco de usuário.
+  const ip = await getClientIp();
+  if (
+    (await isRateLimited("rl_login", `ip:${ip}`, { max: 20, windowMs: 15 * 60 * 1000 })) ||
+    (await isRateLimited("rl_login", `email:${email}`, { max: 8, windowMs: 15 * 60 * 1000 }))
+  ) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
   const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
   const user = rows[0];
   if (!user || !user.passwordHash || user.deletedAt) {
@@ -132,22 +155,45 @@ export async function requestPasswordResetAction(
   }
   const { email } = parsed.data;
 
+  // Segurança (25/09/2026): este é o formulário mais sensível dos três —
+  // é ele que, sem limite, permitia varrer/probar e-mails cadastrados em
+  // massa (ver o comentário abaixo sobre o vazamento do link, já corrigido).
+  const ip = await getClientIp();
+  if (
+    (await isRateLimited("rl_forgot_password", `ip:${ip}`, { max: 6, windowMs: 60 * 60 * 1000 })) ||
+    (await isRateLimited("rl_forgot_password", `email:${email}`, { max: 3, windowMs: 60 * 60 * 1000 }))
+  ) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
+  const GENERIC_SUCCESS =
+    "Se esse e-mail estiver cadastrado, um link de redefinição foi gerado. Envio automático por e-mail ainda não está configurado nesta versão — fale com o suporte para receber o link.";
+
   const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   if (rows.length === 0) {
-    // Don't reveal whether the email exists.
-    return { success: "Se esse e-mail estiver cadastrado, você verá o link de redefinição abaixo." };
+    // Don't reveal whether the email exists — same message as the found-email path below.
+    return { success: GENERIC_SUCCESS };
   }
 
   const token = randomBytes(24).toString("hex");
   const expires = new Date(Date.now() + 60 * 60 * 1000);
   await db.insert(verificationTokens).values({ identifier: email, token, expires });
 
-  // NOTE: no email provider is wired up yet (see ARCHITECTURE.md) — rather
-  // than pretend an email was sent, the reset link is returned directly so
-  // the flow is genuinely usable end-to-end today. Swap this for a real
-  // email send (Resend/SendGrid) without changing the token logic above.
+  // SEGURANÇA (corrigido 25/09/2026): esta função só devia devolver o link
+  // de reset pra quem realmente é dono daquele e-mail — mas como nenhum
+  // provedor de e-mail está configurado ainda (ver ARCHITECTURE.md), uma
+  // versão anterior devolvia o link/token direto na resposta pra QUALQUER
+  // um que preenchesse esse formulário com qualquer e-mail cadastrado,
+  // sem nenhuma prova de posse da caixa de entrada. Isso é um sequestro de
+  // conta trivial de scriptar (chuta e-mails conhecidos, pega o link,
+  // troca a senha). Corrigido: o link nunca mais sai daqui. Fica só no log
+  // do servidor (Vercel → Logs) até um provedor de e-mail de verdade
+  // (Resend/SendGrid) ser configurado — a partir daí, troque este
+  // console.log por um envio de e-mail de verdade, sem mudar a lógica do
+  // token acima.
   const resetUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/reset-password?token=${token}`;
-  return { success: `link:${resetUrl}` };
+  console.log(`[reset-password] link gerado para ${email} (não enviado por e-mail ainda): ${resetUrl}`);
+  return { success: GENERIC_SUCCESS };
 }
 
 export async function resetPasswordAction(

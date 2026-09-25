@@ -179,7 +179,9 @@ function GoalCard({ goal }: { goal: Goal }) {
                 onClick={() => {
                   const amount = Number(contribution);
                   if (amount > 0) {
-                    startTransition(() => addContributionAction(goal.id, amount));
+                    startTransition(async () => {
+                      await addContributionAction(goal.id, amount);
+                    });
                     setContribution("");
                   }
                 }}

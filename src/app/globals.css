@@ -466,6 +466,35 @@ select option {
   }
 }
 
+/* ============================================================================
+   Card de meta concluída (PatrimonioClient.tsx, GoalsSection): comemoração
+   CONTIDA dentro da própria tela de Patrimônio — pedido explícito do Thiago
+   ("opção 2", sem tela cheia). Deliberadamente mais discreto que o reveal-*
+   do onboarding logo acima: aqui é uma conquista do dia a dia (pode acontecer
+   várias vezes), não o momento único de fim de onboarding — por isso sem
+   confete, e o brilho se apaga sozinho em vez de pulsar pra sempre.
+   ============================================================================ */
+.goal-achieved-pop {
+  animation: goal-achieved-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.goal-achieved-glow {
+  animation: goal-achieved-glow-fade 2.2s ease-out both;
+}
+@keyframes goal-achieved-pop {
+  0% { opacity: 0; transform: scale(0.97) translateY(-6px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes goal-achieved-glow-fade {
+  0% { box-shadow: 0 0 0 0 rgba(240, 153, 47, 0.5), 0 0 22px 3px rgba(240, 153, 47, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(240, 153, 47, 0), 0 0 0 0 rgba(240, 153, 47, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .goal-achieved-pop,
+  .goal-achieved-glow {
+    animation: none;
+  }
+}
+
 /* Minimal, calm scrollbars — the product should feel quiet, not busy. */
 ::-webkit-scrollbar {
   width: 10px;

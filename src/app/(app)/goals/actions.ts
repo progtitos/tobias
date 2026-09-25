@@ -26,9 +26,14 @@ export async function createGoalAction(_prev: GoalFormState, formData: FormData)
 
 export async function addContributionAction(goalId: string, amount: number) {
   const user = await requireOnboardedUser();
-  await addGoalContribution(user.id, goalId, amount);
+  const result = await addGoalContribution(user.id, goalId, amount);
   revalidatePath("/patrimonio");
   revalidatePath("/dashboard");
+  // `justAchieved` diz pro client se essa aporte específica acabou de bater
+  // a meta agora — usado pra disparar o card de comemoração contido na tela
+  // (ver PatrimonioClient.tsx), sem repetir a comemoração em aportes futuros
+  // no mesmo objetivo já concluído.
+  return { justAchieved: result?.justAchieved ?? false, goalTitle: result?.goalTitle, goalType: result?.goalType };
 }
 
 export async function updateGoalStatusAction(goalId: string, status: "ACTIVE" | "PAUSED" | "ABANDONED") {

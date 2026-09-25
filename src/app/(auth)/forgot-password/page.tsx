@@ -13,8 +13,13 @@ export default function ForgotPasswordPage() {
     undefined
   );
 
-  const isLinkResult = state?.success?.startsWith("link:");
-  const resetUrl = isLinkResult ? state!.success!.slice("link:".length) : null;
+  // SEGURANÇA (corrigido 25/09/2026): esta tela chegou a renderizar o link de
+  // redefinição de senha em texto claro pra quem preenchesse o formulário,
+  // sem nenhuma verificação de que a pessoa é dona daquele e-mail — ver o
+  // comentário em requestPasswordResetAction (src/lib/auth/actions.ts) pro
+  // histórico completo. Agora a action nunca devolve o link, só uma
+  // mensagem genérica (mesmo texto tanto pra e-mail existente quanto
+  // inexistente, pra não revelar quais e-mails estão cadastrados).
 
   return (
     <Card>
@@ -24,7 +29,7 @@ export default function ForgotPasswordPage() {
           Digite seu e-mail cadastrado para receber o link de redefinição.
         </p>
 
-        {!resetUrl && (
+        {!state?.success && (
           <form action={formAction} className="space-y-4">
             <div>
               <Label htmlFor="email">E-mail</Label>
@@ -37,15 +42,9 @@ export default function ForgotPasswordPage() {
           </form>
         )}
 
-        {resetUrl && (
+        {state?.success && (
           <div className="rounded-xl bg-brand-900 border border-gold-400/30 p-4 text-sm text-onbrand/80">
-            <p className="mb-2">
-              Ainda não temos um servidor de e-mail configurado nesta versão, então aqui está seu link
-              de redefinição (válido por 1 hora):
-            </p>
-            <Link href={resetUrl} className="break-all text-gold-400 underline font-medium">
-              {resetUrl}
-            </Link>
+            {state.success}
           </div>
         )}
 

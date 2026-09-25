@@ -603,6 +603,12 @@ function GoalsSection({
   const [targetAmountKey, setTargetAmountKey] = useState(0);
   const [targetAmountDefault, setTargetAmountDefault] = useState<number | undefined>(undefined);
   const [state, formAction, pending] = useActionState<GoalFormState, FormData>(createGoalAction, undefined);
+  // Comemoração de meta batida ("opção 2" combinada com o Thiago: um card
+  // contido aqui dentro de Patrimônio, não um overlay de tela cheia como o
+  // do onboarding). `key` força o CSS de entrada (`goal-achieved-pop`) a
+  // rodar de novo caso uma segunda meta seja batida antes da pessoa fechar
+  // a primeira comemoração.
+  const [achieved, setAchieved] = useState<{ key: number; title: string; type: string } | null>(null);
 
   const active = goals.filter((g) => g.status === "ACTIVE");
   const others = goals.filter((g) => g.status !== "ACTIVE");
@@ -610,6 +616,14 @@ function GoalsSection({
 
   return (
     <div>
+      {achieved && (
+        <GoalAchievedBanner
+          key={achieved.key}
+          goalTitle={achieved.title}
+          goalType={achieved.type}
+          onDismiss={() => setAchieved(null)}
+        />
+      )}
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-onbrand/55">
           {goals.length} objetivo{goals.length === 1 ? "" : "s"}
@@ -689,7 +703,14 @@ function GoalsSection({
       ) : (
         <div className="space-y-3">
           {active.map((g) => (
-            <GoalCard key={g.id} goal={g} emergencyFundSuggestion={emergencyFundSuggestion} />
+            <GoalCard
+              key={g.id}
+              goal={g}
+              emergencyFundSuggestion={emergencyFundSuggestion}
+              onAchieved={(title, goalType) =>
+                setAchieved({ key: Date.now(), title, type: goalType })
+              }
+            />
           ))}
           {others.length > 0 && (
             <>
@@ -749,7 +770,15 @@ function EmergencyFundSuggestionBox({
   );
 }
 
-function GoalCard({ goal, emergencyFundSuggestion }: { goal: Goal; emergencyFundSuggestion: EmergencyFundSuggestion }) {
+function GoalCard({
+  goal,
+  emergencyFundSuggestion,
+  onAchieved,
+}: {
+  goal: Goal;
+  emergencyFundSuggestion: EmergencyFundSuggestion;
+  onAchieved?: (goalTitle: string, goalType: string) => void;
+}) {
   const [pending, startTransition] = useTransition();
   const [contribution, setContribution] = useState(0);
   // CurrencyInput não aceita `value` controlado (ver componente); mudar essa
@@ -846,7 +875,12 @@ function GoalCard({ goal, emergencyFundSuggestion }: { goal: Goal; emergencyFund
                 disabled={!contribution || pending}
                 onClick={() => {
                   if (contribution > 0) {
-                    startTransition(() => addContributionAction(goal.id, contribution));
+                    startTransition(async () => {
+                      const result = await addContributionAction(goal.id, contribution);
+                      if (result.justAchieved) {
+                        onAchieved?.(result.goalTitle ?? goal.title, result.goalType ?? goal.type);
+                      }
+                    });
                     setContribution(0);
                     setContributionKey((k) => k + 1);
                   }
@@ -858,5 +892,61 @@ function GoalCard({ goal, emergencyFundSuggestion }: { goal: Goal; emergencyFund
           ))}
       </CardContent>
     </Card>
+  );
+}
+
+// Mensagem curta por tipo de objetivo pro card de comemoração abaixo — o
+// mesmo "Meta concluída" genérico pra tudo soaria automático demais pro
+// momento que é (Thiago pediu "celebração de verdade", só que contida).
+const GOAL_ACHIEVED_MESSAGES: Record<string, string> = {
+  DREAM: "Sonho realizado — agora é hora de aproveitar.",
+  EMERGENCY_FUND: "Sua reserva de emergência está completa.",
+  PROPERTY: "Você juntou o valor pro imóvel. Bora dar o próximo passo?",
+  RETIREMENT: "Meta de aposentadoria alcançada.",
+  CUSTOM: "Você chegou lá.",
+};
+
+// ---------------------------------------------------------------------------
+// Card de comemoração de meta batida — "opção 2" combinada com o Thiago:
+// contido dentro da própria tela de Patrimônio (não um overlay de tela cheia
+// como o ProfileRevealOverlay do fim do onboarding). Deliberadamente mais
+// discreto que aquele: sem confete, brilho que se apaga sozinho (ver
+// .goal-achieved-glow em globals.css) — é uma conquista do dia a dia, que
+// pode se repetir, não o momento único de fim de onboarding.
+// ---------------------------------------------------------------------------
+
+function GoalAchievedBanner({
+  goalTitle,
+  goalType,
+  onDismiss,
+}: {
+  goalTitle: string;
+  goalType: string;
+  onDismiss: () => void;
+}) {
+  const TypeIcon = GOAL_TYPE_ICONS[goalType] ?? Target;
+  return (
+    <div
+      role="status"
+      className="goal-achieved-pop goal-achieved-glow mb-4 flex items-start gap-3 rounded-xl border border-gold-500/25 bg-gold-100/[0.06] px-4 py-3.5"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-500 text-ink-900">
+        <TypeIcon className="h-4 w-4" strokeWidth={2.5} />
+      </span>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <p className="text-sm font-semibold text-onbrand">Meta concluída: {goalTitle}</p>
+        <p className="text-xs text-onbrand/60 mt-0.5">
+          {GOAL_ACHIEVED_MESSAGES[goalType] ?? "Você chegou lá."}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="shrink-0 text-onbrand/40 hover:text-onbrand/70"
+        aria-label="Fechar"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
   );
 }

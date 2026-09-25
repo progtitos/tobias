@@ -3,6 +3,7 @@ import { and, count, desc, eq, gte, ilike, inArray, isNull, or, sql } from "driz
 import type ExcelJS from "exceljs";
 import { db } from "@/lib/db/client";
 import { users, sessions, leads, leadStatusEnum, userRoleEnum, subscriptionPlanEnum, subscriptionStatusEnum } from "@/lib/db/schema";
+import { getPreApprovalClient } from "@/lib/mercadopago/client";
 
 // ============================================================================
 // Painel admin — leitura de usuários/assinaturas (dado já existe em `users`,
@@ -195,8 +196,39 @@ export async function updateUserForAdmin(userId: string, fields: AdminUserEditab
  * de `guardUserId`, checado no server action.
  */
 export async function softDeleteUserForAdmin(userId: string): Promise<void> {
+  const [user] = await db
+    .select({ mpPreapprovalId: users.mpPreapprovalId, subscriptionStatus: users.subscriptionStatus })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
   await db.update(users).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(users.id, userId));
   await db.delete(sessions).where(eq(sessions.userId, userId));
+
+  // Pedido do Thiago (25/09/2026), depois de perceber que testar cadastro
+  // repetido com o mesmo e-mail (excluindo pelo admin entre uma tentativa e
+  // outra) esbarrava em erro no checkout do Mercado Pago: excluir aqui só
+  // apagava o lado do Tobias (soft delete, ver comentário acima) — a
+  // assinatura/preapproval continuava "pending" ou "authorized" do lado do
+  // Mercado Pago pra sempre, já que ninguém nunca chamava a API deles pra
+  // cancelar. Um e-mail com um preapproval "pendurado" desse jeito pode ser
+  // rejeitado pelo Mercado Pago ao tentar abrir um checkout novo pra ele
+  // (hipótese ainda em confirmação com o Thiago, ver claude/backlog.md item
+  // 9). De qualquer forma, é limpeza correta por si só: uma conta excluída
+  // não deveria deixar uma assinatura ativa/pendente cobrando ou pendurada
+  // do lado de fora. Best-effort — nunca falha a exclusão em si por causa
+  // disso (a conta já foi removida do Tobias mesmo se o Mercado Pago não
+  // responder).
+  if (user?.mpPreapprovalId && user.subscriptionStatus !== "CANCELED") {
+    try {
+      await getPreApprovalClient().update({ id: user.mpPreapprovalId, body: { status: "cancelled" } });
+    } catch (err) {
+      console.error(
+        `[admin] falha ao cancelar preapproval ${user.mpPreapprovalId} do Mercado Pago ao excluir usuário ${userId} — a exclusão no Tobias já foi concluída mesmo assim`,
+        err
+      );
+    }
+  }
 }
 
 export type AdminLeadRow = {

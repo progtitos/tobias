@@ -69,8 +69,14 @@ export async function applyGoalContribution(userId: string, goalId: string, amou
   const [goal] = await db.select().from(goals).where(and(eq(goals.id, goalId), eq(goals.userId, userId))).limit(1);
   if (!goal) return null;
 
+  const wasAlreadyAchieved = goal.status === "ACHIEVED";
   const newAmount = goal.currentAmount + amount;
   const isAchieved = goal.targetAmount ? newAmount >= goal.targetAmount : false;
+  // Distingue "acabou de bater a meta agora" de "já estava batida antes" —
+  // um aporte extra num objetivo que já tinha alcançado 100% não deve
+  // disparar a comemoração de novo (pedido do Thiago, ver PatrimonioClient.tsx
+  // e o card de comemoração contido na tela de Patrimônio).
+  const justAchieved = isAchieved && !wasAlreadyAchieved;
 
   await db
     .update(goals)
@@ -78,7 +84,7 @@ export async function applyGoalContribution(userId: string, goalId: string, amou
     .where(eq(goals.id, goalId));
 
   await trackEvent(userId, "goal_updated", { goalId, amount });
-  return { newAmount, isAchieved };
+  return { newAmount, isAchieved, justAchieved, goalTitle: goal.title, goalType: goal.type };
 }
 
 /** The inverse of applyGoalContribution — used when a transaction that had
