@@ -188,8 +188,26 @@ body {
   font-family: var(--font-sans);
 }
 
-* {
-  border-color: var(--color-cream-200);
+/*
+ * CAUSA RAIZ real de (quase) todas as reclamações de "borda branca" desta
+ * sessão (Hero, cards da demo, chat com o Tobias — 28/09/2026): esta regra
+ * ficava FORA de qualquer `@layer`, então, pelas regras de cascade layers do
+ * CSS, ela sempre vencia qualquer utilitário `border-*` do Tailwind (que vive
+ * na layer `utilities`), não importa a especificidade da classe. Na prática,
+ * TODA borda do app — inclusive as "coloridas" (dourado/violeta/âmbar) —
+ * sempre renderizava com `--color-cream-200` (#e2e5e3, quase branco),
+ * porque nenhuma classe `border-COR` conseguia sobrescrever uma regra fora
+ * de layer. Confirmado inspecionando o `border-color` computado no browser:
+ * `rgb(226, 229, 227)` em elementos que no código tinham `border-gold-500`,
+ * `border-violet-500`, `border-onbrand`, `border-transparent` etc. — todos
+ * ignorados. Envolver em `@layer base` (a mesma layer que o preflight do
+ * Tailwind usa pra esse tipo de reset) resolve de vez: agora a layer
+ * `utilities`, que vem depois, pode sobrescrever normalmente.
+ */
+@layer base {
+  * {
+    border-color: var(--color-cream-200);
+  }
 }
 
 ::selection {
@@ -566,7 +584,14 @@ select option {
 }
 
 .lp-surface {
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.015));
+  /* Era um gradiente branco translúcido (4.5%→1.5%) — a borda já tinha sido
+     zerada antes, mas o preenchimento continuava sendo branco misturado em
+     qualquer opacidade, o que ainda lia como "esbranquiçado" mesmo sem
+     nenhuma linha (28/09/2026, "ainda tem muita coisa"). Trocado pra um tom
+     escuro neutro (mesmo valor de brand-800, #23292f) em vez de branco —
+     separa o card do fundo sem clarear nada.
+     */
+  background: linear-gradient(180deg, rgb(35 41 47 / 0.55), rgb(35 41 47 / 0.35));
   border: 1px solid transparent;
   backdrop-filter: blur(8px);
 }
@@ -581,7 +606,7 @@ select option {
   transform: translateY(-3px);
   border-color: rgb(240 153 47 / 0.42);
   box-shadow:
-    0 1px 0 0 rgb(255 255 255 / 0.06) inset,
+    0 1px 0 0 rgb(240 153 47 / 0.14) inset,
     0 18px 44px -20px rgb(0 0 0 / 0.75),
     0 0 0 1px rgb(240 153 47 / 0.08);
 }

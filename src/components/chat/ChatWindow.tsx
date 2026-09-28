@@ -145,14 +145,14 @@ export function ChatWindow<TReveal = never>({
                   // pelo alinhamento esquerda/direita.
                   m.role === "USER"
                     ? cn("bg-brand-600 text-onbrand border border-gold-400/25", isGroupEnd && "rounded-br-sm")
-                    : // A borda do balão do Tobias era `border-brand-600` (#394048) — sólida
-                      // demais contra o fundo quase preto do onboarding/chat, lida como uma
-                      // "borda branca" chapada em vez de um contorno sutil (Thiago, 25/09/2026,
-                      // mesmo padrão de bordas-brancas-demais já corrigido antes em outras telas,
-                      // ver claude/plano-painel-admin-crm-tour-figma.md §1.5). Trocada pra
-                      // `onbrand/[0.06]`, a mesma convenção de divisor sutil usada em todo o
-                      // resto do app (cabeçalho, composer, separadores de card).
-                      cn("bg-brand-800 text-onbrand border border-onbrand/[0.06]", isGroupEnd && "rounded-bl-sm")
+                    : // O balão do Tobias não leva mais nenhuma borda neutra: uma borda
+                      // `border-brand-600` lia como chapada demais (25/09/2026), e a troca
+                      // seguinte para `onbrand/[0.06]` continuava visível como uma linha
+                      // clara, porque `onbrand` é quase branco no tema escuro (28/09/2026,
+                      // "ainda tem muita coisa... assim como no chat com tobias"). O
+                      // contraste entre `bg-brand-800` (balão) e `bg-brand-950` (fundo da
+                      // conversa) já separa o balão sem precisar de nenhuma linha.
+                      cn("bg-brand-800 text-onbrand", isGroupEnd && "rounded-bl-sm")
                 )}
               >
                 {m.content}
@@ -193,7 +193,7 @@ export function ChatWindow<TReveal = never>({
         {pending && (
           <div className="flex items-end gap-2 justify-start">
             <TobiasAvatar />
-            <div className="rounded-2xl rounded-bl-sm bg-brand-800 border border-onbrand/[0.06] px-4 py-2.5">
+            <div className="rounded-2xl rounded-bl-sm bg-brand-800 px-4 py-2.5">
               <Loader2 className="h-4 w-4 animate-spin text-onbrand/60" />
             </div>
           </div>
@@ -201,7 +201,10 @@ export function ChatWindow<TReveal = never>({
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-onbrand/[0.06] bg-brand-950 px-4 py-3">
+      {/* Divisor do composer trocado de `border-t border-onbrand/[0.06]` (ainda
+         lia como linha branca no tema escuro) para uma sombra interna escura —
+         separa visualmente sem nenhuma linha clara. */}
+      <div className="bg-brand-950 px-4 py-3 shadow-[inset_0_1px_0_rgba(0,0,0,0.35)]">
         <div className="max-w-2xl mx-auto flex items-end gap-2">
           <textarea
             value={input}

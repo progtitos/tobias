@@ -17,8 +17,12 @@ const base =
 
 const variants: Record<Variant, string> = {
   gold: "bg-gold-500 text-ink-900 shadow-[0_10px_30px_-12px_rgba(240,153,47,0.65)] hover:bg-gold-400 hover:shadow-[0_14px_38px_-12px_rgba(240,153,47,0.8)]",
+  // Sem borda em repouso: numa página sempre escura, `onbrand` ~= branco, então
+  // qualquer opacidade dele como borda ainda lê como "linha branca" (mesmo
+  // problema já visto em Home.tsx/ChatWindow.tsx). O dourado só aparece no
+  // hover, como acento pontual — nunca uma linha neutra em volta do botão.
   outline:
-    "border border-onbrand/20 bg-onbrand/[0.04] text-cream-50 backdrop-blur-sm hover:border-gold-500/50 hover:bg-onbrand/[0.07]",
+    "border border-transparent bg-onbrand/[0.06] text-cream-50 backdrop-blur-sm hover:border-gold-500/50 hover:bg-onbrand/[0.09]",
   ghost: "text-cream-100 hover:text-cream-50 hover:bg-onbrand/[0.06]",
 };
 

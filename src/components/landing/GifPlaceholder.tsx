@@ -51,7 +51,7 @@ export default function GifPlaceholder({
               className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,rgba(240,153,47,.1),transparent_55%)]"
               aria-hidden="true"
             />
-            <div className="absolute inset-3 flex flex-col justify-between rounded-xl bg-[linear-gradient(145deg,rgba(255,255,255,.025),rgba(255,255,255,0))] p-3 sm:inset-4 sm:p-4">
+            <div className="absolute inset-3 flex flex-col justify-between rounded-xl bg-[linear-gradient(145deg,rgba(240,153,47,.05),rgba(240,153,47,0))] p-3 sm:inset-4 sm:p-4">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-[0.59rem] font-medium uppercase tracking-[0.14em] text-brand-100/45">
                   <Film className="size-3.5 text-gold-400/80" aria-hidden="true" />

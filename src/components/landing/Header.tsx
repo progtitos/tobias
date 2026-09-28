@@ -74,7 +74,7 @@ export default function Header() {
             aria-label={open ? "Fechar menu" : "Abrir menu"}
             aria-expanded={open}
             aria-controls="menu-mobile"
-            className="lp-press inline-flex size-10 items-center justify-center rounded-lg border border-onbrand/20 bg-onbrand/[0.04] text-cream-50 hover:bg-onbrand/[0.07] lg:hidden"
+            className="lp-press inline-flex size-10 items-center justify-center rounded-lg border border-transparent bg-onbrand/[0.06] text-cream-50 hover:bg-onbrand/[0.1] lg:hidden"
           >
             {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>

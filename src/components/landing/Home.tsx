@@ -250,7 +250,7 @@ function TobiasSolution() {
                   key={step.number}
                   className={`lp-reveal group flex gap-4 rounded-2xl border p-4 transition-all duration-200 sm:p-5 ${
                     isAiStep
-                      ? "border-violet-500/35 bg-[linear-gradient(115deg,rgba(169,155,232,.12),rgba(255,255,255,.025)_72%)] shadow-[0_12px_40px_-28px_rgba(169,155,232,.65)] hover:border-violet-400/55"
+                      ? "border-violet-500/35 bg-[linear-gradient(115deg,rgba(169,155,232,.12),rgba(169,155,232,0)_72%)] shadow-[0_12px_40px_-28px_rgba(169,155,232,.65)] hover:border-violet-400/55"
                       : "border-transparent bg-onbrand/[0.03] hover:border-gold-500/25 hover:bg-onbrand/[0.05]"
                   }`}
                   style={{ ["--reveal-delay" as string]: `${i * 75}ms` }}
@@ -503,7 +503,7 @@ function Testimonials() {
             {prompts.map((prompt, i) => (
               <figure
                 key={prompt}
-                className="lp-reveal flex min-h-44 flex-col justify-between rounded-2xl border border-dashed border-violet-500/30 bg-[linear-gradient(145deg,rgba(169,155,232,.09),rgba(255,255,255,.02)_70%)] p-5 sm:p-6"
+                className="lp-reveal flex min-h-44 flex-col justify-between rounded-2xl border border-dashed border-violet-500/30 bg-[linear-gradient(145deg,rgba(169,155,232,.09),rgba(169,155,232,0)_70%)] p-5 sm:p-6"
                 style={{ ["--reveal-delay" as string]: `${i * 80}ms` }}
               >
                 <div>
