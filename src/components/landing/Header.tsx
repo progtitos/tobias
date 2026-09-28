@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
@@ -26,7 +26,7 @@ export default function Header() {
 
   return (
     <>
-      
+      <a
         href="#conteudo"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-gold-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-ink-900"
       >
@@ -48,7 +48,7 @@ export default function Header() {
         <div className="lp-container flex h-16 items-center justify-between gap-4 lg:h-[4.5rem]">
           <nav aria-label="Navegação principal" className="hidden items-center gap-1 lg:flex">
             {NAV_LINKS.map((l) => (
-              
+              <a
                 key={l.href}
                 href={l.href}
                 className="rounded-lg px-3 py-2 text-[0.875rem] text-cream-100/75 transition-colors duration-150 hover:bg-onbrand/[0.05] hover:text-cream-50"
@@ -88,7 +88,7 @@ export default function Header() {
         <div className="lp-container flex h-full flex-col gap-2 pt-24 pb-10">
           <nav aria-label="Navegação mobile" className="flex flex-col">
             {NAV_LINKS.map((l) => (
-              
+              <a
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
