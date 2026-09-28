@@ -1,4 +1,5 @@
-﻿"use client";
+@'
+"use client";
 
 import Image from "next/image";
 import { ArrowDownRight, ArrowRight, Check, ShieldCheck, Sparkles } from "lucide-react";
@@ -125,3 +126,4 @@ export default function Hero() {
     </section>
   );
 }
+'@ | Set-Content -Encoding UTF8 "src\components\landing\Hero.tsx"

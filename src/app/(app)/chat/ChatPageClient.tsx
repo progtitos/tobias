@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import { ChatWindow, type ChatMessage } from "@/components/chat/ChatWindow";
