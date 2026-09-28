@@ -18,8 +18,8 @@ const base =
 const variants: Record<Variant, string> = {
   gold: "bg-gold-500 text-ink-900 shadow-[0_10px_30px_-12px_rgba(240,153,47,0.65)] hover:bg-gold-400 hover:shadow-[0_14px_38px_-12px_rgba(240,153,47,0.8)]",
   outline:
-    "border border-white/14 bg-white/[0.03] text-cream-50 backdrop-blur-sm hover:border-gold-500/50 hover:bg-white/[0.07]",
-  ghost: "text-cream-100 hover:text-cream-50 hover:bg-white/[0.06]",
+    "border border-onbrand/20 bg-onbrand/[0.04] text-cream-50 backdrop-blur-sm hover:border-gold-500/50 hover:bg-onbrand/[0.07]",
+  ghost: "text-cream-100 hover:text-cream-50 hover:bg-onbrand/[0.06]",
 };
 
 const sizes: Record<Size, string> = {

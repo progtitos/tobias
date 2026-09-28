@@ -38,8 +38,8 @@ export default function Header() {
         className={cn(
           "fixed inset-x-0 top-0 z-50 transition-all duration-200",
           scrolled
-            ? "border-b border-white/[0.07] bg-brand-950/85 backdrop-blur-xl supports-[backdrop-filter]:bg-brand-950/70"
-            : "border-b border-transparent bg-transparent"
+            ? "bg-brand-950/85 shadow-[0_1px_0_rgba(0,0,0,0.35)] backdrop-blur-xl supports-[backdrop-filter]:bg-brand-950/70"
+            : "bg-transparent"
         )}
       >
         <div className="lp-container flex h-16 items-center justify-between gap-4 lg:h-[4.5rem]">
@@ -52,7 +52,7 @@ export default function Header() {
               <a
                 key={l.href}
                 href={l.href}
-                className="rounded-lg px-3 py-2 text-[0.875rem] text-cream-100/75 transition-colors duration-150 hover:bg-white/[0.05] hover:text-cream-50"
+                className="rounded-lg px-3 py-2 text-[0.875rem] text-cream-100/75 transition-colors duration-150 hover:bg-onbrand/[0.05] hover:text-cream-50"
               >
                 {l.label}
               </a>
@@ -74,7 +74,7 @@ export default function Header() {
             aria-label={open ? "Fechar menu" : "Abrir menu"}
             aria-expanded={open}
             aria-controls="menu-mobile"
-            className="lp-press inline-flex size-10 items-center justify-center rounded-lg border border-white/12 bg-white/[0.03] text-cream-50 lg:hidden"
+            className="lp-press inline-flex size-10 items-center justify-center rounded-lg border border-onbrand/20 bg-onbrand/[0.04] text-cream-50 hover:bg-onbrand/[0.07] lg:hidden"
           >
             {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -93,7 +93,7 @@ export default function Header() {
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                className="border-b border-white/[0.06] py-4 font-display text-lg font-medium text-cream-100 transition-colors hover:text-gold-400"
+                className="py-4 font-display text-lg font-medium text-cream-100 transition-colors hover:text-gold-400"
               >
                 {l.label}
               </a>

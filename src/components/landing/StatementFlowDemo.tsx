@@ -58,9 +58,9 @@ export default function StatementFlowDemo() {
         aria-hidden="true"
       />
 
-      <div className="overflow-hidden rounded-[1.35rem] border border-white/[0.12] bg-[#191e23] shadow-[0_36px_100px_-34px_rgba(0,0,0,.9)]">
+      <div className="overflow-hidden rounded-[1.35rem] bg-[#191e23] shadow-[0_36px_100px_-34px_rgba(0,0,0,.9)]">
         {/* barra de janela */}
-        <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
+        <div className="flex items-center justify-between bg-black/15 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2">
             <span className="size-2.5 rounded-full bg-[#f16d62]/80" />
             <span className="size-2.5 rounded-full bg-[#f4c352]/80" />
@@ -118,8 +118,8 @@ export default function StatementFlowDemo() {
             </span>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-white/[0.07]">
-            <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
+          <div className="mt-4 overflow-hidden rounded-xl bg-black/10">
+            <div className="flex items-center justify-between px-3 py-2.5">
               <span className="text-[0.63rem] font-medium uppercase tracking-[0.12em] text-[#a6acb1]">Transações</span>
               <span className="flex items-center gap-1 text-[0.62rem] text-[#a6acb1]">
                 Este mês
@@ -129,10 +129,10 @@ export default function StatementFlowDemo() {
             {entries.map((entry, i) => (
               <div
                 key={entry.id}
-                className="lp-transaction-row flex items-center gap-2.5 border-b border-white/[0.05] px-3 py-2.5 last:border-0 sm:gap-3 sm:px-3.5"
+                className={`lp-transaction-row flex items-center gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-3.5 ${i % 2 === 1 ? "bg-black/10" : ""}`}
                 style={{ animationDelay: `${i * 260}ms` }}
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.045] text-[#dfe3e6]/70">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-black/20 text-[#dfe3e6]/70">
                   <ArrowDown className="size-3.5" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -176,13 +176,13 @@ export default function StatementFlowDemo() {
               </span>
             </div>
             <div className="grid gap-1.5 p-2.5 sm:grid-cols-2">
-              <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/[0.055] bg-black/15 px-2.5 py-2">
+              <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-black/20 px-2.5 py-2">
                 <span className="min-w-0 truncate text-[0.59rem] text-[#dfe3e6]/80">Mercado do Bairro</span>
                 <span className="shrink-0 rounded-md border border-[#f0992f]/20 bg-[#f0992f]/[0.08] px-1.5 py-1 text-[0.53rem] text-[#ffbf68]">
                   Alimentação
                 </span>
               </div>
-              <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/[0.055] bg-black/15 px-2.5 py-2">
+              <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-black/20 px-2.5 py-2">
                 <span className="min-w-0 truncate text-[0.59rem] text-[#dfe3e6]/80">Posto Avenida</span>
                 <span className="shrink-0 rounded-md border border-[#58b3d0]/20 bg-[#58b3d0]/[0.08] px-1.5 py-1 text-[0.53rem] text-[#79cce5]">
                   Transporte
@@ -197,7 +197,7 @@ export default function StatementFlowDemo() {
         </div>
       </div>
 
-      <div className="lp-float-chip absolute -bottom-5 -left-3 hidden items-center gap-2 rounded-xl border border-white/10 bg-[#23292f] px-3 py-2.5 shadow-xl sm:flex">
+      <div className="lp-float-chip absolute -bottom-5 -left-3 hidden items-center gap-2 rounded-xl bg-[#23292f] px-3 py-2.5 shadow-xl sm:flex">
         <span className="flex size-7 items-center justify-center rounded-lg bg-[#5ecbb8]/10 text-[#5ecbb8]">
           <Upload className="size-3.5" aria-hidden="true" />
         </span>
@@ -207,7 +207,7 @@ export default function StatementFlowDemo() {
         </span>
         <ArrowUpRight className="ml-1 size-3.5 text-[#a6acb1]" aria-hidden="true" />
       </div>
-      <div className="lp-float-chip lp-float-chip-late absolute -right-2 top-1/3 hidden items-center gap-2 rounded-xl border border-white/10 bg-[#23292f] px-3 py-2.5 shadow-xl md:flex">
+      <div className="lp-float-chip lp-float-chip-late absolute -right-2 top-1/3 hidden items-center gap-2 rounded-xl bg-[#23292f] px-3 py-2.5 shadow-xl md:flex">
         <span className="flex size-7 items-center justify-center rounded-lg bg-[#f0992f]/10 text-[#ffb648]">
           <Merge className="size-3.5" aria-hidden="true" />
         </span>

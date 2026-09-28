@@ -558,14 +558,6 @@ select option {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
 }
 
-/* Grade de linhas finas, usada atrás do hero e do CTA final. */
-.lp-grid-lines {
-  background-image:
-    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
-  background-size: 72px 72px;
-}
-
 .lp-text-gold-gradient {
   background: linear-gradient(100deg, var(--color-gold-400), var(--color-gold-500) 55%, var(--color-gold-600));
   -webkit-background-clip: text;
@@ -575,7 +567,7 @@ select option {
 
 .lp-surface {
   background: linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.015));
-  border: 1px solid rgb(255 255 255 / 0.08);
+  border: 1px solid transparent;
   backdrop-filter: blur(8px);
 }
 .lp-surface-hover {

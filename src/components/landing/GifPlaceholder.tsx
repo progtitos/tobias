@@ -51,7 +51,7 @@ export default function GifPlaceholder({
               className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,rgba(240,153,47,.1),transparent_55%)]"
               aria-hidden="true"
             />
-            <div className="absolute inset-3 flex flex-col justify-between rounded-xl border border-white/[0.055] bg-[linear-gradient(145deg,rgba(255,255,255,.025),rgba(255,255,255,0))] p-3 sm:inset-4 sm:p-4">
+            <div className="absolute inset-3 flex flex-col justify-between rounded-xl bg-[linear-gradient(145deg,rgba(255,255,255,.025),rgba(255,255,255,0))] p-3 sm:inset-4 sm:p-4">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-[0.59rem] font-medium uppercase tracking-[0.14em] text-brand-100/45">
                   <Film className="size-3.5 text-gold-400/80" aria-hidden="true" />
@@ -74,8 +74,8 @@ export default function GifPlaceholder({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 border-t border-white/[0.07] pt-2.5">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-brand-100/55">
+              <div className="flex items-center gap-2 pt-2.5">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-black/20 text-brand-100/55">
                   <Plus className="size-3" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1 truncate font-mono text-[0.57rem] text-brand-100/50">{fileHint}</span>

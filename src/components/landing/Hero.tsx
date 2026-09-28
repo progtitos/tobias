@@ -16,7 +16,6 @@ export default function Hero() {
       className="lp-grain relative overflow-hidden pb-16 pt-28 sm:pt-32 lg:pb-24 lg:pt-36"
     >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-0 lp-grid-lines opacity-45 [mask-image:radial-gradient(75%_60%_at_50%_0%,#000_8%,transparent_75%)]" />
         <div
           className="absolute right-[-12rem] top-[-8rem] h-[42rem] w-[42rem] rounded-full opacity-35 blur-3xl"
           style={{

@@ -167,14 +167,7 @@ function SectionHeading({
 
 function OpenFinancePain() {
   return (
-    <section
-      id="extratos"
-      className="relative overflow-hidden border-y border-white/[0.06] bg-[#101316] py-20 sm:py-24 lg:py-28"
-    >
-      <div
-        className="pointer-events-none absolute inset-0 lp-grid-lines opacity-25 [mask-image:linear-gradient(to_bottom,transparent,#000_20%,#000_80%,transparent)]"
-        aria-hidden="true"
-      />
+    <section id="extratos" className="relative overflow-hidden bg-[#101316] py-20 sm:py-24 lg:py-28">
       <div className="lp-container relative">
         <SectionHeading
           eyebrow="O desafio dos dados financeiros"
@@ -201,7 +194,7 @@ function OpenFinancePain() {
                 </span>
                 <h3 className="mt-5 font-display text-lg font-semibold text-cream-50">{problem.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-cream-100/65">{problem.description}</p>
-                <div className="mt-5 flex items-center gap-2 rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2 text-[0.66rem] text-brand-100/65">
+                <div className="mt-5 flex items-center gap-2 rounded-lg bg-black/25 px-3 py-2 text-[0.66rem] text-brand-100/65">
                   <X className="size-3.5 shrink-0 text-danger-300" aria-hidden="true" />
                   {problem.note}
                 </div>
@@ -258,7 +251,7 @@ function TobiasSolution() {
                   className={`lp-reveal group flex gap-4 rounded-2xl border p-4 transition-all duration-200 sm:p-5 ${
                     isAiStep
                       ? "border-violet-500/35 bg-[linear-gradient(115deg,rgba(169,155,232,.12),rgba(255,255,255,.025)_72%)] shadow-[0_12px_40px_-28px_rgba(169,155,232,.65)] hover:border-violet-400/55"
-                      : "border-white/[0.07] bg-white/[0.025] hover:border-gold-500/25 hover:bg-white/[0.045]"
+                      : "border-transparent bg-onbrand/[0.03] hover:border-gold-500/25 hover:bg-onbrand/[0.05]"
                   }`}
                   style={{ ["--reveal-delay" as string]: `${i * 75}ms` }}
                 >
@@ -323,8 +316,7 @@ function TobiasSolution() {
  */
 function Pillars() {
   return (
-    <section id="pilares" className="relative overflow-hidden border-y border-white/[0.06] bg-brand-900/35 py-20 sm:py-24 lg:py-28">
-      <div className="pointer-events-none absolute inset-0 lp-grid-lines opacity-20" aria-hidden="true" />
+    <section id="pilares" className="relative overflow-hidden bg-brand-900/35 py-20 sm:py-24 lg:py-28">
       <div className="lp-container relative">
         <SectionHeading
           eyebrow="A filosofia por trás do plano"
@@ -384,11 +376,7 @@ function Pillars() {
 
 function FollowAlong() {
   return (
-    <section
-      id="whatsapp"
-      className="relative overflow-hidden border-y border-white/[0.06] bg-brand-900/35 py-20 sm:py-24 lg:py-28"
-    >
-      <div className="pointer-events-none absolute inset-0 lp-grid-lines opacity-20" aria-hidden="true" />
+    <section id="whatsapp" className="relative overflow-hidden bg-brand-900/35 py-20 sm:py-24 lg:py-28">
       <div className="lp-container relative grid items-center gap-12 lg:grid-cols-[1fr_0.9fr] lg:gap-20">
         <div className="lp-reveal max-w-xl">
           <p className="mb-4 inline-flex items-center gap-2 font-sans text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-ok-400">
@@ -494,8 +482,7 @@ function Testimonials() {
   ];
 
   return (
-    <section id="depoimentos" className="relative overflow-hidden border-y border-white/[0.06] bg-[#101316] py-16 sm:py-20">
-      <div className="pointer-events-none absolute inset-0 lp-grid-lines opacity-15" aria-hidden="true" />
+    <section id="depoimentos" className="relative overflow-hidden bg-[#101316] py-16 sm:py-20">
       <div className="lp-container relative">
         <div className="grid items-end gap-6 lg:grid-cols-[0.82fr_1.18fr] lg:gap-12">
           <div className="lp-reveal">
@@ -525,7 +512,7 @@ function Testimonials() {
                     {prompt}
                   </blockquote>
                 </div>
-                <figcaption className="mt-5 flex items-center gap-2 border-t border-white/[0.07] pt-3 text-[0.62rem] text-brand-100/55">
+                <figcaption className="mt-5 flex items-center gap-2 pt-3 text-[0.62rem] text-brand-100/55">
                   <span className="size-1.5 rounded-full bg-violet-400" aria-hidden="true" />
                   Depoimento real a inserir, com autorização
                 </figcaption>
@@ -540,11 +527,7 @@ function Testimonials() {
 
 function Pricing() {
   return (
-    <section id="planos" className="relative overflow-hidden border-y border-white/[0.06] bg-[#101316] py-20 sm:py-24 lg:py-28">
-      <div
-        className="pointer-events-none absolute inset-0 lp-grid-lines opacity-20 [mask-image:linear-gradient(to_bottom,transparent,#000_30%,#000_70%,transparent)]"
-        aria-hidden="true"
-      />
+    <section id="planos" className="relative overflow-hidden bg-[#101316] py-20 sm:py-24 lg:py-28">
       <div className="lp-container relative">
         <SectionHeading
           eyebrow="Planos"
@@ -588,7 +571,7 @@ function Pricing() {
                 <p className="mt-2 text-sm text-gold-400">{plan.monthlyEquivalentLabel}</p>
                 <p className="mt-3 min-h-10 text-[0.77rem] leading-relaxed text-brand-100/65">{plan.billingNote}</p>
               </div>
-              <ul className="mt-5 space-y-3 border-t border-white/[0.08] pt-5">
+              <ul className="mt-5 space-y-3 pt-5">
                 {["Acesso completo ao Tobias", "15 dias grátis para testar", "Cancele quando quiser"].map((perk) => (
                   <li key={perk} className="flex items-start gap-2.5 text-[0.8rem] text-cream-100/80">
                     <Check className="mt-0.5 size-4 shrink-0 text-ok-400" aria-hidden="true" />
@@ -644,12 +627,12 @@ function FAQ() {
             {FAQs.map((faq, i) => (
               <details
                 key={faq.question}
-                className="lp-reveal group rounded-xl border border-white/[0.08] bg-white/[0.025] px-5 transition-colors duration-200 open:border-gold-500/25 open:bg-white/[0.04]"
+                className="lp-reveal group rounded-xl border border-transparent bg-onbrand/[0.03] px-5 transition-colors duration-200 open:border-gold-500/25 open:bg-onbrand/[0.045]"
                 style={{ ["--reveal-delay" as string]: `${i * 55}ms` }}
               >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-display text-[0.9rem] font-medium text-cream-50 marker:content-none [&::-webkit-details-marker]:hidden">
                   {faq.question}
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-brand-100/60 transition-transform duration-200 group-open:rotate-45 group-open:border-gold-500/30 group-open:text-gold-400">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-onbrand/[0.06] text-brand-100/60 transition-transform duration-200 group-open:rotate-45 group-open:bg-gold-500/15 group-open:text-gold-400">
                     <span className="text-lg leading-none">+</span>
                   </span>
                 </summary>
@@ -666,7 +649,6 @@ function FAQ() {
 function FinalCta() {
   return (
     <section className="relative overflow-hidden border-y border-gold-500/15 bg-brand-900/55 py-16 sm:py-20">
-      <div className="pointer-events-none absolute inset-0 lp-grid-lines opacity-25" aria-hidden="true" />
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-3xl"
         aria-hidden="true"
@@ -709,7 +691,7 @@ function Footer() {
   return (
     <footer className="bg-brand-950 py-8 sm:py-10">
       <div className="lp-container">
-        <div className="flex flex-col items-center justify-between gap-5 border-b border-white/[0.07] pb-7 sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-5 pb-7 sm:flex-row">
           <a href="#top" aria-label="Voltar ao início">
             <Logo size={30} />
           </a>
