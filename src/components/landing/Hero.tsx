@@ -1,8 +1,8 @@
 ﻿"use client";
 
-import Image from "next/image";
 import { ArrowDownRight, ArrowRight, Check, ShieldCheck, Sparkles } from "lucide-react";
 import BrandButton from "@/components/landing/BrandButton";
+import Logo from "@/components/landing/Logo";
 import StatementFlowDemo from "@/components/landing/StatementFlowDemo";
 import { APP_LINKS } from "@/components/landing/site";
 import { useReveal } from "@/components/landing/useReveal";
@@ -32,33 +32,18 @@ export default function Hero() {
       <div className="lp-container">
         <div className="grid min-w-0 grid-cols-1 items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
           <div className="min-w-0 max-w-xl">
-            {/* Mascote em destaque no topo da Hero (28/09/2026, pedido do Thiago):
-                só o busto, 10x o tamanho usado no Header (34px -> 340px), sem o
-                nome "Tobias" — o `logo-transparent.png` usado no Header já vem
-                com a palavra "Tobias" desenhada dentro do próprio PNG (só não
-                aparece em 34px porque fica pequeno demais pra ler), então em
-                340px ela ficava bem visível. Em vez de um arquivo novo, corta
-                a palavra fora só com CSS: uma moldura com overflow-hidden do
-                tamanho do busto, com a MESMA imagem ampliada e deslocada lá
-                dentro pra só a parte de cima (busto+círculo) ficar visível —
-                a faixa de texto sobra fora da moldura, sem precisar recortar
-                um PNG novo. Coordenadas vieram do recorte manual do arquivo
-                original (500x500): busto ocupa aprox. x 133–363, y 78–291. */}
-            <div
-              className="lp-reveal relative -ml-2 mb-2 overflow-hidden drop-shadow-[0_2px_10px_rgba(240,153,47,0.22)]"
-              style={{ width: 367, height: 340 }}
-              aria-hidden="true"
-            >
-              <Image
-                src="/logo-transparent.png"
-                alt=""
-                width={798}
-                height={798}
-                className="absolute max-w-none object-contain"
-                style={{ width: 798, height: 798, left: -212, top: -125 }}
-                priority
-              />
-            </div>
+            {/* Mascote em destaque no topo da Hero (28/09/2026, pedido do Thiago).
+                Histórico rápido: 1ª versão usava 340px só do busto, sem nome
+                (a logo do Header ainda existia, então o nome não se repetia).
+                Depois o Thiago pediu pra remover a logo do Header (essa aqui
+                embaixo virou a única marca da página) e manter o nome
+                "Tobias" nesta versão grande — só que menor que 340px, pra não
+                "distorcer"/dominar demais o layout. `Logo` usa a imagem
+                inteira (busto + nome, já desenhados dentro do PNG) numa
+                proporção quadrada fixa, então nunca distorce em nenhum
+                tamanho — só ajustamos `size` pra baixo (200px, ~6x o tamanho
+                que a logo tinha no Header antes de ser removida de lá). */}
+            <Logo size={200} withWordmark={false} className="lp-reveal -ml-2 mb-3" />
             <p className="lp-reveal inline-flex items-center gap-2 rounded-full border border-gold-500/25 bg-gold-500/[0.08] px-3.5 py-1.5 font-sans text-[0.72rem] font-medium tracking-wide text-gold-400">
               <Sparkles className="size-3.5 shrink-0" aria-hidden="true" /> Sem Open Finance · importe seus extratos
             </p>
