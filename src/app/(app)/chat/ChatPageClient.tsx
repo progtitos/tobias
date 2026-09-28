@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { ChatWindow, type ChatMessage } from "@/components/chat/ChatWindow";
@@ -44,21 +44,25 @@ export function ChatPageClient({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-brand-950">
-      <div
-        className="flex items-center gap-3 px-5 py-3.5 shadow-[inset_0_-1px_0_rgba(0,0,0,0.35)]"
-        data-tour="chat-tobias"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/avatars/tobias-sempre-ao-lado.png"
-          alt="Tobias"
-          className="tobias-mascot-soft h-9 w-9 object-cover shrink-0"
-        />
-        <div className="min-w-0">
-          <p className={`text-[10px] font-semibold uppercase tracking-wide ${healthStatus ? STATUS_TONE[healthStatus] : "text-onbrand/45"}`}>
-            {healthStatus ?? "Conhecendo você"}
-          </p>
-          <p className="text-sm text-onbrand truncate">{moodMessage(firstName, healthStatus)}</p>
+      {/* Cabeçalho centralizado na mesma coluna (max-w-2xl) das mensagens e do
+          composer logo abaixo (28/09/2026, pedido do Thiago) — antes ficava
+          grudado à esquerda, encostado na sidebar, enquanto o resto da
+          conversa já era centralizado, o que deixava a tela toda desalinhada
+          em telas largas. */}
+      <div className="px-5 py-3.5 shadow-[inset_0_-1px_0_rgba(0,0,0,0.35)]" data-tour="chat-tobias">
+        <div className="flex items-center gap-3 max-w-2xl w-full mx-auto">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/avatars/tobias-sempre-ao-lado.png"
+            alt="Tobias"
+            className="tobias-mascot-soft h-9 w-9 object-cover shrink-0"
+          />
+          <div className="min-w-0">
+            <p className={`text-[10px] font-semibold uppercase tracking-wide ${healthStatus ? STATUS_TONE[healthStatus] : "text-onbrand/45"}`}>
+              {healthStatus ?? "Conhecendo você"}
+            </p>
+            <p className="text-sm text-onbrand truncate">{moodMessage(firstName, healthStatus)}</p>
+          </div>
         </div>
       </div>
       <ChatWindow
