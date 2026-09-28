@@ -55,6 +55,7 @@ import { BankBadge } from "@/components/ui/BankBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { IconButton } from "@/components/ui/IconButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Modal } from "@/components/ui/Modal";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { toast } from "sonner";
@@ -572,7 +573,7 @@ function TransactionFields({
         <Label htmlFor="amount">{amountLabel}</Label>
         <CurrencyInput id="amount" name="amount" defaultValue={defaults?.amount} onValueChange={setAmount} required />
       </div>
-      <div className="col-span-2">
+      <div className="sm:col-span-2">
         <Label htmlFor="description">Descrição</Label>
         <Input
           id="description"
@@ -686,7 +687,13 @@ function TransactionFields({
             )}
           </div>
         ))}
-      <div className={showInstallments ? "col-span-2" : ""}>
+      {/* Sempre largura total, não só quando showInstallments é true
+          (28/09/2026): num grid de 1 coluna abaixo de sm isso não muda nada;
+          a partir de sm (2 colunas), "Não afetar nenhuma conta" dentro de um
+          select de meia largura era exatamente o que cortava o texto no
+          modal de editar transação, que sempre passa showInstallments
+          falso e por isso nunca dava a esse campo a largura toda antes. */}
+      <div className="sm:col-span-2">
         <Label htmlFor="bankAccountId">Conta (opcional)</Label>
         <Select id="bankAccountId" name="bankAccountId" defaultValue={defaults?.bankAccountId ?? ""}>
           <option value="">Não afetar nenhuma conta</option>
@@ -727,7 +734,7 @@ function NewTransactionForm({
   }, [state]);
 
   return (
-    <form action={formAction} className="grid grid-cols-2 gap-4">
+    <form action={formAction} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <TransactionFields
         type={type}
         setType={setType}
@@ -736,7 +743,7 @@ function NewTransactionForm({
         accounts={accounts}
         showInstallments
       />
-      <div className="col-span-2">
+      <div className="sm:col-span-2">
         <FieldError>{state?.error}</FieldError>
         <div className="flex gap-2 mt-1">
           <Button type="submit" loading={pending}>
@@ -773,44 +780,46 @@ function EditTransactionModal({
   }, [state]);
 
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-10"
-      onClick={onClose}
-    >
-      <Card className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-        <CardContent className="pt-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-sans font-semibold text-lg text-onbrand">Editar transação</h3>
-            <button className="text-onbrand/40 hover:text-onbrand/70" onClick={onClose} aria-label="Fechar">
-              <X className="h-5 w-5" />
-            </button>
+    // `Modal` (design-system-tobias.md, seção 13) no lugar do overlay/Card
+    // hand-rolled de antes (28/09/2026, pedido do Thiago: "modal de editar
+    // transações precisa ser redesenhado"). Corrige três problemas visíveis:
+    // 1) o overlay antigo não era um portal, então em algumas telas o
+    //    conteúdo da página (título "Transações", barra de progresso) ainda
+    //    aparecia por cima do backdrop; `Modal` renderiza num portal direto
+    //    em `document.body`, z-50, sempre por cima de tudo.
+    // 2) o grid de campos era `grid-cols-2` fixo (nunca uma só coluna), então
+    //    em telas mais estreitas o select "Conta (opcional)" ficava com
+    //    menos de 150px de largura e o texto "Não afetar nenhuma conta"
+    //    cortava. Agora é `grid-cols-1 sm:grid-cols-2` (regra geral da seção
+    //    5.4 do Design System), então abaixo de 640px cada campo ocupa a
+    //    largura toda.
+    // 3) ganha de graça semântica de diálogo (role="dialog", trap de foco,
+    //    Esc pra fechar) que o markup manual não tinha.
+    <Modal open onClose={onClose} title="Editar transação">
+      <form action={formAction} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <input type="hidden" name="id" value={transaction.id} />
+        <TransactionFields
+          type={type}
+          setType={setType}
+          categories={categories}
+          goals={goals}
+          accounts={accounts}
+          defaults={transaction}
+          showInstallments={false}
+        />
+        <div className="sm:col-span-2">
+          <FieldError>{state?.error}</FieldError>
+          <div className="flex gap-2 mt-1">
+            <Button type="submit" loading={pending}>
+              Salvar alterações
+            </Button>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancelar
+            </Button>
           </div>
-          <form action={formAction} className="grid grid-cols-2 gap-4">
-            <input type="hidden" name="id" value={transaction.id} />
-            <TransactionFields
-              type={type}
-              setType={setType}
-              categories={categories}
-              goals={goals}
-              accounts={accounts}
-              defaults={transaction}
-              showInstallments={false}
-            />
-            <div className="col-span-2">
-              <FieldError>{state?.error}</FieldError>
-              <div className="flex gap-2 mt-1">
-                <Button type="submit" loading={pending}>
-                  Salvar alterações
-                </Button>
-                <Button type="button" variant="ghost" onClick={onClose}>
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -869,60 +878,61 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
   );
 
   return (
-    <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-10" onClick={onClose}>
-      <Card className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-        <CardContent className="pt-5">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-sans font-semibold text-lg text-onbrand">Mesclar duplicadas</h3>
-            <button className="text-onbrand/40 hover:text-onbrand/70" onClick={onClose} aria-label="Fechar">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <p className="text-xs text-onbrand/55 mb-4">
-            Mesma data, valor e descrição parecida no mês visível. Confira antes de excluir, o Tobias pode estar
-            errado.
-          </p>
+    // Mesma migração pro `Modal` do design system aplicada ao
+    // EditTransactionModal logo acima (28/09/2026) — este modal usava o
+    // idêntico markup manual (overlay não-portal, `Card` avulso), então
+    // herdava o mesmo problema de conteúdo da página aparecendo por cima do
+    // backdrop em algumas telas. `ConfirmDialog` (que já usa `Modal` por
+    // baixo) sai de dentro do overlay antigo pra um segundo `Modal` irmão —
+    // os dois são portais independentes em `document.body`, então não há
+    // aninhamento real de diálogo, só empilhamento visual quando ambos estão
+    // abertos.
+    <>
+      <Modal open onClose={onClose} title="Mesclar duplicadas">
+        <p className="text-xs text-onbrand/55 mb-4">
+          Mesma data, valor e descrição parecida no mês visível. Confira antes de excluir, o Tobias pode estar
+          errado.
+        </p>
 
-          {groups.length === 0 ? (
-            <p className="text-sm text-onbrand/55 py-8 text-center">Nenhuma duplicata encontrada neste mês. 🎉</p>
-          ) : (
-            <div className="space-y-4">
-              {groups.map((group) => (
-                <div key={group[0].id} className="rounded-xl bg-onbrand/[0.04] p-3">
-                  <div className="space-y-2 mb-2">
-                    {group.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
-                        <div className="min-w-0">
-                          <p className="text-onbrand truncate">{t.description}</p>
-                          <p className="text-xs text-onbrand/50">
-                            {new Date(t.date).toLocaleDateString("pt-BR")} · {formatBRL(t.amount)}
-                            {t.merchant ? ` · ${t.merchant}` : ""}
-                          </p>
-                        </div>
-                        <IconButton
-                          label="Excluir esta"
-                          tone="danger"
-                          disabled={pending}
-                          onClick={() => setConfirmDeleteId(t.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </IconButton>
+        {groups.length === 0 ? (
+          <p className="text-sm text-onbrand/55 py-8 text-center">Nenhuma duplicata encontrada neste mês. 🎉</p>
+        ) : (
+          <div className="space-y-4">
+            {groups.map((group) => (
+              <div key={group[0].id} className="rounded-xl bg-onbrand/[0.04] p-3">
+                <div className="space-y-2 mb-2">
+                  {group.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="text-onbrand truncate">{t.description}</p>
+                        <p className="text-xs text-onbrand/50">
+                          {new Date(t.date).toLocaleDateString("pt-BR")} · {formatBRL(t.amount)}
+                          {t.merchant ? ` · ${t.merchant}` : ""}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setDismissed((prev) => new Set(prev).add(group[0].id))}
-                  >
-                    Manter as duas
-                  </Button>
+                      <IconButton
+                        label="Excluir esta"
+                        tone="danger"
+                        disabled={pending}
+                        onClick={() => setConfirmDeleteId(t.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </IconButton>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDismissed((prev) => new Set(prev).add(group[0].id))}
+                >
+                  Manter as duas
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
       <ConfirmDialog
         open={confirmDeleteId != null}
         title="Excluir esta transação duplicada?"
@@ -938,7 +948,7 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
           });
         }}
       />
-    </div>
+    </>
   );
 }
 
