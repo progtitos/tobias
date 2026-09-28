@@ -1,0 +1,276 @@
+From 4d7ebbc33cd485028523230a1e4d2e7e4b999a2f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 25 Sep 2026 01:39:28 +0000
+Subject: [PATCH 22/27] =?UTF-8?q?feat:=20comemora=C3=A7=C3=A3o=20contida?=
+ =?UTF-8?q?=20ao=20bater=20meta=20na=20tela=20de=20Patrim=C3=B4nio?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Quando um aporte faz uma meta atingir o valor-alvo, mostra um card
+discreto (não tela cheia) no topo da lista de Sonhos, com mensagem
+específica por tipo de objetivo. Reaproveita o padrão visual do reveal
+de onboarding só na entrada suave (pop + brilho que se apaga sozinho),
+sem confete — decisão deliberada pra não repetir a exceção do design
+system fora do momento único de fim de onboarding.
+
+`applyGoalContribution` agora retorna `justAchieved` (true só na aportada
+que efetivamente cruza a meta, não em aportes seguintes num objetivo já
+concluído), threaded via addContributionAction até o onClick do botão
+"Aportar" em PatrimonioClient.tsx.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Ka2YTSc9tuveNjCeKZ63MD
+---
+ src/app/(app)/goals/GoalsClient.tsx           |  4 +-
+ src/app/(app)/goals/actions.ts                |  7 +-
+ src/app/(app)/patrimonio/PatrimonioClient.tsx | 96 ++++++++++++++++++-
+ src/app/globals.css                           | 29 ++++++
+ src/services/goals.ts                         |  8 +-
+ 5 files changed, 138 insertions(+), 6 deletions(-)
+
+diff --git a/src/app/(app)/goals/GoalsClient.tsx b/src/app/(app)/goals/GoalsClient.tsx
+index 1f538b0..5b106a5 100644
+--- a/src/app/(app)/goals/GoalsClient.tsx
++++ b/src/app/(app)/goals/GoalsClient.tsx
+@@ -179,7 +179,9 @@ function GoalCard({ goal }: { goal: Goal }) {
+                 onClick={() => {
+                   const amount = Number(contribution);
+                   if (amount > 0) {
+-                    startTransition(() => addContributionAction(goal.id, amount));
++                    startTransition(async () => {
++                      await addContributionAction(goal.id, amount);
++                    });
+                     setContribution("");
+                   }
+                 }}
+diff --git a/src/app/(app)/goals/actions.ts b/src/app/(app)/goals/actions.ts
+index b4872ee..053fcba 100644
+--- a/src/app/(app)/goals/actions.ts
++++ b/src/app/(app)/goals/actions.ts
+@@ -26,9 +26,14 @@ export async function createGoalAction(_prev: GoalFormState, formData: FormData)
+ 
+ export async function addContributionAction(goalId: string, amount: number) {
+   const user = await requireOnboardedUser();
+-  await addGoalContribution(user.id, goalId, amount);
++  const result = await addGoalContribution(user.id, goalId, amount);
+   revalidatePath("/patrimonio");
+   revalidatePath("/dashboard");
++  // `justAchieved` diz pro client se essa aporte específica acabou de bater
++  // a meta agora — usado pra disparar o card de comemoração contido na tela
++  // (ver PatrimonioClient.tsx), sem repetir a comemoração em aportes futuros
++  // no mesmo objetivo já concluído.
++  return { justAchieved: result?.justAchieved ?? false, goalTitle: result?.goalTitle, goalType: result?.goalType };
+ }
+ 
+ export async function updateGoalStatusAction(goalId: string, status: "ACTIVE" | "PAUSED" | "ABANDONED") {
+diff --git a/src/app/(app)/patrimonio/PatrimonioClient.tsx b/src/app/(app)/patrimonio/PatrimonioClient.tsx
+index 7d22a62..a6ced44 100644
+--- a/src/app/(app)/patrimonio/PatrimonioClient.tsx
++++ b/src/app/(app)/patrimonio/PatrimonioClient.tsx
+@@ -603,6 +603,12 @@ function GoalsSection({
+   const [targetAmountKey, setTargetAmountKey] = useState(0);
+   const [targetAmountDefault, setTargetAmountDefault] = useState<number | undefined>(undefined);
+   const [state, formAction, pending] = useActionState<GoalFormState, FormData>(createGoalAction, undefined);
++  // Comemoração de meta batida ("opção 2" combinada com o Thiago: um card
++  // contido aqui dentro de Patrimônio, não um overlay de tela cheia como o
++  // do onboarding). `key` força o CSS de entrada (`goal-achieved-pop`) a
++  // rodar de novo caso uma segunda meta seja batida antes da pessoa fechar
++  // a primeira comemoração.
++  const [achieved, setAchieved] = useState<{ key: number; title: string; type: string } | null>(null);
+ 
+   const active = goals.filter((g) => g.status === "ACTIVE");
+   const others = goals.filter((g) => g.status !== "ACTIVE");
+@@ -610,6 +616,14 @@ function GoalsSection({
+ 
+   return (
+     <div>
++      {achieved && (
++        <GoalAchievedBanner
++          key={achieved.key}
++          goalTitle={achieved.title}
++          goalType={achieved.type}
++          onDismiss={() => setAchieved(null)}
++        />
++      )}
+       <div className="flex items-center justify-between mb-4">
+         <p className="text-sm text-onbrand/55">
+           {goals.length} objetivo{goals.length === 1 ? "" : "s"}
+@@ -689,7 +703,14 @@ function GoalsSection({
+       ) : (
+         <div className="space-y-3">
+           {active.map((g) => (
+-            <GoalCard key={g.id} goal={g} emergencyFundSuggestion={emergencyFundSuggestion} />
++            <GoalCard
++              key={g.id}
++              goal={g}
++              emergencyFundSuggestion={emergencyFundSuggestion}
++              onAchieved={(title, goalType) =>
++                setAchieved({ key: Date.now(), title, type: goalType })
++              }
++            />
+           ))}
+           {others.length > 0 && (
+             <>
+@@ -749,7 +770,15 @@ function EmergencyFundSuggestionBox({
+   );
+ }
+ 
+-function GoalCard({ goal, emergencyFundSuggestion }: { goal: Goal; emergencyFundSuggestion: EmergencyFundSuggestion }) {
++function GoalCard({
++  goal,
++  emergencyFundSuggestion,
++  onAchieved,
++}: {
++  goal: Goal;
++  emergencyFundSuggestion: EmergencyFundSuggestion;
++  onAchieved?: (goalTitle: string, goalType: string) => void;
++}) {
+   const [pending, startTransition] = useTransition();
+   const [contribution, setContribution] = useState(0);
+   // CurrencyInput não aceita `value` controlado (ver componente); mudar essa
+@@ -846,7 +875,12 @@ function GoalCard({ goal, emergencyFundSuggestion }: { goal: Goal; emergencyFund
+                 disabled={!contribution || pending}
+                 onClick={() => {
+                   if (contribution > 0) {
+-                    startTransition(() => addContributionAction(goal.id, contribution));
++                    startTransition(async () => {
++                      const result = await addContributionAction(goal.id, contribution);
++                      if (result.justAchieved) {
++                        onAchieved?.(result.goalTitle ?? goal.title, result.goalType ?? goal.type);
++                      }
++                    });
+                     setContribution(0);
+                     setContributionKey((k) => k + 1);
+                   }
+@@ -860,3 +894,59 @@ function GoalCard({ goal, emergencyFundSuggestion }: { goal: Goal; emergencyFund
+     </Card>
+   );
+ }
++
++// Mensagem curta por tipo de objetivo pro card de comemoração abaixo — o
++// mesmo "Meta concluída" genérico pra tudo soaria automático demais pro
++// momento que é (Thiago pediu "celebração de verdade", só que contida).
++const GOAL_ACHIEVED_MESSAGES: Record<string, string> = {
++  DREAM: "Sonho realizado — agora é hora de aproveitar.",
++  EMERGENCY_FUND: "Sua reserva de emergência está completa.",
++  PROPERTY: "Você juntou o valor pro imóvel. Bora dar o próximo passo?",
++  RETIREMENT: "Meta de aposentadoria alcançada.",
++  CUSTOM: "Você chegou lá.",
++};
++
++// ---------------------------------------------------------------------------
++// Card de comemoração de meta batida — "opção 2" combinada com o Thiago:
++// contido dentro da própria tela de Patrimônio (não um overlay de tela cheia
++// como o ProfileRevealOverlay do fim do onboarding). Deliberadamente mais
++// discreto que aquele: sem confete, brilho que se apaga sozinho (ver
++// .goal-achieved-glow em globals.css) — é uma conquista do dia a dia, que
++// pode se repetir, não o momento único de fim de onboarding.
++// ---------------------------------------------------------------------------
++
++function GoalAchievedBanner({
++  goalTitle,
++  goalType,
++  onDismiss,
++}: {
++  goalTitle: string;
++  goalType: string;
++  onDismiss: () => void;
++}) {
++  const TypeIcon = GOAL_TYPE_ICONS[goalType] ?? Target;
++  return (
++    <div
++      role="status"
++      className="goal-achieved-pop goal-achieved-glow mb-4 flex items-start gap-3 rounded-xl border border-gold-500/25 bg-gold-100/[0.06] px-4 py-3.5"
++    >
++      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-500 text-ink-900">
++        <TypeIcon className="h-4 w-4" strokeWidth={2.5} />
++      </span>
++      <div className="min-w-0 flex-1 pt-0.5">
++        <p className="text-sm font-semibold text-onbrand">Meta concluída: {goalTitle}</p>
++        <p className="text-xs text-onbrand/60 mt-0.5">
++          {GOAL_ACHIEVED_MESSAGES[goalType] ?? "Você chegou lá."}
++        </p>
++      </div>
++      <button
++        type="button"
++        onClick={onDismiss}
++        className="shrink-0 text-onbrand/40 hover:text-onbrand/70"
++        aria-label="Fechar"
++      >
++        <X className="h-4 w-4" />
++      </button>
++    </div>
++  );
++}
+diff --git a/src/app/globals.css b/src/app/globals.css
+index 066b3d0..c6959ff 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -466,6 +466,35 @@ select option {
+   }
+ }
+ 
++/* ============================================================================
++   Card de meta concluída (PatrimonioClient.tsx, GoalsSection): comemoração
++   CONTIDA dentro da própria tela de Patrimônio — pedido explícito do Thiago
++   ("opção 2", sem tela cheia). Deliberadamente mais discreto que o reveal-*
++   do onboarding logo acima: aqui é uma conquista do dia a dia (pode acontecer
++   várias vezes), não o momento único de fim de onboarding — por isso sem
++   confete, e o brilho se apaga sozinho em vez de pulsar pra sempre.
++   ============================================================================ */
++.goal-achieved-pop {
++  animation: goal-achieved-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
++}
++.goal-achieved-glow {
++  animation: goal-achieved-glow-fade 2.2s ease-out both;
++}
++@keyframes goal-achieved-pop {
++  0% { opacity: 0; transform: scale(0.97) translateY(-6px); }
++  100% { opacity: 1; transform: scale(1) translateY(0); }
++}
++@keyframes goal-achieved-glow-fade {
++  0% { box-shadow: 0 0 0 0 rgba(240, 153, 47, 0.5), 0 0 22px 3px rgba(240, 153, 47, 0.3); }
++  100% { box-shadow: 0 0 0 0 rgba(240, 153, 47, 0), 0 0 0 0 rgba(240, 153, 47, 0); }
++}
++@media (prefers-reduced-motion: reduce) {
++  .goal-achieved-pop,
++  .goal-achieved-glow {
++    animation: none;
++  }
++}
++
+ /* Minimal, calm scrollbars — the product should feel quiet, not busy. */
+ ::-webkit-scrollbar {
+   width: 10px;
+diff --git a/src/services/goals.ts b/src/services/goals.ts
+index 1fbb602..de52dfc 100644
+--- a/src/services/goals.ts
++++ b/src/services/goals.ts
+@@ -69,8 +69,14 @@ export async function applyGoalContribution(userId: string, goalId: string, amou
+   const [goal] = await db.select().from(goals).where(and(eq(goals.id, goalId), eq(goals.userId, userId))).limit(1);
+   if (!goal) return null;
+ 
++  const wasAlreadyAchieved = goal.status === "ACHIEVED";
+   const newAmount = goal.currentAmount + amount;
+   const isAchieved = goal.targetAmount ? newAmount >= goal.targetAmount : false;
++  // Distingue "acabou de bater a meta agora" de "já estava batida antes" —
++  // um aporte extra num objetivo que já tinha alcançado 100% não deve
++  // disparar a comemoração de novo (pedido do Thiago, ver PatrimonioClient.tsx
++  // e o card de comemoração contido na tela de Patrimônio).
++  const justAchieved = isAchieved && !wasAlreadyAchieved;
+ 
+   await db
+     .update(goals)
+@@ -78,7 +84,7 @@ export async function applyGoalContribution(userId: string, goalId: string, amou
+     .where(eq(goals.id, goalId));
+ 
+   await trackEvent(userId, "goal_updated", { goalId, amount });
+-  return { newAmount, isAchieved };
++  return { newAmount, isAchieved, justAchieved, goalTitle: goal.title, goalType: goal.type };
+ }
+ 
+ /** The inverse of applyGoalContribution — used when a transaction that had
+-- 
+2.43.0
+

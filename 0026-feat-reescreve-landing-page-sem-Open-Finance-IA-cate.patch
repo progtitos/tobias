@@ -1,0 +1,1906 @@
+From 5147e1266c2585e5049e6a91fdb848a2574f401a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 28 Sep 2026 15:48:04 +0000
+Subject: [PATCH 26/27] =?UTF-8?q?feat:=20reescreve=20landing=20page=20(sem?=
+ =?UTF-8?q?=20Open=20Finance/IA=20categoriza)=20+=20se=C3=A7=C3=A3o=20Pila?=
+ =?UTF-8?q?res?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Substitui a LP anterior (hero + 4 features + preços) por uma adaptação do
+protótipo enviado pelo Thiago, com o posicionamento "sem Open Finance,
+importe seus extratos, IA sugere categoria" em destaque logo após o Hero.
+
+Adiciona uma seção nova "Pilares" (Essencial/Estilo de vida/Imprevistos/
+Legado, mesma filosofia da metodologia Ameriprise já documentada em
+claude/especificacao-patrimonio-por-pilares.md, sem citar a Ameriprise
+nominalmente). Layout atual é a "Opção A" de 3 variantes publicadas para
+o Thiago escolher; GIFs reais do produto ficam como placeholder até a
+plataforma estar mais madura, por pedido explícito dele.
+
+Novo diretório src/components/landing/ com os componentes da LP, tokens
+de acento violeta e utilitários lp-* isolados em globals.css.
+
+tsc --noEmit, eslint e vitest run (33/33) verificados.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Ka2YTSc9tuveNjCeKZ63MD
+---
+ src/app/globals.css                          | 119 +++
+ src/app/page.tsx                             | 186 +----
+ src/components/landing/BrandButton.tsx       |  45 ++
+ src/components/landing/GifPlaceholder.tsx    |  96 +++
+ src/components/landing/Header.tsx            | 114 +++
+ src/components/landing/Hero.tsx              | 100 +++
+ src/components/landing/Home.tsx              | 753 +++++++++++++++++++
+ src/components/landing/Logo.tsx              |  28 +
+ src/components/landing/StatementFlowDemo.tsx | 238 ++++++
+ src/components/landing/site.ts               |  24 +
+ src/components/landing/useReveal.ts          |  60 ++
+ 11 files changed, 1599 insertions(+), 164 deletions(-)
+ create mode 100644 src/components/landing/BrandButton.tsx
+ create mode 100644 src/components/landing/GifPlaceholder.tsx
+ create mode 100644 src/components/landing/Header.tsx
+ create mode 100644 src/components/landing/Hero.tsx
+ create mode 100644 src/components/landing/Home.tsx
+ create mode 100644 src/components/landing/Logo.tsx
+ create mode 100644 src/components/landing/StatementFlowDemo.tsx
+ create mode 100644 src/components/landing/site.ts
+ create mode 100644 src/components/landing/useReveal.ts
+
+diff --git a/src/app/globals.css b/src/app/globals.css
+index c6959ff..9bcf6f8 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -89,6 +89,14 @@
+   --color-ok-400: #5ecbb8;
+   --color-ok-100: #dff5f0;
+ 
++  /* Segundo acento, FIXO como gold/danger/warn/ok — usado só na landing page
++     pra destacar o que é feito por IA (categorização automática), separado
++     do dourado (que continua sendo o único acento de "isso é seu"/marca em
++     todo o resto do produto). Não usado fora de src/components/landing. */
++  --color-violet-500: #a99be8;
++  --color-violet-400: #c3b8fa;
++  --color-violet-100: #ece9fc;
++
+   --background: var(--color-cream-50);
+   --foreground: var(--color-ink-900);
+ }
+@@ -166,6 +174,10 @@
+   --color-ok-400: var(--color-ok-400);
+   --color-ok-100: var(--color-ok-100);
+ 
++  --color-violet-500: var(--color-violet-500);
++  --color-violet-400: var(--color-violet-400);
++  --color-violet-100: var(--color-violet-100);
++
+   --font-sans: var(--font-sans);
+   --font-display: var(--font-display);
+ }
+@@ -507,3 +519,110 @@ select option {
+ ::-webkit-scrollbar-track {
+   background: transparent;
+ }
++
++/* ============================================================================
++   Landing page pública (src/components/landing) — classes utilitárias com
++   prefixo "lp-" de propósito, pra deixar claro que são exclusivas dessa
++   superfície (sempre escura, ver nota sobre THEME MODEL no topo do arquivo)
++   e nunca colidir com nada do produto logado.
++   ============================================================================ */
++.lp-container {
++  width: 100%;
++  margin-left: auto;
++  margin-right: auto;
++  padding-left: 1.25rem;
++  padding-right: 1.25rem;
++}
++@media (min-width: 640px) {
++  .lp-container {
++    padding-left: 1.75rem;
++    padding-right: 1.75rem;
++  }
++}
++@media (min-width: 1024px) {
++  .lp-container {
++    padding-left: 2rem;
++    padding-right: 2rem;
++    max-width: 1200px;
++  }
++}
++
++/* Textura de grão fina sobre superfícies escuras, só decorativa. */
++.lp-grain::after {
++  content: "";
++  position: absolute;
++  inset: 0;
++  pointer-events: none;
++  opacity: 0.5;
++  mix-blend-mode: soft-light;
++  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
++}
++
++/* Grade de linhas finas, usada atrás do hero e do CTA final. */
++.lp-grid-lines {
++  background-image:
++    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
++    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
++  background-size: 72px 72px;
++}
++
++.lp-text-gold-gradient {
++  background: linear-gradient(100deg, var(--color-gold-400), var(--color-gold-500) 55%, var(--color-gold-600));
++  -webkit-background-clip: text;
++  background-clip: text;
++  color: transparent;
++}
++
++.lp-surface {
++  background: linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.015));
++  border: 1px solid rgb(255 255 255 / 0.08);
++  backdrop-filter: blur(8px);
++}
++.lp-surface-hover {
++  transition:
++    transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
++    border-color 220ms cubic-bezier(0.23, 1, 0.32, 1),
++    box-shadow 220ms cubic-bezier(0.23, 1, 0.32, 1),
++    background-color 220ms cubic-bezier(0.23, 1, 0.32, 1);
++}
++.lp-surface-hover:hover {
++  transform: translateY(-3px);
++  border-color: rgb(240 153 47 / 0.42);
++  box-shadow:
++    0 1px 0 0 rgb(255 255 255 / 0.06) inset,
++    0 18px 44px -20px rgb(0 0 0 / 0.75),
++    0 0 0 1px rgb(240 153 47 / 0.08);
++}
++
++/* Feedback de "pressionado", mesma convenção em toda a landing. */
++.lp-press {
++  transition:
++    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
++    background-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
++    border-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
++    color 160ms cubic-bezier(0.23, 1, 0.32, 1);
++}
++.lp-press:active {
++  transform: scale(0.97);
++}
++
++/* Revelação de conteúdo ao rolar (useReveal.ts observa .lp-reveal e adiciona
++   .is-visible quando o elemento entra na viewport). Respeita prefers-reduced-motion. */
++.lp-reveal {
++  opacity: 0;
++  transform: translateY(18px);
++  transition:
++    opacity 620ms cubic-bezier(0.23, 1, 0.32, 1),
++    transform 620ms cubic-bezier(0.23, 1, 0.32, 1);
++  transition-delay: var(--reveal-delay, 0ms);
++}
++.lp-reveal.is-visible {
++  opacity: 1;
++  transform: none;
++}
++@media (prefers-reduced-motion: reduce) {
++  .lp-reveal {
++    opacity: 1;
++    transform: none;
++  }
++}
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index d3480f9..53c16e3 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -1,172 +1,30 @@
+-import Image from "next/image";
+-import Link from "next/link";
+-import { Compass, TrendingUp, Target, MessageCircle, Check } from "lucide-react";
+-import { getCurrentUser } from "@/lib/auth/session";
++import type { Metadata } from "next";
+ import { redirect } from "next/navigation";
+-import { Button } from "@/components/ui/Button";
+-import { Card, CardContent } from "@/components/ui/Card";
+-import { Badge } from "@/components/ui/Badge";
+-import { PRICING_PLANS } from "@/lib/billing/plans";
+-
+-const FEATURES = [
+-  {
+-    icon: Compass,
+-    title: "Ponteiro financeiro",
+-    description: "Uma pontuação em 9 dimensões da sua vida financeira, calculada a partir dos seus dados reais.",
+-  },
+-  {
+-    icon: TrendingUp,
+-    title: "Curva de aposentadoria",
+-    description: "Cenários conservador, base e agressivo mostram se você está no caminho e o que ajustar se não estiver.",
+-  },
+-  {
+-    icon: Target,
+-    title: "Metas que se atualizam sozinhas",
+-    description: "Cada aporte que você registra já reflete no progresso do seu objetivo, sem precisar atualizar nada à mão.",
++import { getCurrentUser } from "@/lib/auth/session";
++import LandingHome from "@/components/landing/Home";
++
++export const metadata: Metadata = {
++  title: "Tobias | Planejamento financeiro com seus extratos",
++  description:
++    "Extratos, lançamentos duplicados e dados atrasados não precisam travar seu planejamento. Importe seus extratos, deixe a IA categorizar e acompanhe seu plano com o Tobias.",
++  openGraph: {
++    type: "website",
++    locale: "pt_BR",
++    siteName: "Tobias",
++    title: "Tobias | Planejamento financeiro com seus extratos",
++    description:
++      "Organize lançamentos, revise duplicidades e acompanhe seu planejamento financeiro com o Tobias. 15 dias grátis.",
+   },
+-  {
+-    icon: MessageCircle,
+-    title: "Uma conversa, não um formulário",
+-    description: "Conte pro Tobias como está sua vida financeira e ele monta o plano, sem planilha e sem burocracia.",
++  twitter: {
++    card: "summary_large_image",
++    title: "Tobias | Planejamento financeiro com seus extratos",
++    description: "Organize lançamentos, revise duplicidades e acompanhe seu planejamento financeiro com o Tobias.",
+   },
+-];
++};
+ 
+-export default async function LandingPage() {
++export default async function Page() {
+   const user = await getCurrentUser();
+   if (user) redirect(user.onboardingCompleted ? "/dashboard" : "/onboarding");
+ 
+-  return (
+-    <div className="flex-1 flex flex-col bg-brand-950 text-onbrand relative overflow-hidden">
+-      {/* Soft radial glow behind the hero — the only "decoration" on the page,
+-          kept subtle so it reads as premium rather than busy. */}
+-      <div
+-        aria-hidden
+-        className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 w-[900px] h-[900px] rounded-full opacity-40 blur-3xl"
+-        style={{
+-          background: "radial-gradient(circle, var(--color-gold-500) 0%, transparent 65%)",
+-        }}
+-      />
+-
+-      <header className="relative flex items-center justify-between px-6 py-5 max-w-5xl mx-auto w-full">
+-        <div className="flex items-center gap-2.5">
+-          <Image src="/logo-transparent.png" alt="Tobias" width={36} height={36} className="drop-shadow-sm" />
+-          <span className="font-display font-semibold text-xl tracking-wide">Tobias</span>
+-        </div>
+-        <nav className="flex items-center gap-3">
+-          <Link href="/login" className="text-sm text-cream-100/80 hover:text-onbrand px-3 py-2 transition-colors">
+-            Entrar
+-          </Link>
+-          <Link href="/signup">
+-            <Button variant="secondary" size="sm">
+-              Começar grátis
+-            </Button>
+-          </Link>
+-        </nav>
+-      </header>
+-
+-      <main className="relative flex flex-col items-center px-6 pt-16 pb-8 text-center">
+-        <Image
+-          src="/logo-transparent.png"
+-          alt=""
+-          width={112}
+-          height={112}
+-          className="mb-9 drop-shadow-[0_8px_30px_rgba(0,0,0,0.25)]"
+-        />
+-        <h1 className="font-display font-semibold text-4xl sm:text-6xl leading-[1.08] max-w-3xl text-onbrand tracking-tight">
+-          Você conversa. O Tobias entende. O plano acontece.
+-        </h1>
+-        <p className="mt-6 max-w-xl text-cream-100/75 text-lg leading-relaxed">
+-          Seu planejador financeiro pessoal com inteligência artificial. Sem planilhas, sem
+-          formulários intermináveis. Só uma conversa que vira um plano de verdade.
+-        </p>
+-        <div className="mt-10 flex flex-col sm:flex-row gap-3">
+-          <Link href="/signup">
+-            <Button variant="secondary" size="lg" className="w-full sm:w-auto shadow-lg shadow-gold-900/20">
+-              Experimente 15 dias grátis
+-            </Button>
+-          </Link>
+-          <Link href="/login">
+-            <Button
+-              variant="outline"
+-              size="lg"
+-              className="w-full sm:w-auto border-cream-100/30 text-onbrand hover:bg-onbrand/5"
+-            >
+-              Já tenho conta
+-            </Button>
+-          </Link>
+-        </div>
+-      </main>
+-
+-      {/* O que o Tobias faz — feature highlights */}
+-      <section className="relative px-6 py-16 max-w-5xl mx-auto w-full">
+-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+-          {FEATURES.map((f) => (
+-            <div key={f.title} className="flex gap-4 text-left rounded-2xl bg-onbrand/[0.03] p-5">
+-              <f.icon className="h-6 w-6 text-gold-400 shrink-0 mt-0.5" />
+-              <div>
+-                <h3 className="font-sans font-semibold text-onbrand">{f.title}</h3>
+-                <p className="text-sm text-cream-100/65 mt-1 leading-relaxed">{f.description}</p>
+-              </div>
+-            </div>
+-          ))}
+-        </div>
+-      </section>
+-
+-      {/* Planos */}
+-      <section id="planos" className="relative px-6 py-16 max-w-5xl mx-auto w-full text-center">
+-        <h2 className="font-display font-semibold text-3xl text-onbrand tracking-tight">Um plano, do seu jeito</h2>
+-        <p className="mt-3 text-cream-100/65 max-w-lg mx-auto">
+-          Comece com 15 dias grátis. Depois, escolha como prefere pagar: quanto mais longo o
+-          período, menor o valor por mês.
+-        </p>
+-
+-        <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-5 text-left">
+-          {PRICING_PLANS.map((plan) => (
+-            <Card
+-              key={plan.cycle}
+-              className={
+-                plan.highlight
+-                  ? "bg-brand-800 border-gold-500/50 shadow-[0_18px_40px_-20px_rgba(0,0,0,0.6)] relative"
+-                  : "bg-brand-800/60"
+-              }
+-            >
+-              <CardContent className="py-6 flex flex-col h-full">
+-                {plan.highlight && (
+-                  <Badge tone="gold" className="absolute -top-3 left-6">
+-                    Melhor custo-benefício
+-                  </Badge>
+-                )}
+-                <p className="text-xs uppercase tracking-wide text-cream-100/60 mb-2">{plan.label}</p>
+-                <p className="font-sans font-semibold text-3xl tracking-tight text-onbrand tabular-nums">
+-                  {plan.priceLabel}
+-                </p>
+-                <p className="text-sm text-gold-400 mt-1 tabular-nums">{plan.monthlyEquivalentLabel}</p>
+-                <p className="text-xs text-cream-100/50 mt-3">{plan.billingNote}</p>
+-                <ul className="mt-5 space-y-2 text-sm text-cream-100/75 flex-1">
+-                  <li className="flex items-start gap-2">
+-                    <Check className="h-4 w-4 text-ok-400 shrink-0 mt-0.5" /> Acesso completo ao Tobias
+-                  </li>
+-                  <li className="flex items-start gap-2">
+-                    <Check className="h-4 w-4 text-ok-400 shrink-0 mt-0.5" /> 15 dias grátis para testar
+-                  </li>
+-                  <li className="flex items-start gap-2">
+-                    <Check className="h-4 w-4 text-ok-400 shrink-0 mt-0.5" /> Cancele quando quiser
+-                  </li>
+-                </ul>
+-                <Link href={`/signup?plano=${plan.cycle}`} className="mt-6">
+-                  <Button variant={plan.highlight ? "secondary" : "outline"} className="w-full border-cream-100/30">
+-                    Começar grátis
+-                  </Button>
+-                </Link>
+-              </CardContent>
+-            </Card>
+-          ))}
+-        </div>
+-      </section>
+-
+-      <footer className="relative text-center text-xs text-cream-100/40 py-8">
+-        © {new Date().getFullYear()} Tobias. Planejamento financeiro pessoal com IA.
+-      </footer>
+-    </div>
+-  );
++  return <LandingHome />;
+ }
+diff --git a/src/components/landing/BrandButton.tsx b/src/components/landing/BrandButton.tsx
+new file mode 100644
+index 0000000..8acb493
+--- /dev/null
++++ b/src/components/landing/BrandButton.tsx
+@@ -0,0 +1,45 @@
++import Link from "next/link";
++import type { AnchorHTMLAttributes, ReactNode } from "react";
++import { cn } from "@/lib/utils/cn";
++
++type Variant = "gold" | "outline" | "ghost";
++type Size = "sm" | "md" | "lg";
++
++interface BrandButtonProps extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
++  href: string;
++  variant?: Variant;
++  size?: Size;
++  children: ReactNode;
++}
++
++const base =
++  "lp-press group inline-flex items-center justify-center gap-2 rounded-xl font-sans font-semibold tracking-tight whitespace-nowrap select-none";
++
++const variants: Record<Variant, string> = {
++  gold: "bg-gold-500 text-ink-900 shadow-[0_10px_30px_-12px_rgba(240,153,47,0.65)] hover:bg-gold-400 hover:shadow-[0_14px_38px_-12px_rgba(240,153,47,0.8)]",
++  outline:
++    "border border-white/14 bg-white/[0.03] text-cream-50 backdrop-blur-sm hover:border-gold-500/50 hover:bg-white/[0.07]",
++  ghost: "text-cream-100 hover:text-cream-50 hover:bg-white/[0.06]",
++};
++
++const sizes: Record<Size, string> = {
++  sm: "h-9 px-4 text-sm",
++  md: "h-11 px-5 text-[0.95rem]",
++  lg: "h-13 px-7 text-base",
++};
++
++/** Link estilizado como botão. Mantém semântica de âncora/navegação (Next Link) para CTAs. */
++export default function BrandButton({
++  href,
++  variant = "gold",
++  size = "md",
++  className,
++  children,
++  ...rest
++}: BrandButtonProps) {
++  return (
++    <Link href={href} className={cn(base, variants[variant], sizes[size], className)} {...rest}>
++      {children}
++    </Link>
++  );
++}
+diff --git a/src/components/landing/GifPlaceholder.tsx b/src/components/landing/GifPlaceholder.tsx
+new file mode 100644
+index 0000000..0c568c3
+--- /dev/null
++++ b/src/components/landing/GifPlaceholder.tsx
+@@ -0,0 +1,96 @@
++import { Film, Play, Plus } from "lucide-react";
++
++interface GifPlaceholderProps {
++  /** Identificador estável do slot, útil pra saber qual arquivo substituir depois. */
++  slot: string;
++  title: string;
++  description: string;
++  /** Usa uma moldura mais larga/quadrada pra gravações de celular/WhatsApp. */
++  ratio?: "video" | "wide" | "square";
++  /** URL de um GIF/vídeo real já gravado. Quando informado, preenche a moldura. */
++  src?: string;
++  className?: string;
++}
++
++const ratioClasses: Record<NonNullable<GifPlaceholderProps["ratio"]>, string> = {
++  video: "aspect-video",
++  wide: "aspect-[2/1]",
++  square: "aspect-[4/3]",
++};
++
++/**
++ * Moldura reservada e claramente identificada pra uma gravação real do
++ * produto. Pedido explícito do Thiago (28/09/2026): "os gifs vou criar
++ * quando conseguirmos bater uns 99% da plataforma" — até lá, cada slot fica
++ * visivelmente marcado como "reservado", nunca fingindo ser uma captura real.
++ */
++export default function GifPlaceholder({
++  slot,
++  title,
++  description,
++  ratio = "video",
++  src,
++  className = "",
++}: GifPlaceholderProps) {
++  const fileHint = `${slot}.gif`;
++
++  return (
++    <figure className={`lp-reveal min-w-0 ${className}`}>
++      <div
++        data-gif-slot={slot}
++        className={`relative isolate overflow-hidden rounded-2xl border border-dashed border-gold-500/30 bg-[#111519] shadow-[0_24px_60px_-34px_rgba(0,0,0,.85)] transition-[transform,border-color,box-shadow] duration-200 ease-out hover:z-10 hover:border-gold-400/65 hover:shadow-[0_30px_72px_-30px_rgba(240,153,47,.25)] motion-safe:hover:scale-[1.025] ${ratioClasses[ratio]}`}
++        role={src ? undefined : "img"}
++        aria-label={src ? undefined : `Placeholder de GIF: ${title}. ${description}`}
++      >
++        {src ? (
++          // eslint-disable-next-line @next/next/no-img-element -- src pode ser uma gravação hospedada fora do domínio, sem largura/altura fixas conhecidas de antemão
++          <img src={src} alt={title} className="absolute inset-0 size-full object-cover" loading="lazy" />
++        ) : (
++          <>
++            <div
++              className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,rgba(240,153,47,.1),transparent_55%)]"
++              aria-hidden="true"
++            />
++            <div className="absolute inset-3 flex flex-col justify-between rounded-xl border border-white/[0.055] bg-[linear-gradient(145deg,rgba(255,255,255,.025),rgba(255,255,255,0))] p-3 sm:inset-4 sm:p-4">
++              <div className="flex items-center justify-between">
++                <span className="flex items-center gap-1.5 text-[0.59rem] font-medium uppercase tracking-[0.14em] text-brand-100/45">
++                  <Film className="size-3.5 text-gold-400/80" aria-hidden="true" />
++                  Janela de demonstração
++                </span>
++                <span className="rounded-full border border-gold-500/20 bg-gold-500/[0.07] px-2 py-1 text-[0.53rem] font-semibold uppercase tracking-[0.1em] text-gold-400/90">
++                  GIF
++                </span>
++              </div>
++
++              <div className="flex flex-col items-center justify-center text-center">
++                <span className="mb-2.5 flex size-10 items-center justify-center rounded-full border border-gold-500/35 bg-gold-500/[0.08] text-gold-400 shadow-[0_0_28px_rgba(240,153,47,.12)] sm:size-12">
++                  <Play className="ml-0.5 size-4 fill-current sm:size-[18px]" aria-hidden="true" />
++                </span>
++                <span className="font-display text-[0.78rem] font-semibold text-cream-50 sm:text-sm">
++                  GIF real do Tobias entra aqui
++                </span>
++                <span className="mt-1 max-w-[24rem] text-[0.62rem] leading-relaxed text-brand-100/55 sm:text-[0.68rem]">
++                  {description}
++                </span>
++              </div>
++
++              <div className="flex items-center gap-2 border-t border-white/[0.07] pt-2.5">
++                <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.035] text-brand-100/55">
++                  <Plus className="size-3" aria-hidden="true" />
++                </span>
++                <span className="min-w-0 flex-1 truncate font-mono text-[0.57rem] text-brand-100/50">{fileHint}</span>
++                <span className="shrink-0 text-[0.53rem] uppercase tracking-[0.1em] text-gold-400/75">reservado</span>
++              </div>
++            </div>
++          </>
++        )}
++      </div>
++      <figcaption className="mt-3">
++        <p className="font-display text-[0.82rem] font-semibold text-cream-50">{title}</p>
++        <p className="mt-1 text-[0.68rem] leading-relaxed text-brand-100/55">
++          Quando disponível, o GIF real será exibido neste espaço.
++        </p>
++      </figcaption>
++    </figure>
++  );
++}
+diff --git a/src/components/landing/Header.tsx b/src/components/landing/Header.tsx
+new file mode 100644
+index 0000000..d80de21
+--- /dev/null
++++ b/src/components/landing/Header.tsx
+@@ -0,0 +1,114 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import { Menu, X } from "lucide-react";
++import Logo from "@/components/landing/Logo";
++import BrandButton from "@/components/landing/BrandButton";
++import { APP_LINKS, NAV_LINKS } from "@/components/landing/site";
++import { useScrolled } from "@/components/landing/useReveal";
++import { cn } from "@/lib/utils/cn";
++
++export default function Header() {
++  const scrolled = useScrolled(16);
++  const [open, setOpen] = useState(false);
++
++  useEffect(() => {
++    document.body.style.overflow = open ? "hidden" : "";
++    return () => {
++      document.body.style.overflow = "";
++    };
++  }, [open]);
++
++  useEffect(() => {
++    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
++    window.addEventListener("keydown", onKey);
++    return () => window.removeEventListener("keydown", onKey);
++  }, []);
++
++  return (
++    <>
++      <a
++        href="#conteudo"
++        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-gold-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-ink-900"
++      >
++        Ir para o conteúdo
++      </a>
++
++      <header
++        className={cn(
++          "fixed inset-x-0 top-0 z-50 transition-all duration-200",
++          scrolled
++            ? "border-b border-white/[0.07] bg-brand-950/85 backdrop-blur-xl supports-[backdrop-filter]:bg-brand-950/70"
++            : "border-b border-transparent bg-transparent"
++        )}
++      >
++        <div className="lp-container flex h-16 items-center justify-between gap-4 lg:h-[4.5rem]">
++          <a href="#top" className="lp-press flex items-center" aria-label="Página inicial do Tobias">
++            <Logo />
++          </a>
++
++          <nav aria-label="Navegação principal" className="hidden items-center gap-1 lg:flex">
++            {NAV_LINKS.map((l) => (
++              <a
++                key={l.href}
++                href={l.href}
++                className="rounded-lg px-3 py-2 text-[0.875rem] text-cream-100/75 transition-colors duration-150 hover:bg-white/[0.05] hover:text-cream-50"
++              >
++                {l.label}
++              </a>
++            ))}
++          </nav>
++
++          <div className="hidden items-center gap-2 lg:flex">
++            <BrandButton href={APP_LINKS.login} variant="ghost" size="sm">
++              Entrar
++            </BrandButton>
++            <BrandButton href={APP_LINKS.signup} size="sm">
++              Começar grátis
++            </BrandButton>
++          </div>
++
++          <button
++            type="button"
++            onClick={() => setOpen((v) => !v)}
++            aria-label={open ? "Fechar menu" : "Abrir menu"}
++            aria-expanded={open}
++            aria-controls="menu-mobile"
++            className="lp-press inline-flex size-10 items-center justify-center rounded-lg border border-white/12 bg-white/[0.03] text-cream-50 lg:hidden"
++          >
++            {open ? <X className="size-5" /> : <Menu className="size-5" />}
++          </button>
++        </div>
++      </header>
++
++      <div
++        id="menu-mobile"
++        hidden={!open}
++        className="fixed inset-0 z-40 bg-brand-950/97 backdrop-blur-xl lg:hidden"
++      >
++        <div className="lp-container flex h-full flex-col gap-2 pt-24 pb-10">
++          <nav aria-label="Navegação mobile" className="flex flex-col">
++            {NAV_LINKS.map((l) => (
++              <a
++                key={l.href}
++                href={l.href}
++                onClick={() => setOpen(false)}
++                className="border-b border-white/[0.06] py-4 font-display text-lg font-medium text-cream-100 transition-colors hover:text-gold-400"
++              >
++                {l.label}
++              </a>
++            ))}
++          </nav>
++          <div className="mt-6 flex flex-col gap-3">
++            <BrandButton href={APP_LINKS.signup} size="lg" onClick={() => setOpen(false)}>
++              Experimente 15 dias grátis
++            </BrandButton>
++            <BrandButton href={APP_LINKS.login} variant="outline" size="lg" onClick={() => setOpen(false)}>
++              Já tenho conta
++            </BrandButton>
++          </div>
++        </div>
++      </div>
++    </>
++  );
++}
+diff --git a/src/components/landing/Hero.tsx b/src/components/landing/Hero.tsx
+new file mode 100644
+index 0000000..d992518
+--- /dev/null
++++ b/src/components/landing/Hero.tsx
+@@ -0,0 +1,100 @@
++"use client";
++
++import { ArrowDownRight, ArrowRight, Check, ShieldCheck, Sparkles } from "lucide-react";
++import BrandButton from "@/components/landing/BrandButton";
++import StatementFlowDemo from "@/components/landing/StatementFlowDemo";
++import { APP_LINKS } from "@/components/landing/site";
++import { useReveal } from "@/components/landing/useReveal";
++
++export default function Hero() {
++  const revealRef = useReveal<HTMLElement>();
++
++  return (
++    <section
++      id="top"
++      ref={revealRef}
++      className="lp-grain relative overflow-hidden pb-16 pt-28 sm:pt-32 lg:pb-24 lg:pt-36"
++    >
++      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
++        <div className="absolute inset-0 lp-grid-lines opacity-45 [mask-image:radial-gradient(75%_60%_at_50%_0%,#000_8%,transparent_75%)]" />
++        <div
++          className="absolute right-[-12rem] top-[-8rem] h-[42rem] w-[42rem] rounded-full opacity-35 blur-3xl"
++          style={{
++            background: "radial-gradient(circle, rgba(240,153,47,0.34) 0%, rgba(240,153,47,0.08) 45%, transparent 70%)",
++          }}
++        />
++        <div
++          className="absolute left-[-10rem] top-[20rem] h-[24rem] w-[24rem] rounded-full opacity-15 blur-3xl"
++          style={{ background: "radial-gradient(circle, rgba(94,203,184,0.4) 0%, transparent 68%)" }}
++        />
++      </div>
++
++      <div className="lp-container">
++        <div className="grid min-w-0 grid-cols-1 items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
++          <div className="min-w-0 max-w-xl">
++            <p className="lp-reveal inline-flex items-center gap-2 rounded-full border border-gold-500/25 bg-gold-500/[0.08] px-3.5 py-1.5 font-sans text-[0.72rem] font-medium tracking-wide text-gold-400">
++              <Sparkles className="size-3.5 shrink-0" aria-hidden="true" /> Sem Open Finance · importe seus extratos
++            </p>
++            <h1
++              className="lp-reveal mt-6 font-display text-[2.35rem] font-semibold leading-[1.06] tracking-[-0.035em] text-cream-50 sm:text-[3.45rem] lg:text-[3.05rem] xl:text-[3.25rem]"
++              style={{ ["--reveal-delay" as string]: "80ms" }}
++            >
++              Extrato em ordem.
++              <br />
++              <span className="lp-text-gold-gradient">Planeje com Tobias.</span>
++            </h1>
++            <p
++              className="lp-reveal mt-6 max-w-lg font-sans text-[1.02rem] leading-relaxed text-cream-100/75"
++              style={{ ["--reveal-delay" as string]: "160ms" }}
++            >
++              Importe o extrato do seu banco. A IA categoriza os lançamentos automaticamente. Você revisa as
++              sugestões, confere duplicidades e acompanha seu planejamento com o Tobias, também pelo WhatsApp.
++            </p>
++            <div
++              className="lp-reveal mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
++              style={{ ["--reveal-delay" as string]: "240ms" }}
++            >
++              <BrandButton href={APP_LINKS.signup} size="lg" className="w-full sm:w-auto">
++                Teste grátis
++                <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
++              </BrandButton>
++              <BrandButton href="#como-funciona" variant="outline" size="lg">
++                <ArrowDownRight className="size-4" />
++                Como funciona
++              </BrandButton>
++            </div>
++            <ul
++              className="lp-reveal mt-7 flex flex-wrap gap-x-5 gap-y-2 font-sans text-[0.76rem] text-brand-100/70"
++              style={{ ["--reveal-delay" as string]: "320ms" }}
++            >
++              <li className="inline-flex items-center gap-1.5">
++                <Check className="size-3.5 text-ok-400" aria-hidden="true" />
++                Importe seu extrato
++              </li>
++              <li className="inline-flex items-center gap-1.5">
++                <Sparkles className="size-3.5 text-violet-400" aria-hidden="true" />
++                IA categoriza lançamentos
++              </li>
++              <li className="inline-flex items-center gap-1.5">
++                <Check className="size-3.5 text-ok-400" aria-hidden="true" />
++                Revise duplicidades
++              </li>
++              <li className="inline-flex items-center gap-1.5">
++                <Check className="size-3.5 text-ok-400" aria-hidden="true" />
++                Acompanhe no WhatsApp
++              </li>
++            </ul>
++          </div>
++
++          <div className="relative min-w-0 max-w-full lp-reveal" style={{ ["--reveal-delay" as string]: "120ms" }}>
++            <StatementFlowDemo />
++            <p className="mt-5 flex items-start justify-center gap-1.5 text-center text-[0.64rem] leading-relaxed text-brand-100/45">
++              <ShieldCheck className="mt-px size-3 shrink-0" aria-hidden="true" />
++              Demonstração ilustrativa da proposta. As telas são conceituais, não capturas do aplicativo.
++            </p>
++          </div>
++        </div>
++      </div>
++    </section>
++  );
++}
+diff --git a/src/components/landing/Home.tsx b/src/components/landing/Home.tsx
+new file mode 100644
+index 0000000..810ce5f
+--- /dev/null
++++ b/src/components/landing/Home.tsx
+@@ -0,0 +1,753 @@
++"use client";
++
++import {
++  ArrowRight,
++  Check,
++  CircleHelp,
++  Clock3,
++  FileUp,
++  Layers3,
++  Quote,
++  ShieldCheck,
++  Sparkles,
++  Target,
++  WandSparkles,
++  X,
++  Compass,
++  HeartHandshake,
++  LifeBuoy,
++  PiggyBank,
++} from "lucide-react";
++import type { ReactNode } from "react";
++import Header from "@/components/landing/Header";
++import Hero from "@/components/landing/Hero";
++import BrandButton from "@/components/landing/BrandButton";
++import Logo from "@/components/landing/Logo";
++import GifPlaceholder from "@/components/landing/GifPlaceholder";
++import { useReveal } from "@/components/landing/useReveal";
++import { APP_LINKS } from "@/components/landing/site";
++import { PRICING_PLANS } from "@/lib/billing/plans";
++
++const PROBLEMS = [
++  {
++    icon: Clock3,
++    title: "A atualização demora",
++    description:
++      "Em serviços que dependem de Open Finance, a atualização dos dados pode demorar e não acompanhar o ritmo das suas decisões.",
++    note: "Os dados ainda não chegaram",
++  },
++  {
++    icon: Layers3,
++    title: "Lançamentos podem ficar de fora",
++    description: "Quando falta uma movimentação, o retrato do mês fica incompleto e o planejamento perde contexto.",
++    note: "Confira tudo pelo extrato",
++  },
++  {
++    icon: WandSparkles,
++    title: "Duplicidades confundem o orçamento",
++    description: "A mesma compra pode aparecer mais de uma vez e distorcer saldos, gastos e orçamento.",
++    note: "Uma compra. Dois registros?",
++  },
++];
++
++const STEPS = [
++  {
++    number: "01",
++    icon: FileUp,
++    title: "Complete com seu extrato",
++    description: "Exporte o extrato do banco e importe no Tobias para adicionar as movimentações ao seu planejamento.",
++  },
++  {
++    number: "02",
++    icon: Layers3,
++    title: "Revise e mescle duplicidades",
++    description:
++      "O Tobias ajuda a identificar lançamentos repetidos para você conferir e mesclar o que corresponde à mesma transação.",
++  },
++  {
++    number: "03",
++    icon: WandSparkles,
++    title: "A IA categoriza seus lançamentos automaticamente",
++    description:
++      "Em vez de classificar compra por compra, receba categorias sugeridas pela IA no extrato importado. Revise e ajuste quando precisar. Você continua no controle.",
++  },
++  {
++    number: "04",
++    icon: Target,
++    title: "Acompanhe o plano em movimento",
++    description: "Com dados mais organizados, fica mais fácil olhar orçamento, metas e projeções com uma visão atualizada.",
++  },
++];
++
++// Os 4 pilares vêm de uma metodologia reconhecida de planejamento financeiro
++// (organizar "pra que serve" o dinheiro, não só "onde ele está guardado").
++// Deliberadamente sem citar a fonte pelo nome aqui na landing (evita parecer
++// endosso/parceria que não existe — ver claude/backlog.md item 2). Copy
++// mantida no nível de FILOSOFIA que guia o planejamento, não uma lista de
++// features: "Legado" em particular não tem nenhuma tela própria no app hoje
++// (ver claude/especificacao-patrimonio-por-pilares.md), então a frase dele
++// fala de intenção, não de uma funcionalidade concreta que ainda não existe.
++const PILLARS = [
++  {
++    icon: LifeBuoy,
++    title: "Essencial",
++    description: "O que garante sua base: moradia, contas, saúde. O Tobias mostra o quanto disso já está coberto por renda estável.",
++  },
++  {
++    icon: Sparkles,
++    title: "Estilo de vida",
++    description: "O que você quer viver: viagem, sonho, hobby. Financiado pelo que sobra depois do essencial, com meta e prazo definidos.",
++  },
++  {
++    icon: PiggyBank,
++    title: "Imprevistos",
++    description: "O que não estava no plano. Sua reserva de emergência calculada a partir do seu perfil, não um número chutado.",
++  },
++  {
++    icon: HeartHandshake,
++    title: "Legado",
++    description: "O que você quer deixar para quem você ama. Parte do plano desde o início, não uma reflexão de última hora.",
++  },
++] as const;
++
++const FAQs = [
++  {
++    question: "O Tobias conecta minhas contas por Open Finance?",
++    answer:
++      "Não. O Tobias não oferece conexão por Open Finance. Para adicionar suas movimentações, você importa os extratos do banco no Tobias; depois pode revisar duplicidades, categorizar lançamentos e atualizar seu planejamento.",
++  },
++  {
++    question: "O que acontece quando importo um extrato?",
++    answer:
++      "O extrato serve para complementar os dados do planejamento. Depois da importação, você pode revisar lançamentos, conferir possíveis duplicidades e organizar as categorias.",
++  },
++  {
++    question: "As categorias são definidas automaticamente?",
++    answer:
++      "A inteligência artificial ajuda sugerindo categorias com base nas informações dos lançamentos. A categorização deve ser revisada por você para garantir que faça sentido para sua realidade.",
++  },
++  {
++    question: "Como funciona o acompanhamento pelo WhatsApp?",
++    answer:
++      "O WhatsApp é um canal para interagir com o Tobias e dar continuidade ao acompanhamento financeiro. Assim, você pode retomar objetivos e compartilhar atualizações fora de uma reunião específica.",
++  },
++  {
++    question: "Como funcionam os planos?",
++    answer:
++      "Os planos incluem acesso ao Tobias e variam pela periodicidade da cobrança: mensal, semestral ou anual. O período de teste, os valores e as condições são apresentados no cadastro.",
++  },
++];
++
++function SectionHeading({
++  eyebrow,
++  title,
++  description,
++  align = "center",
++}: {
++  eyebrow: string;
++  title: ReactNode;
++  description?: string;
++  align?: "left" | "center";
++}) {
++  return (
++    <div className={align === "center" ? "mx-auto max-w-2xl text-center" : "max-w-2xl"}>
++      <p className="mb-4 inline-flex items-center gap-2 font-sans text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
++        <span className="h-px w-5 bg-gold-500/70" aria-hidden="true" />
++        {eyebrow}
++      </p>
++      <h2 className="font-display text-[2rem] font-semibold leading-[1.13] tracking-[-0.03em] text-cream-50 sm:text-[2.7rem]">
++        {title}
++      </h2>
++      {description && (
++        <p className="mt-4 font-sans text-base leading-relaxed text-cream-100/70 sm:text-[1.05rem]">{description}</p>
++      )}
++    </div>
++  );
++}
++
++function OpenFinancePain() {
++  return (
++    <section
++      id="extratos"
++      className="relative overflow-hidden border-y border-white/[0.06] bg-[#101316] py-20 sm:py-24 lg:py-28"
++    >
++      <div
++        className="pointer-events-none absolute inset-0 lp-grid-lines opacity-25 [mask-image:linear-gradient(to_bottom,transparent,#000_20%,#000_80%,transparent)]"
++        aria-hidden="true"
++      />
++      <div className="lp-container relative">
++        <SectionHeading
++          eyebrow="O desafio dos dados financeiros"
++          title={
++            <>
++              Quando os dados não chegam
++              <br className="hidden sm:block" /> completos, o plano sente.
++            </>
++          }
++          description="Open Finance pode apresentar atrasos, lacunas e duplicidades em serviços que usam esse tipo de conexão. O Tobias funciona de outra forma: você importa seus extratos e organiza os lançamentos no seu planejamento."
++        />
++
++        <div className="mt-12 grid gap-3 md:grid-cols-3 lg:mt-14">
++          {PROBLEMS.map((problem, i) => {
++            const Icon = problem.icon;
++            return (
++              <article
++                key={problem.title}
++                className="lp-reveal lp-surface lp-surface-hover rounded-2xl p-5 sm:p-6"
++                style={{ ["--reveal-delay" as string]: `${i * 80}ms` }}
++              >
++                <span className="flex size-11 items-center justify-center rounded-xl border border-gold-500/20 bg-gold-500/[0.07] text-gold-400">
++                  <Icon className="size-5" aria-hidden="true" />
++                </span>
++                <h3 className="mt-5 font-display text-lg font-semibold text-cream-50">{problem.title}</h3>
++                <p className="mt-2 text-sm leading-relaxed text-cream-100/65">{problem.description}</p>
++                <div className="mt-5 flex items-center gap-2 rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2 text-[0.66rem] text-brand-100/65">
++                  <X className="size-3.5 shrink-0 text-danger-300" aria-hidden="true" />
++                  {problem.note}
++                </div>
++              </article>
++            );
++          })}
++        </div>
++
++        <p className="mx-auto mt-8 max-w-2xl text-center text-[0.73rem] leading-relaxed text-brand-100/50">
++          O Tobias não se conecta às suas contas por Open Finance. Você escolhe e importa os extratos que quer
++          adicionar ao planejamento.
++        </p>
++      </div>
++    </section>
++  );
++}
++
++function TobiasSolution() {
++  return (
++    <section id="como-funciona" className="relative overflow-hidden py-20 sm:py-24 lg:py-28">
++      <div
++        className="pointer-events-none absolute -right-52 top-20 size-[34rem] rounded-full opacity-15 blur-3xl"
++        aria-hidden="true"
++        style={{ background: "radial-gradient(circle, rgba(240,153,47,.38), transparent 70%)" }}
++      />
++      <div className="lp-container relative">
++        <div className="grid items-end gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
++          <SectionHeading
++            eyebrow="Como o Tobias resolve"
++            align="left"
++            title={
++              <>
++                Do extrato
++                <br />
++                ao plano em dia.
++              </>
++            }
++            description="Sem conexão bancária automática: você importa os extratos que quer incluir e mantém controle sobre o que entra no planejamento."
++          />
++          <p className="lp-reveal max-w-lg pb-1 text-sm leading-relaxed text-brand-100/65 lg:justify-self-end">
++            Importe o extrato, deixe a IA organizar as categorias e confira o que parece repetido. Você ganha tempo
++            na organização e continua no controle do planejamento, sem mais uma planilha para cuidar.
++          </p>
++        </div>
++
++        <div className="mt-12 grid gap-8 lg:mt-14 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
++          <div className="space-y-3">
++            {STEPS.map((step, i) => {
++              const Icon = step.icon;
++              const isAiStep = i === 2;
++              return (
++                <article
++                  key={step.number}
++                  className={`lp-reveal group flex gap-4 rounded-2xl border p-4 transition-all duration-200 sm:p-5 ${
++                    isAiStep
++                      ? "border-violet-500/35 bg-[linear-gradient(115deg,rgba(169,155,232,.12),rgba(255,255,255,.025)_72%)] shadow-[0_12px_40px_-28px_rgba(169,155,232,.65)] hover:border-violet-400/55"
++                      : "border-white/[0.07] bg-white/[0.025] hover:border-gold-500/25 hover:bg-white/[0.045]"
++                  }`}
++                  style={{ ["--reveal-delay" as string]: `${i * 75}ms` }}
++                >
++                  <div className="flex shrink-0 flex-col items-center gap-2">
++                    <span
++                      className={`flex size-10 items-center justify-center rounded-xl border ${
++                        isAiStep
++                          ? "border-violet-500/35 bg-violet-500/[0.13] text-violet-400"
++                          : "border-gold-500/20 bg-gold-500/[0.07] text-gold-400"
++                      }`}
++                    >
++                      <Icon className="size-[18px]" aria-hidden="true" />
++                    </span>
++                    {i < STEPS.length - 1 && (
++                      <span
++                        className="h-full min-h-5 w-px bg-gradient-to-b from-gold-500/30 to-transparent"
++                        aria-hidden="true"
++                      />
++                    )}
++                  </div>
++                  <div className="pb-1">
++                    <p
++                      className={`flex items-center gap-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.15em] ${
++                        isAiStep ? "text-violet-400" : "text-gold-400/80"
++                      }`}
++                    >
++                      {isAiStep && <Sparkles className="size-3" aria-hidden="true" />}
++                      Etapa {step.number}
++                      {isAiStep && (
++                        <span className="rounded-full border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-[0.52rem] tracking-[0.1em]">
++                          IA
++                        </span>
++                      )}
++                    </p>
++                    <h3 className="mt-1 font-display text-[0.96rem] font-semibold text-cream-50">{step.title}</h3>
++                    <p className="mt-1.5 text-[0.78rem] leading-relaxed text-cream-100/60">{step.description}</p>
++                  </div>
++                </article>
++              );
++            })}
++          </div>
++          <GifPlaceholder
++            slot="extrato-importacao-e-categorias"
++            title="Importar, revisar e categorizar"
++            description="Gravar a importação de um extrato, a revisão de um lançamento duplicado e a categorização de uma movimentação."
++            className="lp-reveal"
++          />
++        </div>
++      </div>
++    </section>
++  );
++}
++
++/**
++ * Seção "Metodologia" — pedido do Thiago em 28/09/2026: adicionar os pilares
++ * mantendo o posicionamento "sem Open Finance / IA categoriza" em destaque
++ * (por isso entra DEPOIS de TobiasSolution, não antes). Esta é a Opção A
++ * (grid de 4 cartões) — enviei outras 2 opções de layout num artefato à
++ * parte para ele escolher; trocar aqui depois é só substituir este bloco.
++ */
++function Pillars() {
++  return (
++    <section id="pilares" className="relative overflow-hidden border-y border-white/[0.06] bg-brand-900/35 py-20 sm:py-24 lg:py-28">
++      <div className="pointer-events-none absolute inset-0 lp-grid-lines opacity-20" aria-hidden="true" />
++      <div className="lp-container relative">
++        <SectionHeading
++          eyebrow="A filosofia por trás do plano"
++          title={
++            <>
++              Todo real tem um propósito.
++              <br className="hidden sm:block" /> O Tobias organiza pelo seu.
++            </>
++          }
++          description="Em vez de só somar saldos, o Tobias ajuda a enxergar pra que serve cada parte do seu dinheiro: o que garante sua base, o que você quer viver, o que te protege e o que você quer deixar."
++        />
++
++        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:mt-14 lg:grid-cols-4">
++          {PILLARS.map((pillar, i) => {
++            const Icon = pillar.icon;
++            return (
++              <article
++                key={pillar.title}
++                className="lp-reveal lp-surface lp-surface-hover flex flex-col rounded-2xl p-5 sm:p-6"
++                style={{ ["--reveal-delay" as string]: `${i * 70}ms` }}
++              >
++                <span className="flex size-11 items-center justify-center rounded-xl border border-gold-500/20 bg-gold-500/[0.07] text-gold-400">
++                  <Icon className="size-5" aria-hidden="true" />
++                </span>
++                <h3 className="mt-5 font-display text-base font-semibold text-cream-50">{pillar.title}</h3>
++                <p className="mt-2 text-[0.83rem] leading-relaxed text-cream-100/65">{pillar.description}</p>
++              </article>
++            );
++          })}
++        </div>
++
++        <p className="mx-auto mt-8 max-w-2xl text-center text-[0.73rem] leading-relaxed text-brand-100/50">
++          Uma lente adicional sobre os mesmos dados do seu planejamento, não uma etapa extra de cadastro.
++        </p>
++      </div>
++    </section>
++  );
++}
++
++function FollowAlong() {
++  return (
++    <section
++      id="whatsapp"
++      className="relative overflow-hidden border-y border-white/[0.06] bg-brand-900/35 py-20 sm:py-24 lg:py-28"
++    >
++      <div className="pointer-events-none absolute inset-0 lp-grid-lines opacity-20" aria-hidden="true" />
++      <div className="lp-container relative grid items-center gap-12 lg:grid-cols-[1fr_0.9fr] lg:gap-20">
++        <div className="lp-reveal max-w-xl">
++          <p className="mb-4 inline-flex items-center gap-2 font-sans text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-ok-400">
++            <span className="h-px w-5 bg-ok-400/70" aria-hidden="true" />
++            Acompanhamento pelo WhatsApp
++          </p>
++          <h2 className="font-display text-[2rem] font-semibold leading-[1.13] tracking-[-0.03em] text-cream-50 sm:text-[2.7rem]">
++            Seu planejamento continua entre uma conversa e outra.
++          </h2>
++          <p className="mt-4 text-base leading-relaxed text-cream-100/70">
++            Tire dúvidas, atualize objetivos e retome seus combinados pelo WhatsApp. Acompanhar as finanças pode
++            fazer parte da rotina, sem depender de lembrar de tudo só na próxima reunião.
++          </p>
++          <ul className="mt-7 space-y-3 text-sm text-cream-100/75">
++            <li className="flex items-start gap-2.5">
++              <Check className="mt-0.5 size-4 shrink-0 text-ok-400" aria-hidden="true" />
++              Uma conversa simples para atualizar seu contexto
++            </li>
++            <li className="flex items-start gap-2.5">
++              <Check className="mt-0.5 size-4 shrink-0 text-ok-400" aria-hidden="true" />
++              Objetivos e próximos passos sempre em pauta
++            </li>
++            <li className="flex items-start gap-2.5">
++              <Check className="mt-0.5 size-4 shrink-0 text-ok-400" aria-hidden="true" />
++              Um planejador para ajudar você a manter o rumo
++            </li>
++          </ul>
++        </div>
++        <GifPlaceholder
++          slot="acompanhamento-whatsapp"
++          title="Conversa de acompanhamento pelo WhatsApp"
++          description="Gravar uma conversa real mostrando como atualizar uma meta ou retomar um combinado com o Tobias."
++          ratio="square"
++          className="lp-reveal"
++        />
++      </div>
++    </section>
++  );
++}
++
++function PlanningFeatures() {
++  return (
++    <section id="recursos" className="py-20 sm:py-24 lg:py-28">
++      <div className="lp-container">
++        <SectionHeading
++          eyebrow="Planejamento que acompanha você"
++          title={
++            <>
++              Uma visão completa para
++              <br className="hidden sm:block" /> decisões do dia a dia.
++            </>
++          }
++          description="Com os lançamentos organizados, seus dados se transformam em contexto para cuidar do presente e planejar o futuro."
++        />
++        <div className="mt-12 grid gap-4 lg:mt-14 lg:grid-cols-2">
++          <article className="lp-reveal lp-surface rounded-2xl p-5 sm:p-7">
++            <div className="flex items-center gap-3">
++              <span className="flex size-10 items-center justify-center rounded-xl border border-gold-500/20 bg-gold-500/[0.08] text-gold-400">
++                <Target className="size-5" aria-hidden="true" />
++              </span>
++              <div>
++                <h3 className="font-display text-sm font-semibold text-cream-50">Metas que ganham acompanhamento</h3>
++                <p className="mt-0.5 text-[0.68rem] text-brand-100/55">Progresso atualizado conforme seus registros</p>
++              </div>
++            </div>
++            <GifPlaceholder
++              slot="metas-planejamento"
++              title="Acompanhar metas"
++              description="Gravar a tela de metas e a atualização do progresso após registrar novas movimentações."
++              className="mt-5"
++            />
++          </article>
++          <article className="lp-reveal lp-surface rounded-2xl p-5 sm:p-7">
++            <div className="flex items-center gap-3">
++              <span className="flex size-10 items-center justify-center rounded-xl border border-ok-400/20 bg-ok-400/[0.08] text-ok-400">
++                <Compass className="size-5" aria-hidden="true" />
++              </span>
++              <div>
++                <h3 className="font-display text-sm font-semibold text-cream-50">Projeções para olhar mais longe</h3>
++                <p className="mt-0.5 text-[0.68rem] text-brand-100/55">Compare cenários de aposentadoria</p>
++              </div>
++            </div>
++            <GifPlaceholder
++              slot="projecoes-planejamento"
++              title="Explorar projeções"
++              description="Gravar a tela de projeções e a interação para comparar cenários do planejamento."
++              className="mt-5"
++            />
++          </article>
++        </div>
++        <p className="mt-3 text-right text-[0.65rem] text-brand-100/40">
++          Exemplos ilustrativos; projeções dependem dos dados e premissas utilizados.
++        </p>
++      </div>
++    </section>
++  );
++}
++
++function Testimonials() {
++  const prompts = [
++    "Quanto tempo você levava para organizar as categorias antes?",
++    "O que mudou na sua rotina com as categorias sugeridas automaticamente?",
++  ];
++
++  return (
++    <section id="depoimentos" className="relative overflow-hidden border-y border-white/[0.06] bg-[#101316] py-16 sm:py-20">
++      <div className="pointer-events-none absolute inset-0 lp-grid-lines opacity-15" aria-hidden="true" />
++      <div className="lp-container relative">
++        <div className="grid items-end gap-6 lg:grid-cols-[0.82fr_1.18fr] lg:gap-12">
++          <div className="lp-reveal">
++            <SectionHeading
++              eyebrow="Depoimentos"
++              align="left"
++              title={
++                <>
++                  Menos tempo categorizando.
++                  <br />
++                  Mais tempo para o seu plano.
++                </>
++              }
++              description="A categorização automática ajuda a tirar o trabalho repetitivo do caminho e deixa para você a revisão final."
++            />
++          </div>
++          <div className="grid gap-3 sm:grid-cols-2">
++            {prompts.map((prompt, i) => (
++              <figure
++                key={prompt}
++                className="lp-reveal flex min-h-44 flex-col justify-between rounded-2xl border border-dashed border-violet-500/30 bg-[linear-gradient(145deg,rgba(169,155,232,.09),rgba(255,255,255,.02)_70%)] p-5 sm:p-6"
++                style={{ ["--reveal-delay" as string]: `${i * 80}ms` }}
++              >
++                <div>
++                  <Quote className="size-5 text-violet-400" aria-hidden="true" />
++                  <blockquote className="mt-4 font-display text-sm font-medium leading-relaxed text-cream-50">
++                    {prompt}
++                  </blockquote>
++                </div>
++                <figcaption className="mt-5 flex items-center gap-2 border-t border-white/[0.07] pt-3 text-[0.62rem] text-brand-100/55">
++                  <span className="size-1.5 rounded-full bg-violet-400" aria-hidden="true" />
++                  Depoimento real a inserir, com autorização
++                </figcaption>
++              </figure>
++            ))}
++          </div>
++        </div>
++      </div>
++    </section>
++  );
++}
++
++function Pricing() {
++  return (
++    <section id="planos" className="relative overflow-hidden border-y border-white/[0.06] bg-[#101316] py-20 sm:py-24 lg:py-28">
++      <div
++        className="pointer-events-none absolute inset-0 lp-grid-lines opacity-20 [mask-image:linear-gradient(to_bottom,transparent,#000_30%,#000_70%,transparent)]"
++        aria-hidden="true"
++      />
++      <div className="lp-container relative">
++        <SectionHeading
++          eyebrow="Planos"
++          title={
++            <>
++              Acompanhamento para
++              <br className="hidden sm:block" /> manter seu plano em movimento.
++            </>
++          }
++          description="Experimente por 15 dias e depois escolha como prefere pagar."
++        />
++        <div className="mx-auto mt-12 grid max-w-5xl gap-4 lg:grid-cols-3 lg:gap-5">
++          {PRICING_PLANS.map((plan, i) => (
++            <article
++              key={plan.cycle}
++              className={`lp-reveal relative flex flex-col rounded-2xl p-6 sm:p-7 ${
++                plan.highlight
++                  ? "border border-gold-500/50 bg-[linear-gradient(145deg,rgba(240,153,47,0.12),rgba(35,41,47,0.95)_46%)] shadow-[0_20px_70px_-35px_rgba(240,153,47,0.28)] lg:-my-3 lg:py-10"
++                  : "lp-surface"
++              }`}
++              style={{ ["--reveal-delay" as string]: `${i * 90}ms` }}
++            >
++              {plan.highlight && (
++                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-gold-500/40 bg-brand-950 px-3 py-1 font-sans text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-gold-400">
++                  Melhor valor mensal
++                </span>
++              )}
++              <div className="flex items-start justify-between gap-2">
++                <div>
++                  <p className="font-display text-lg font-semibold text-cream-50">{plan.label}</p>
++                  <p className="mt-1 text-[0.75rem] text-brand-100/60">
++                    {plan.months === 1 ? "Flexibilidade mensal" : plan.months === 6 ? "Um semestre inteiro" : "Praticidade anual"}
++                  </p>
++                </div>
++                <Sparkles className={`mt-1 size-4 ${plan.highlight ? "text-gold-400" : "text-brand-100/35"}`} aria-hidden="true" />
++              </div>
++              <div className="mt-7">
++                <p className="font-display text-[2.2rem] font-semibold leading-none tracking-tight text-cream-50">
++                  {plan.priceLabel}
++                </p>
++                <p className="mt-2 text-sm text-gold-400">{plan.monthlyEquivalentLabel}</p>
++                <p className="mt-3 min-h-10 text-[0.77rem] leading-relaxed text-brand-100/65">{plan.billingNote}</p>
++              </div>
++              <ul className="mt-5 space-y-3 border-t border-white/[0.08] pt-5">
++                {["Acesso completo ao Tobias", "15 dias grátis para testar", "Cancele quando quiser"].map((perk) => (
++                  <li key={perk} className="flex items-start gap-2.5 text-[0.8rem] text-cream-100/80">
++                    <Check className="mt-0.5 size-4 shrink-0 text-ok-400" aria-hidden="true" />
++                    {perk}
++                  </li>
++                ))}
++              </ul>
++              <BrandButton
++                href={APP_LINKS.signupWithPlan(plan.cycle)}
++                variant={plan.highlight ? "gold" : "outline"}
++                size="md"
++                className="mt-7 w-full"
++                aria-label={`Começar período grátis com o plano ${plan.label}`}
++              >
++                Começar grátis
++                <ArrowRight className="size-4" aria-hidden="true" />
++              </BrandButton>
++            </article>
++          ))}
++        </div>
++        <p className="mx-auto mt-6 max-w-2xl text-center text-[0.7rem] leading-relaxed text-brand-100/50">
++          O teste, os valores e as condições de cobrança são confirmados durante o cadastro.
++        </p>
++      </div>
++    </section>
++  );
++}
++
++function FAQ() {
++  return (
++    <section id="perguntas" className="py-20 sm:py-24 lg:py-28">
++      <div className="lp-container">
++        <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-16">
++          <div className="lp-reveal">
++            <SectionHeading
++              eyebrow="Dúvidas"
++              align="left"
++              title={
++                <>
++                  Tudo claro
++                  <br />
++                  antes de começar.
++                </>
++              }
++              description="O que vale saber sobre dados, extratos e acompanhamento."
++            />
++            <div className="mt-7 inline-flex items-center gap-2 text-sm text-brand-100/70">
++              <CircleHelp className="size-4 text-gold-400" aria-hidden="true" />
++              <span>Consulte o suporte dentro da sua conta.</span>
++            </div>
++          </div>
++          <div className="space-y-2.5">
++            {FAQs.map((faq, i) => (
++              <details
++                key={faq.question}
++                className="lp-reveal group rounded-xl border border-white/[0.08] bg-white/[0.025] px-5 transition-colors duration-200 open:border-gold-500/25 open:bg-white/[0.04]"
++                style={{ ["--reveal-delay" as string]: `${i * 55}ms` }}
++              >
++                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-display text-[0.9rem] font-medium text-cream-50 marker:content-none [&::-webkit-details-marker]:hidden">
++                  {faq.question}
++                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-brand-100/60 transition-transform duration-200 group-open:rotate-45 group-open:border-gold-500/30 group-open:text-gold-400">
++                    <span className="text-lg leading-none">+</span>
++                  </span>
++                </summary>
++                <p className="max-w-2xl pb-5 pr-8 text-[0.85rem] leading-relaxed text-cream-100/65">{faq.answer}</p>
++              </details>
++            ))}
++          </div>
++        </div>
++      </div>
++    </section>
++  );
++}
++
++function FinalCta() {
++  return (
++    <section className="relative overflow-hidden border-y border-gold-500/15 bg-brand-900/55 py-16 sm:py-20">
++      <div className="pointer-events-none absolute inset-0 lp-grid-lines opacity-25" aria-hidden="true" />
++      <div
++        className="pointer-events-none absolute left-1/2 top-1/2 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-3xl"
++        aria-hidden="true"
++        style={{ background: "radial-gradient(circle, rgba(240,153,47,.30), transparent 70%)" }}
++      />
++      <div className="lp-container relative text-center">
++        <p className="lp-reveal mb-4 inline-flex items-center gap-2 rounded-full border border-gold-500/25 bg-gold-500/[0.07] px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-gold-400">
++          <Sparkles className="size-3.5" aria-hidden="true" />
++          Comece pelo seu extrato
++        </p>
++        <h2
++          className="lp-reveal mx-auto max-w-3xl font-display text-[2rem] font-semibold leading-[1.12] tracking-[-0.03em] text-cream-50 sm:text-[2.85rem]"
++          style={{ ["--reveal-delay" as string]: "80ms" }}
++        >
++          Crie sua conta. Suba seu primeiro extrato.
++          <span className="block lp-text-gold-gradient">Comece a planejar com clareza.</span>
++        </h2>
++        <p
++          className="lp-reveal mx-auto mt-4 max-w-xl text-base leading-relaxed text-cream-100/70"
++          style={{ ["--reveal-delay" as string]: "150ms" }}
++        >
++          Importe o extrato do seu banco, organize os lançamentos e dê o primeiro passo para acompanhar seus
++          objetivos com o Tobias.
++        </p>
++        <div className="lp-reveal mt-8" style={{ ["--reveal-delay" as string]: "220ms" }}>
++          <BrandButton href={APP_LINKS.signup} size="lg">
++            Criar conta e subir meu extrato
++            <ArrowRight className="size-4" aria-hidden="true" />
++          </BrandButton>
++        </div>
++        <p className="lp-reveal mt-4 text-[0.67rem] text-brand-100/45" style={{ ["--reveal-delay" as string]: "280ms" }}>
++          Você escolhe quando importar o arquivo depois de criar sua conta.
++        </p>
++      </div>
++    </section>
++  );
++}
++
++function Footer() {
++  return (
++    <footer className="bg-brand-950 py-8 sm:py-10">
++      <div className="lp-container">
++        <div className="flex flex-col items-center justify-between gap-5 border-b border-white/[0.07] pb-7 sm:flex-row">
++          <a href="#top" aria-label="Voltar ao início">
++            <Logo size={30} />
++          </a>
++          <nav aria-label="Navegação do rodapé" className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-[0.78rem] text-brand-100/65">
++            <a href="#extratos" className="transition-colors hover:text-cream-50">
++              Extratos
++            </a>
++            <a href="#como-funciona" className="transition-colors hover:text-cream-50">
++              Como funciona
++            </a>
++            <a href="#pilares" className="transition-colors hover:text-cream-50">
++              Metodologia
++            </a>
++            <a href="#whatsapp" className="transition-colors hover:text-cream-50">
++              WhatsApp
++            </a>
++            <a href="#planos" className="transition-colors hover:text-cream-50">
++              Planos
++            </a>
++            <a href={APP_LINKS.login} className="transition-colors hover:text-cream-50">
++              Entrar
++            </a>
++          </nav>
++          <BrandButton href={APP_LINKS.signup} size="sm">
++            Começar grátis
++            <ArrowRight className="size-3.5" aria-hidden="true" />
++          </BrandButton>
++        </div>
++        <div className="flex flex-col items-center justify-between gap-2 pt-5 text-center text-[0.68rem] text-brand-100/45 sm:flex-row">
++          <p>© {new Date().getFullYear()} Tobias. Planejamento financeiro pessoal.</p>
++          <p className="inline-flex items-center gap-1.5">
++            <ShieldCheck className="size-3.5" aria-hidden="true" />
++            O extrato continua sob seu controle.
++          </p>
++        </div>
++      </div>
++    </footer>
++  );
++}
++
++export default function LandingHome() {
++  const revealRef = useReveal<HTMLElement>();
++  return (
++    <div className="min-h-screen overflow-x-clip bg-brand-950 text-cream-50">
++      <Header />
++      <main id="conteudo" ref={revealRef}>
++        <Hero />
++        <OpenFinancePain />
++        <TobiasSolution />
++        <Pillars />
++        <FollowAlong />
++        <PlanningFeatures />
++        <Testimonials />
++        <Pricing />
++        <FAQ />
++        <FinalCta />
++      </main>
++      <Footer />
++    </div>
++  );
++}
+diff --git a/src/components/landing/Logo.tsx b/src/components/landing/Logo.tsx
+new file mode 100644
+index 0000000..6a6389f
+--- /dev/null
++++ b/src/components/landing/Logo.tsx
+@@ -0,0 +1,28 @@
++import Image from "next/image";
++import { cn } from "@/lib/utils/cn";
++
++interface LogoProps {
++  className?: string;
++  /** Altura do mascote em pixels */
++  size?: number;
++  withWordmark?: boolean;
++}
++
++export default function Logo({ className, size = 34, withWordmark = true }: LogoProps) {
++  return (
++    <span className={cn("inline-flex items-center gap-2.5", className)}>
++      <Image
++        src="/logo-transparent.png"
++        alt=""
++        aria-hidden="true"
++        width={size}
++        height={size}
++        className="object-contain drop-shadow-[0_2px_10px_rgba(240,153,47,0.22)]"
++        style={{ height: size, width: "auto" }}
++      />
++      {withWordmark && (
++        <span className="font-display text-[1.15rem] font-semibold tracking-tight text-cream-50">Tobias</span>
++      )}
++    </span>
++  );
++}
+diff --git a/src/components/landing/StatementFlowDemo.tsx b/src/components/landing/StatementFlowDemo.tsx
+new file mode 100644
+index 0000000..68a1557
+--- /dev/null
++++ b/src/components/landing/StatementFlowDemo.tsx
+@@ -0,0 +1,238 @@
++import {
++  ArrowDown,
++  ArrowUpRight,
++  Check,
++  ChevronDown,
++  CircleCheck,
++  FileSpreadsheet,
++  Merge,
++  MoreHorizontal,
++  Sparkles,
++  Upload,
++} from "lucide-react";
++
++const entries = [
++  {
++    id: "market-original",
++    name: "Mercado do Bairro",
++    date: "Hoje, 10:42",
++    amount: "− R$ 186,40",
++    category: "Alimentação",
++    type: "food",
++  },
++  {
++    id: "market-duplicate",
++    name: "Mercado do Bairro",
++    date: "Hoje, 10:42",
++    amount: "− R$ 186,40",
++    category: "Possível duplicado",
++    type: "food",
++  },
++  {
++    id: "gas-station",
++    name: "Posto Avenida",
++    date: "Ontem, 18:16",
++    amount: "− R$ 250,00",
++    category: "Transporte",
++    type: "travel",
++  },
++];
++
++const categoryTone: Record<string, string> = {
++  food: "bg-[#f0992f]/10 text-[#ffb648] border-[#f0992f]/20",
++  travel: "bg-[#58b3d0]/10 text-[#79cce5] border-[#58b3d0]/20",
++};
++
++/**
++ * Storyboard de interface animado, ILUSTRATIVO (não é gravação do produto):
++ * extrato importado -> duplicidade sinalizada -> categorias aplicadas pela IA.
++ * Fica no lugar de um GIF real até o Thiago gravar um (ver GifPlaceholder e
++ * o combinado em 28/09/2026: "os gifs vou criar quando conseguirmos bater
++ * uns 99% da plataforma").
++ */
++export default function StatementFlowDemo() {
++  return (
++    <div className="relative mx-auto w-full max-w-[570px]">
++      <div
++        className="absolute -inset-8 -z-10 rounded-[3rem] bg-[radial-gradient(ellipse_at_center,rgba(240,153,47,.13),transparent_70%)] blur-2xl"
++        aria-hidden="true"
++      />
++
++      <div className="overflow-hidden rounded-[1.35rem] border border-white/[0.12] bg-[#191e23] shadow-[0_36px_100px_-34px_rgba(0,0,0,.9)]">
++        {/* barra de janela */}
++        <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
++          <div className="flex items-center gap-2">
++            <span className="size-2.5 rounded-full bg-[#f16d62]/80" />
++            <span className="size-2.5 rounded-full bg-[#f4c352]/80" />
++            <span className="size-2.5 rounded-full bg-[#5ecbb8]/80" />
++            <span className="ml-3 font-sans text-[0.68rem] font-medium tracking-wide text-[#dfe3e6]/60">
++              Meu planejamento
++            </span>
++          </div>
++          <MoreHorizontal className="size-4 text-[#dfe3e6]/45" aria-hidden="true" />
++        </div>
++
++        <div className="p-4 sm:p-5">
++          <div className="flex flex-wrap items-center justify-between gap-3">
++            <div>
++              <p className="font-display text-sm font-semibold text-[#f5f6f5]">Lançamentos recentes</p>
++              <p className="mt-1 text-[0.68rem] text-[#a6acb1]">Extrato importado · pronto para revisar</p>
++            </div>
++            <div className="flex items-center gap-1.5 rounded-full border border-[#5ecbb8]/20 bg-[#5ecbb8]/[0.08] px-2.5 py-1 text-[0.65rem] font-medium text-[#5ecbb8]">
++              <span className="relative flex size-1.5">
++                <span className="absolute inset-0 animate-ping rounded-full bg-[#5ecbb8]/60" />
++                <span className="relative size-1.5 rounded-full bg-[#5ecbb8]" />
++              </span>
++              importado
++            </div>
++          </div>
++
++          <div className="lp-upload-demo mt-4 flex items-center gap-3 rounded-xl border border-dashed border-[#f0992f]/35 bg-[#f0992f]/[0.055] px-3 py-2.5 sm:px-3.5">
++            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#f0992f]/[0.12] text-[#ffb648]">
++              <FileSpreadsheet className="size-[18px]" aria-hidden="true" />
++            </span>
++            <span className="min-w-0 flex-1">
++              <span className="block truncate text-[0.71rem] font-medium text-[#f5f6f5]">Extrato da conta</span>
++              <span className="mt-0.5 block text-[0.62rem] text-[#a6acb1]">
++                Extrato importado · lançamentos prontos para revisar
++              </span>
++            </span>
++            <span className="flex items-center gap-1 rounded-full bg-[#5ecbb8]/10 px-2 py-1 text-[0.61rem] font-medium text-[#5ecbb8]">
++              <Check className="size-3" aria-hidden="true" />
++              Concluído
++            </span>
++          </div>
++
++          <div className="lp-duplicate-demo mt-3 flex items-center gap-3 rounded-xl border border-[#e3aa4e]/25 bg-[#e3aa4e]/[0.07] px-3 py-2.5 sm:px-3.5">
++            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#e3aa4e]/10 text-[#e3aa4e]">
++              <Merge className="size-[17px]" aria-hidden="true" />
++            </span>
++            <span className="min-w-0 flex-1">
++              <span className="block text-[0.7rem] font-medium text-[#f5f6f5]">
++                2 lançamentos possivelmente duplicados
++              </span>
++              <span className="mt-0.5 block truncate text-[0.62rem] text-[#a6acb1]">Compra no mercado · R$ 186,40</span>
++            </span>
++            <span className="lp-merge-action whitespace-nowrap rounded-lg border border-[#e3aa4e]/30 px-2 py-1 text-[0.6rem] font-semibold text-[#ffb648]">
++              Revisar e mesclar
++            </span>
++          </div>
++
++          <div className="mt-4 overflow-hidden rounded-xl border border-white/[0.07]">
++            <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
++              <span className="text-[0.63rem] font-medium uppercase tracking-[0.12em] text-[#a6acb1]">Transações</span>
++              <span className="flex items-center gap-1 text-[0.62rem] text-[#a6acb1]">
++                Este mês
++                <ChevronDown className="size-3" aria-hidden="true" />
++              </span>
++            </div>
++            {entries.map((entry, i) => (
++              <div
++                key={entry.id}
++                className="lp-transaction-row flex items-center gap-2.5 border-b border-white/[0.05] px-3 py-2.5 last:border-0 sm:gap-3 sm:px-3.5"
++                style={{ animationDelay: `${i * 260}ms` }}
++              >
++                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.045] text-[#dfe3e6]/70">
++                  <ArrowDown className="size-3.5" aria-hidden="true" />
++                </span>
++                <span className="min-w-0 flex-1">
++                  <span className="block truncate text-[0.68rem] font-medium text-[#f5f6f5]">{entry.name}</span>
++                  <span className="mt-0.5 block text-[0.59rem] text-[#a6acb1]/75">{entry.date}</span>
++                </span>
++                <span
++                  className={`hidden rounded-md border px-2 py-1 text-[0.58rem] sm:inline-flex ${
++                    entry.category === "Possível duplicado"
++                      ? "border-[#e3aa4e]/25 bg-[#e3aa4e]/[0.08] text-[#e3aa4e]"
++                      : categoryTone[entry.type]
++                  }`}
++                >
++                  {entry.category}
++                </span>
++                <span className="w-[4.6rem] shrink-0 text-right text-[0.66rem] font-medium text-[#f5f6f5] sm:w-[5.3rem]">
++                  {entry.amount}
++                </span>
++              </div>
++            ))}
++          </div>
++
++          <div className="lp-category-demo mt-3 overflow-hidden rounded-xl border border-violet-500/35 bg-[linear-gradient(120deg,rgba(169,155,232,.13),rgba(169,155,232,.04)_72%)] shadow-[0_10px_32px_-24px_rgba(169,155,232,.75)]">
++            <div className="flex items-center justify-between gap-3 border-b border-violet-500/15 px-3 py-2.5">
++              <span className="flex min-w-0 items-center gap-2">
++                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-violet-500/25 bg-violet-500/[0.13] text-violet-400">
++                  <Sparkles className="size-3.5" aria-hidden="true" />
++                </span>
++                <span className="min-w-0">
++                  <span className="block text-[0.68rem] font-semibold text-[#f5f3ff]">
++                    Categorização automática por IA
++                  </span>
++                  <span className="mt-0.5 block text-[0.57rem] text-[#d1caef]/70">
++                    Sugestões organizadas para você revisar
++                  </span>
++                </span>
++              </span>
++              <span className="flex shrink-0 items-center gap-1 rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-1 text-[0.56rem] font-semibold text-violet-400">
++                <Sparkles className="size-3" aria-hidden="true" />
++                IA
++              </span>
++            </div>
++            <div className="grid gap-1.5 p-2.5 sm:grid-cols-2">
++              <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/[0.055] bg-black/15 px-2.5 py-2">
++                <span className="min-w-0 truncate text-[0.59rem] text-[#dfe3e6]/80">Mercado do Bairro</span>
++                <span className="shrink-0 rounded-md border border-[#f0992f]/20 bg-[#f0992f]/[0.08] px-1.5 py-1 text-[0.53rem] text-[#ffbf68]">
++                  Alimentação
++                </span>
++              </div>
++              <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/[0.055] bg-black/15 px-2.5 py-2">
++                <span className="min-w-0 truncate text-[0.59rem] text-[#dfe3e6]/80">Posto Avenida</span>
++                <span className="shrink-0 rounded-md border border-[#58b3d0]/20 bg-[#58b3d0]/[0.08] px-1.5 py-1 text-[0.53rem] text-[#79cce5]">
++                  Transporte
++                </span>
++              </div>
++            </div>
++            <div className="flex items-center gap-1.5 px-3 pb-2.5 text-[0.56rem] text-[#d1caef]/65">
++              <CircleCheck className="size-3 text-violet-400" aria-hidden="true" />
++              Confira ou ajuste as categorias antes de seguir
++            </div>
++          </div>
++        </div>
++      </div>
++
++      <div className="lp-float-chip absolute -bottom-5 -left-3 hidden items-center gap-2 rounded-xl border border-white/10 bg-[#23292f] px-3 py-2.5 shadow-xl sm:flex">
++        <span className="flex size-7 items-center justify-center rounded-lg bg-[#5ecbb8]/10 text-[#5ecbb8]">
++          <Upload className="size-3.5" aria-hidden="true" />
++        </span>
++        <span>
++          <span className="block text-[0.62rem] font-medium text-[#f5f6f5]">Extrato importado</span>
++          <span className="block text-[0.55rem] text-[#a6acb1]">Lançamentos no planejamento</span>
++        </span>
++        <ArrowUpRight className="ml-1 size-3.5 text-[#a6acb1]" aria-hidden="true" />
++      </div>
++      <div className="lp-float-chip lp-float-chip-late absolute -right-2 top-1/3 hidden items-center gap-2 rounded-xl border border-white/10 bg-[#23292f] px-3 py-2.5 shadow-xl md:flex">
++        <span className="flex size-7 items-center justify-center rounded-lg bg-[#f0992f]/10 text-[#ffb648]">
++          <Merge className="size-3.5" aria-hidden="true" />
++        </span>
++        <span>
++          <span className="block text-[0.62rem] font-medium text-[#f5f6f5]">Duplicidades</span>
++          <span className="block text-[0.55rem] text-[#a6acb1]">detectadas para revisão</span>
++        </span>
++      </div>
++
++      <style>{`
++        .lp-transaction-row { animation: lp-row-in 520ms cubic-bezier(.23,1,.32,1) both; }
++        .lp-upload-demo { animation: lp-border-glow 5s ease-in-out infinite; }
++        .lp-duplicate-demo { animation: lp-soft-alert 5s ease-in-out infinite; }
++        .lp-category-demo { animation: lp-soft-violet 5s ease-in-out infinite; }
++        .lp-merge-action { animation: lp-action-glow 5s ease-in-out infinite; }
++        .lp-float-chip { animation: lp-bob 5.5s ease-in-out infinite; }
++        .lp-float-chip-late { animation-delay: -2.4s; }
++        @keyframes lp-row-in { from { opacity: .2; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
++        @keyframes lp-border-glow { 0%, 100% { border-color: rgba(240,153,47,.25); } 35%, 60% { border-color: rgba(240,153,47,.58); } }
++        @keyframes lp-soft-alert { 0%, 28%, 100% { background: rgba(227,170,78,.04); } 38%, 60% { background: rgba(227,170,78,.12); } }
++        @keyframes lp-soft-violet { 0%, 55%, 100% { background: rgba(169,155,232,.035); } 68%, 88% { background: rgba(169,155,232,.09); } }
++        @keyframes lp-action-glow { 0%, 28%, 100% { box-shadow: 0 0 0 rgba(227,170,78,0); } 38%, 60% { box-shadow: 0 0 18px rgba(227,170,78,.18); } }
++        @keyframes lp-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
++        @media (prefers-reduced-motion: reduce) { .lp-transaction-row, .lp-upload-demo, .lp-duplicate-demo, .lp-category-demo, .lp-merge-action, .lp-float-chip { animation: none !important; } }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/src/components/landing/site.ts b/src/components/landing/site.ts
+new file mode 100644
+index 0000000..5501b19
+--- /dev/null
++++ b/src/components/landing/site.ts
+@@ -0,0 +1,24 @@
++/**
++ * Configuração central da landing page.
++ *
++ * Diferente do protótipo original (um app Vite separado, apontando pra
++ * https://tobias-pi.vercel.app via URL absoluta), esta versão vive DENTRO do
++ * próprio app Next.js — então os links de login/cadastro são rotas relativas
++ * de verdade, navegadas pelo <Link> do Next, não âncoras cruzando domínio.
++ */
++import type { BillingCycle } from "@/lib/billing/plans";
++
++export const APP_LINKS = {
++  login: "/login",
++  signup: "/signup",
++  signupWithPlan: (plano: BillingCycle) => `/signup?plano=${plano}`,
++} as const;
++
++export const NAV_LINKS = [
++  { href: "#extratos", label: "Seus extratos" },
++  { href: "#como-funciona", label: "Como o Tobias ajuda" },
++  { href: "#pilares", label: "Metodologia" },
++  { href: "#whatsapp", label: "Acompanhamento" },
++  { href: "#planos", label: "Planos" },
++  { href: "#perguntas", label: "Dúvidas" },
++] as const;
+diff --git a/src/components/landing/useReveal.ts b/src/components/landing/useReveal.ts
+new file mode 100644
+index 0000000..316fd19
+--- /dev/null
++++ b/src/components/landing/useReveal.ts
+@@ -0,0 +1,60 @@
++"use client";
++
++import { useEffect, useRef, useState } from "react";
++
++/**
++ * Revela elementos com a classe `.lp-reveal` quando entram na viewport.
++ * Observa uma única vez por elemento (sem custo contínuo de scroll).
++ * Porta direta do protótipo de landing que o Thiago mandou (useReveal.ts),
++ * só renomeando a classe observada pra `.lp-reveal` (ver globals.css).
++ */
++export function useReveal<T extends HTMLElement = HTMLDivElement>() {
++  const ref = useRef<T | null>(null);
++
++  useEffect(() => {
++    const root = ref.current;
++    if (!root) return;
++
++    const targets = Array.from(root.querySelectorAll<HTMLElement>(".lp-reveal"));
++    if (!targets.length) return;
++
++    if (
++      typeof IntersectionObserver === "undefined" ||
++      window.matchMedia("(prefers-reduced-motion: reduce)").matches
++    ) {
++      targets.forEach((el) => el.classList.add("is-visible"));
++      return;
++    }
++
++    const observer = new IntersectionObserver(
++      (entries) => {
++        entries.forEach((entry) => {
++          if (entry.isIntersecting) {
++            entry.target.classList.add("is-visible");
++            observer.unobserve(entry.target);
++          }
++        });
++      },
++      { rootMargin: "0px 0px -12% 0px", threshold: 0.12 }
++    );
++
++    targets.forEach((el) => observer.observe(el));
++    return () => observer.disconnect();
++  }, []);
++
++  return ref;
++}
++
++/** true quando a página já rolou além do limiar informado (header sticky). */
++export function useScrolled(threshold = 24) {
++  const [scrolled, setScrolled] = useState(false);
++
++  useEffect(() => {
++    const onScroll = () => setScrolled(window.scrollY > threshold);
++    onScroll();
++    window.addEventListener("scroll", onScroll, { passive: true });
++    return () => window.removeEventListener("scroll", onScroll);
++  }, [threshold]);
++
++  return scrolled;
++}
+-- 
+2.43.0
+

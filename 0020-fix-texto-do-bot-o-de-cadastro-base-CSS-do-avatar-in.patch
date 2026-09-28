@@ -1,0 +1,144 @@
+From b657c03e24831795f12a39cc24060934d6682ad5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 25 Sep 2026 00:45:11 +0000
+Subject: [PATCH 20/27] =?UTF-8?q?fix:=20texto=20do=20bot=C3=A3o=20de=20cad?=
+ =?UTF-8?q?astro=20+=20base=20CSS=20do=20avatar=20interativo/digitando?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Botão de envio do cadastro (SignupForm.tsx) trocado de "Continuar para
+  o pagamento" para "Continuar cadastro" — nada é cobrado nessa etapa
+  (15 dias grátis, só o cartão é cadastrado), pedido do Thiago.
+- globals.css: novo bloco .tobias-mascot-hero* (variante centralizada do
+  avatar interativo, para o momento de "nova conversa" no chat) e
+  .typing-dot/@keyframes typing-dot-bounce (indicador "Tobias está
+  digitando"). Ainda não consumido por nenhum componente .tsx.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Ka2YTSc9tuveNjCeKZ63MD
+---
+ src/app/(auth)/signup/SignupForm.tsx |  2 +-
+ src/app/globals.css                  | 93 ++++++++++++++++++++++++++++
+ 2 files changed, 94 insertions(+), 1 deletion(-)
+
+diff --git a/src/app/(auth)/signup/SignupForm.tsx b/src/app/(auth)/signup/SignupForm.tsx
+index 4f31ebc..5dc705e 100644
+--- a/src/app/(auth)/signup/SignupForm.tsx
++++ b/src/app/(auth)/signup/SignupForm.tsx
+@@ -71,7 +71,7 @@ export function SignupForm() {
+         </div>
+         <FieldError>{state?.error}</FieldError>
+         <Button type="submit" className="w-full" loading={pending} variant="secondary">
+-          Continuar para o pagamento
++          Continuar cadastro
+         </Button>
+         <p className="text-center text-xs text-onbrand/40">
+           Você será redirecionado ao Mercado Pago para cadastrar o cartão com segurança.
+diff --git a/src/app/globals.css b/src/app/globals.css
+index 638d1d1..066b3d0 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -319,6 +319,99 @@ select option {
+   }
+ }
+ 
++/* ============================================================================
++   Avatar interativo do momento "conversa nova" no chat principal (não o
++   onboarding, que já tem seu próprio hero estático) — mesma linguagem visual
++   do .tobias-mascot do Dashboard (respirar, pulsar mais forte no hover/foco,
++   balão de fala), só que centralizado em vez de flutuar no canto de um card,
++   e com um estado extra "is-typing" que liga o pulso forte sozinho enquanto
++   o Tobias está compondo a primeira resposta — pedido do Thiago de um avatar
++   "mais interativo" na abertura de cada conversa nova.
++   ============================================================================ */
++.tobias-mascot-hero {
++  position: relative;
++  display: inline-flex;
++  cursor: pointer;
++}
++.tobias-mascot-hero-ring {
++  width: 64px;
++  height: 64px;
++  border-radius: 999px;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  animation: tobias-breathe-soft 3.6s ease-in-out infinite;
++  box-shadow: 0 0 0 3px rgba(240, 153, 47, 0.4), 0 0 18px 3px rgba(240, 153, 47, 0.28);
++}
++.tobias-mascot-hero-ring img {
++  width: 56px;
++  height: 56px;
++  border-radius: 999px;
++  object-fit: cover;
++  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
++}
++.tobias-mascot-hero:hover .tobias-mascot-hero-ring,
++.tobias-mascot-hero:focus-visible .tobias-mascot-hero-ring,
++.tobias-mascot-hero.is-typing .tobias-mascot-hero-ring {
++  animation: tobias-pulse-big 0.9s ease-in-out infinite;
++}
++.tobias-mascot-hero:hover .tobias-mascot-hero-ring img,
++.tobias-mascot-hero:focus-visible .tobias-mascot-hero-ring img {
++  transform: scale(1.08);
++}
++.tobias-mascot-hero-bubble {
++  position: absolute;
++  top: 100%;
++  left: 50%;
++  margin-top: 8px;
++  background: var(--color-brand-700);
++  border: 1px solid color-mix(in srgb, var(--color-brand-50) 8%, transparent);
++  border-radius: 10px;
++  padding: 8px 12px;
++  font-size: 11.5px;
++  line-height: 1.3;
++  white-space: nowrap;
++  color: var(--color-brand-50);
++  opacity: 0;
++  transform: translate(-50%, -6px) scale(0.94);
++  pointer-events: none;
++  transition: all 0.2s ease;
++  box-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.6);
++  z-index: 5;
++}
++.tobias-mascot-hero:hover .tobias-mascot-hero-bubble,
++.tobias-mascot-hero:focus-visible .tobias-mascot-hero-bubble {
++  opacity: 1;
++  transform: translate(-50%, 0) scale(1);
++}
++@media (prefers-reduced-motion: reduce) {
++  .tobias-mascot-hero-ring {
++    animation: none;
++  }
++}
++
++/* "Tobias está digitando" — três pontos pulsando em sequência, no lugar do
++   spinner genérico anterior, pra dar a mesma sensação de "conversa viva"
++   de um app de mensagens moderno. */
++.typing-dot {
++  width: 6px;
++  height: 6px;
++  border-radius: 999px;
++  background: currentColor;
++  display: inline-block;
++  animation: typing-dot-bounce 1.1s ease-in-out infinite;
++}
++@keyframes typing-dot-bounce {
++  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
++  30% { transform: translateY(-3px); opacity: 1; }
++}
++@media (prefers-reduced-motion: reduce) {
++  .typing-dot {
++    animation: none;
++    opacity: 0.8;
++  }
++}
++
+ /* ============================================================================
+    Reveal celebratório de fim de onboarding (ProfileRevealOverlay.tsx):
+    "Perfil Desbloqueado" + curva de aposentadoria. Exceção deliberada e
+-- 
+2.43.0
+
