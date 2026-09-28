@@ -33,16 +33,16 @@ export default function Hero() {
         <div className="grid min-w-0 grid-cols-1 items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
           <div className="min-w-0 max-w-xl">
             {/* Mascote em destaque no topo da Hero (28/09/2026, pedido do Thiago).
-                Histórico: começou em 340px só o busto (sem nome, a logo do
-                Header ainda existia) → depois a logo do Header foi removida e
-                essa aqui passou a ser a única marca da página, com o nome
-                "Tobias" mantido, reduzida pra 200px pra não dominar demais →
-                agora aumentada de novo, pedido explícito "3x mais" a partir
-                dos 200px (200 * 3 = 600px). `Logo` usa a imagem inteira
-                (busto + nome, já desenhados dentro do PNG) numa proporção
-                quadrada fixa, então nunca distorce em nenhum tamanho — só o
-                `size` muda. */}
-            <Logo size={600} withWordmark={false} className="lp-reveal -ml-2 mb-3" />
+                Histórico: 340px só o busto → 200px busto+nome (logo do Header
+                removida) → 600px ("3x mais") ficou grande demais e desalinhou
+                os espaçamentos ao redor (Thiago, mesma mensagem) → 260px:
+                menor que os 340px originais, mas ainda claramente maior que
+                os 34px do antigo Header. `Logo` usa a imagem inteira (busto +
+                nome, já desenhados dentro do PNG) numa proporção quadrada
+                fixa, então nunca distorce em nenhum tamanho — só o `size`
+                muda. `mb-4` (em vez do `mb-3`/`mb-2` de versões anteriores) dá
+                mais respiro antes do selo "Sem Open Finance" logo abaixo. */}
+            <Logo size={260} withWordmark={false} className="lp-reveal mb-4" />
             <p className="lp-reveal inline-flex items-center gap-2 rounded-full border border-gold-500/25 bg-gold-500/[0.08] px-3.5 py-1.5 font-sans text-[0.72rem] font-medium tracking-wide text-gold-400">
               <Sparkles className="size-3.5 shrink-0" aria-hidden="true" /> Sem Open Finance · importe seus extratos
             </p>
