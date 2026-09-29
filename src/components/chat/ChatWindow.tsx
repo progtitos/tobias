@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useTransition } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/Button";
 
@@ -193,8 +193,16 @@ export function ChatWindow<TReveal = never>({
         {pending && (
           <div className="flex items-end gap-2 justify-start">
             <TobiasAvatar />
-            <div className="rounded-2xl rounded-bl-sm bg-brand-800 px-4 py-2.5">
-              <Loader2 className="h-4 w-4 animate-spin text-onbrand/60" />
+            {/* "Tobias está digitando" com três pontos pulsando em sequência
+                (.typing-dot, já existia em globals.css mas nunca tinha sido
+                usada — substitui o spinner genérico anterior). */}
+            <div className="rounded-2xl rounded-bl-sm bg-brand-800 px-4 py-2.5 flex items-center gap-2">
+              <span className="text-[13px] text-onbrand/50">Tobias está digitando</span>
+              <span className="flex items-center gap-0.5 text-onbrand/60">
+                <span className="typing-dot" style={{ animationDelay: "0ms" }} />
+                <span className="typing-dot" style={{ animationDelay: "150ms" }} />
+                <span className="typing-dot" style={{ animationDelay: "300ms" }} />
+              </span>
             </div>
           </div>
         )}
