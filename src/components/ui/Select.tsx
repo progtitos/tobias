@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import type { SelectHTMLAttributes } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { FIELD_SHADOW } from "@/components/ui/Input";
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
   ({ className, children, ...props }, ref) => (
@@ -10,6 +11,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
         ref={ref}
         className={cn(
           "w-full h-11 appearance-none rounded-xl border border-transparent bg-brand-800 px-3.5 pr-9 text-[15px] text-onbrand",
+          FIELD_SHADOW,
           "focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60",
           "disabled:opacity-50 disabled:cursor-not-allowed",
           className

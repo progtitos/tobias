@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { formatBRLInput } from "@/lib/utils/money";
+import { FIELD_SHADOW } from "@/components/ui/Input";
 
 /**
  * Campo de valor em reais com máscara "de banco" — os dígitos digitados vão
@@ -95,6 +96,7 @@ export function CurrencyInput({
         }}
         className={cn(
           "w-full h-11 rounded-xl border border-transparent bg-brand-800 px-3.5 text-[15px] text-onbrand text-right tabular-nums",
+          FIELD_SHADOW,
           "placeholder:text-onbrand/35 focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60",
           "disabled:opacity-50 disabled:cursor-not-allowed transition-shadow",
           className
