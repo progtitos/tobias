@@ -9,7 +9,6 @@ import { formatBRL } from "@/lib/utils/money";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 import { CompassDial } from "@/components/dashboard/CompassDial";
 import { CompassDimensionList } from "@/components/dashboard/CompassDimensionList";
-import { BehavioralProfileIcon } from "@/components/profile/BehavioralProfileIcon";
 import { cn } from "@/lib/utils/cn";
 
 const DARK_CARD = "bg-brand-800 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)]";
@@ -30,14 +29,26 @@ export default async function DashboardPage() {
       <div className="max-w-5xl mx-auto w-full space-y-6">
         <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
 
-        <Card className="bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]">
+        {/* "Seu perfil" (nome + ícone do PCA) saiu daqui — já tem um jeito de
+            ver o mesmo perfil (badge "Vive o Presente" etc.) na barra
+            superior do app, então o card ficava redundante. */}
+        <Card className={DARK_CARD}>
           <CardContent className="py-5">
-            <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-1.5">Seu perfil</p>
-            <div className="flex items-center gap-2.5">
-              <BehavioralProfileIcon profile={data.behavioralProfile.type} size="sm" />
-              <p className="font-sans font-medium text-[17px] leading-tight tracking-tight text-onbrand">
-                {data.behavioralProfile.label}
-              </p>
+            <div className="flex gap-3 items-start">
+              <Image
+                src="/avatars/tobias-alertas.png"
+                alt="Tobias"
+                width={38}
+                height={38}
+                className="tobias-mascot-soft shrink-0"
+              />
+              <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400 mb-1">Tobias</p>
+                {/* brand-700 não troca de tom com o tema (de propósito), então o
+                    texto usa brand-50 (também fixo) em vez de onbrand — que
+                    inverteria pra escuro e ficaria ilegível no tema claro */}
+                <p className="text-sm leading-relaxed text-brand-50">{data.tobiasMessage}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -141,27 +152,6 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-
-        <Card className={DARK_CARD}>
-          <CardContent className="py-5">
-            <div className="flex gap-3 items-start">
-              <Image
-                src="/avatars/tobias-alertas.png"
-                alt="Tobias"
-                width={38}
-                height={38}
-                className="tobias-mascot-soft shrink-0"
-              />
-              <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400 mb-1">Tobias</p>
-                {/* brand-700 não troca de tom com o tema (de propósito), então o
-                    texto usa brand-50 (também fixo) em vez de onbrand — que
-                    inverteria pra escuro e ficaria ilegível no tema claro */}
-                <p className="text-sm leading-relaxed text-brand-50">{data.tobiasMessage}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

@@ -40,7 +40,12 @@ export function CompassDimensionList({
             <Icon className="h-3.5 w-3.5 shrink-0 text-onbrand/50" strokeWidth={1.75} />
             <span className="text-[0.68rem] text-onbrand/70 truncate min-w-0">{d.label}</span>
             <span className="flex-1 min-w-[6px] border-b border-dotted border-onbrand/25 mb-[3px]" />
-            <span className="text-[0.64rem] font-normal tabular-nums shrink-0 w-[2.3em] text-right text-onbrand">
+            {/* Sem largura fixa: a coluna alinha à direita naturalmente porque
+                a linha pontilhada (flex-1) antes dela ocupa o espaço restante
+                — uma largura fixa (ex. w-[2.3em]) não cabia "100/100" nesse
+                tamanho de fonte e o texto vazava pra fora da caixa, quase
+                encostando na borda do card. */}
+            <span className="text-[0.64rem] font-normal tabular-nums shrink-0 text-right text-onbrand">
               {d.score}/100
             </span>
           </div>
