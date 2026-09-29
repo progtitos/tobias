@@ -196,8 +196,11 @@ export function PatrimonioClient({
   debts: Debt[];
 }) {
   return (
+    // max-w-3xl -> max-w-4xl: os objetivos e o par Outros bens/Dívidas agora
+    // viram grades de 2 colunas em telas largas (redesenho abaixo) — a
+    // largura antiga sufocava as colunas.
     <div className="flex-1 bg-brand-950 px-5 py-6">
-      <div className="max-w-3xl mx-auto w-full">
+      <div className="max-w-4xl mx-auto w-full">
         <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Patrimônio</h1>
         <p className="text-sm text-onbrand/55 mb-6">
           Seu patrimônio líquido, o que você tem e o que deve, e seus objetivos, num lugar só. Para editar
@@ -206,26 +209,46 @@ export function PatrimonioClient({
 
         <NetWorthSummary netWorth={netWorth} />
 
-        <h2 id="bens" className="font-sans font-medium text-lg text-onbrand mt-8 mb-1 scroll-mt-6">
-          Outros bens
-        </h2>
-        <p className="text-sm text-onbrand/45 mb-4">
-          Carro, imóvel quitado, joias — tudo que tem valor real mas não é dinheiro em conta nem investimento.
-        </p>
-        <AssetsSection assets={assets} />
-
-        <h2 id="dividas" className="font-sans font-medium text-lg text-onbrand mt-8 mb-1 scroll-mt-6">
-          Dívidas
-        </h2>
-        <p className="text-sm text-onbrand/45 mb-4">Financiamentos, empréstimos, cartão parcelado — o que falta pagar.</p>
-        <DebtsSection debts={debts} />
-
-        <div data-tour="patrimonio-sonhos">
-          <h2 id="sonhos" className="font-sans font-medium text-lg text-onbrand mt-8 mb-4 scroll-mt-6">
+        {/* Redesenho aprovado (screen 4 do briefing, 29/09/2026): "Seus
+            objetivos" sobe pra logo depois do patrimônio líquido — antes era
+            a última seção, depois de Outros bens e Dívidas, o que enterrava a
+            parte mais "viva" da tela (progresso, metas) embaixo de duas
+            listas mais estáticas. `id`/`data-tour` continuam os mesmos, só a
+            posição no DOM muda — os links existentes pra "/patrimonio#sonhos"
+            (chat, Investimentos, Renda e Despesas) e o passo do tour guiado
+            continuam funcionando iguais. */}
+        <div data-tour="patrimonio-sonhos" className="mt-8">
+          <h2 id="sonhos" className="font-sans font-medium text-lg text-onbrand mb-4 scroll-mt-6">
             Seus objetivos
           </h2>
 
           <GoalsSection goals={goals} emergencyFundSuggestion={emergencyFundSuggestion} />
+        </div>
+
+        {/* Outros bens e Dívidas dividem uma fileira em telas largas em vez
+            de empilhar — as duas são listas mais estáticas, de consulta
+            ocasional, então cabem lado a lado sem brigar por atenção com os
+            objetivos acima. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-8 mt-8">
+          <div>
+            <h2 id="bens" className="font-sans font-medium text-lg text-onbrand mb-1 scroll-mt-6">
+              Outros bens
+            </h2>
+            <p className="text-sm text-onbrand/45 mb-4">
+              Carro, imóvel quitado, joias — tudo que tem valor real mas não é dinheiro em conta nem investimento.
+            </p>
+            <AssetsSection assets={assets} />
+          </div>
+
+          <div>
+            <h2 id="dividas" className="font-sans font-medium text-lg text-onbrand mb-1 scroll-mt-6">
+              Dívidas
+            </h2>
+            <p className="text-sm text-onbrand/45 mb-4">
+              Financiamentos, empréstimos, cartão parcelado — o que falta pagar.
+            </p>
+            <DebtsSection debts={debts} />
+          </div>
         </div>
       </div>
     </div>
@@ -233,27 +256,31 @@ export function PatrimonioClient({
 }
 
 function NetWorthSummary({ netWorth }: { netWorth: NetWorth }) {
+  // Redesenho aprovado: o cartão grande (headline + figuras separadas por
+  // uma linha abaixo) vira uma faixa fina — os mesmos 4 números, só numa
+  // linha só (quebra pra uma segunda linha em telas estreitas, com uma
+  // borda fina separando em vez de um espaço grande de respiro).
   return (
     <Card data-tour="patrimonio-liquido">
-      <CardContent className="py-5">
-        <div className="flex items-end justify-between flex-wrap gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-0.5">Patrimônio líquido</p>
+      <CardContent className="py-4">
+        <div className="flex items-center gap-6 flex-wrap">
+          <div className="shrink-0">
+            <p className="text-[11px] uppercase tracking-wide text-onbrand/60 mb-0.5">Patrimônio líquido</p>
             <p
               className={cn(
-                "font-sans font-medium text-3xl tracking-tight tabular-nums",
+                "font-sans font-medium text-2xl tracking-tight tabular-nums",
                 netWorth.netWorth >= 0 ? "text-onbrand" : "text-danger-300"
               )}
             >
               {formatBRL(netWorth.netWorth)}
             </p>
           </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-onbrand/[0.06]">
-          <SummaryFigure label="Em contas" value={netWorth.liquidAssets} />
-          <SummaryFigure label="Investido" value={netWorth.investedAssets} />
-          <SummaryFigure label="Outros bens" value={netWorth.otherAssets} />
-          <SummaryFigure label="Dívidas" value={netWorth.totalDebt} negative />
+          <div className="flex items-center gap-5 flex-wrap w-full border-t border-onbrand/[0.06] pt-3 sm:w-auto sm:flex-1 sm:justify-end sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
+            <SummaryFigure label="Em contas" value={netWorth.liquidAssets} />
+            <SummaryFigure label="Investido" value={netWorth.investedAssets} />
+            <SummaryFigure label="Outros bens" value={netWorth.otherAssets} />
+            <SummaryFigure label="Dívidas" value={netWorth.totalDebt} negative />
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -702,16 +729,23 @@ function GoalsSection({
         </p>
       ) : (
         <div className="space-y-3">
-          {active.map((g) => (
-            <GoalCard
-              key={g.id}
-              goal={g}
-              emergencyFundSuggestion={emergencyFundSuggestion}
-              onAchieved={(title, goalType) =>
-                setAchieved({ key: Date.now(), title, type: goalType })
-              }
-            />
-          ))}
+          {/* Redesenho aprovado: objetivos ativos lado a lado em telas largas
+              (antes sempre empilhados) — cartões maiores e mais fáceis de
+              escanear de relance, como o protótipo propôs. "Outros"
+              (pausados/concluídos, menos relevantes no dia a dia) continua
+              numa lista simples abaixo, sem grade. */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {active.map((g) => (
+              <GoalCard
+                key={g.id}
+                goal={g}
+                emergencyFundSuggestion={emergencyFundSuggestion}
+                onAchieved={(title, goalType) =>
+                  setAchieved({ key: Date.now(), title, type: goalType })
+                }
+              />
+            ))}
+          </div>
           {others.length > 0 && (
             <>
               <p className="text-xs font-medium text-onbrand/55 pt-4">Outros</p>
@@ -790,7 +824,16 @@ function GoalCard({
   const pace = computeRequiredMonthlyPace(goal);
 
   return (
-    <Card data-testid="goal-card" data-goal-title={goal.title}>
+    // Borda colorida à esquerda (pedido do protótipo: "cartões de objetivo
+    // ficam maiores e com uma borda colorida") — reaproveita as duas cores
+    // que o selo no canto do anel/tanque já usa (ok-400 pra reserva de
+    // emergência, gold-500 pros demais tipos), sem introduzir nenhuma cor
+    // nova por tipo de objetivo.
+    <Card
+      data-testid="goal-card"
+      data-goal-title={goal.title}
+      className={cn("border-l-4", isEmergencyFund ? "border-l-ok-400" : "border-l-gold-500")}
+    >
       <CardContent className="py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
