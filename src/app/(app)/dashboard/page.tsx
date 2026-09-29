@@ -32,7 +32,7 @@ export default async function DashboardPage() {
           <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
           {/* Perfil comportamental (PCA) — não é mais um card próprio, fica
               no canto oposto desta mesma linha (pedido do Thiago). */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0 mr-2">
             <BehavioralProfileIcon profile={data.behavioralProfile.type} size="sm" />
             <span className="font-sans font-medium text-sm text-onbrand/80">{data.behavioralProfile.label}</span>
           </div>
