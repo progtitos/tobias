@@ -97,6 +97,27 @@
   --color-violet-400: #c3b8fa;
   --color-violet-100: #ece9fc;
 
+  /* Paleta de categoria, FIXA como as acima — 8 tons pra diferenciar
+     categorias de gasto no donut/ranking de Orçamento (LancamentosClient.tsx,
+     29/09/2026). Exceção explícita à regra da seção 15 do Design System
+     ("nunca inventar cor fora da paleta do produto" em gráfico): a primeira
+     versão tentou reaproveitar só o dourado (variando opacidade), mas o
+     Thiago viu o resultado e pediu uma cor de verdade por categoria — as 8
+     abaixo foram escolhidas pra não colidir com nenhuma cor semântica já em
+     uso (gold-400/500 = acento/dourado, ok-400 = positivo, danger-300 =
+     negativo/estourou): nenhuma é âmbar/laranja puro, teal-menta ou coral.
+     Categorias além da 8ª reciclam a paleta (módulo 8) — sem token a mais
+     pra cada categoria nova que o usuário criar. Usado só nesta tela; se
+     precisar em outra, repensar contra esta mesma lista antes de reusar. */
+  --color-cat-1: #6b8fb0; /* azul empoeirado */
+  --color-cat-2: #b0705a; /* terracota */
+  --color-cat-3: #7d8f5e; /* oliva */
+  --color-cat-4: #9b6f9e; /* malva */
+  --color-cat-5: #5e9b8f; /* verde-azulado escuro */
+  --color-cat-6: #7a7fae; /* azul-violeta */
+  --color-cat-7: #a5735e; /* argila */
+  --color-cat-8: #8a7e6e; /* taupe (categoria "Outros"/neutra) */
+
   --background: var(--color-cream-50);
   --foreground: var(--color-ink-900);
 }
@@ -177,6 +198,15 @@
   --color-violet-500: var(--color-violet-500);
   --color-violet-400: var(--color-violet-400);
   --color-violet-100: var(--color-violet-100);
+
+  --color-cat-1: var(--color-cat-1);
+  --color-cat-2: var(--color-cat-2);
+  --color-cat-3: var(--color-cat-3);
+  --color-cat-4: var(--color-cat-4);
+  --color-cat-5: var(--color-cat-5);
+  --color-cat-6: var(--color-cat-6);
+  --color-cat-7: var(--color-cat-7);
+  --color-cat-8: var(--color-cat-8);
 
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);

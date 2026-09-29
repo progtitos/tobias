@@ -1263,20 +1263,43 @@ function TransactionRow({ transaction, onEdit }: { transaction: Transaction; onE
 // mês) + o mesmo ranking de antes, só compacto (linhas dentro de um único
 // Card, sem sombra/raio repetidos por categoria).
 //
-// O protótipo original propunha uma cor própria por categoria (6 tons novos,
-// tipo terracota/laranja/azul) — sinalizado ali mesmo como algo que
-// precisava da aprovação do Thiago antes de virar código. Ao revisar,
-// achamos um conflito com a seção 15 do Design System ("todo gráfico deriva
-// cor dos tokens do tema, nunca inventar uma cor fora da paleta do
-// produto"). Decisão do Thiago: manter só a paleta atual — cada fatia usa o
-// MESMO dourado (`--color-gold-400`), variando só a opacidade por posição no
-// ranking (a maior fatia mais opaca, as menores mais claras). Sem token novo,
-// categorias ficam menos distintas entre si do que no protótipo original,
-// mas dentro da regra já documentada.
-const BUDGET_OPACITY_STEPS = [1, 0.82, 0.66, 0.52, 0.4, 0.3, 0.22, 0.16];
+// O protótipo original propunha uma cor própria por categoria — sinalizado
+// ali mesmo como algo que precisava da aprovação do Thiago antes de virar
+// código, por conflitar com a seção 15 do Design System ("nunca inventar uma
+// cor fora da paleta do produto" em gráfico). A primeira versão tentou
+// contornar isso com um único tom (dourado) variando só a opacidade, mas o
+// resultado ficou pouco legível — categorias quase idênticas entre si. O
+// Thiago viu e pediu cor de verdade por categoria; os 8 tons abaixo (ver
+// globals.css, `--color-cat-1`..`--color-cat-8`) foram escolhidos hoje como
+// exceção documentada, evitando qualquer cor já usada com outro significado
+// no produto (dourado = marca, verde = positivo, vermelho = negativo).
+const CATEGORY_CHART_COLORS = [
+  "var(--color-cat-1)",
+  "var(--color-cat-2)",
+  "var(--color-cat-3)",
+  "var(--color-cat-4)",
+  "var(--color-cat-5)",
+  "var(--color-cat-6)",
+  "var(--color-cat-7)",
+  "var(--color-cat-8)",
+];
 
-function budgetOpacity(rank: number): number {
-  return BUDGET_OPACITY_STEPS[Math.min(rank, BUDGET_OPACITY_STEPS.length - 1)];
+// Categorias além da 8ª reciclam a paleta (módulo) em vez de pedir token novo
+// a cada categoria criada pelo usuário.
+function categoryChartColor(rank: number): string {
+  return CATEGORY_CHART_COLORS[rank % CATEGORY_CHART_COLORS.length];
+}
+
+/** Só pro número dentro do donut: "R$ 13.515,74" não cabia no miolo do
+ * círculo sem estourar a borda. "R$ 13,5 mil" cabe numa linha só. */
+function formatCompactBRL(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    notation: "compact",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 /** Deslocamento (offset) de cada fatia do donut, uma por vez, como o
@@ -1296,8 +1319,12 @@ function cumulativeOffsets(dashes: number[]): number[] {
 }
 
 function BudgetDonut({ items, total }: { items: { id: string; label: string; actual: number }[]; total: number }) {
-  const size = 112;
-  const r = 42;
+  // Aumentado de 112 -> 152 (pedido do Thiago, 29/09/2026: "pode aumentar o
+  // card do gráfico") — no tamanho antigo o miolo do círculo era estreito
+  // demais pro valor total ("R$ 13.515,74" estourava a borda do anel).
+  const size = 152;
+  const r = 56;
+  const strokeWidth = 16;
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * r;
@@ -1305,10 +1332,16 @@ function BudgetDonut({ items, total }: { items: { id: string; label: string; act
   const offsets = cumulativeOffsets(dashes);
 
   return (
-    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+    // `max-w-sm mx-auto`: sem isso, o grupo donut+legenda esticava pra
+    // preencher a largura toda do Card (~1100px em desktop), empurrando a
+    // coluna de porcentagem pra bem longe do nome da categoria — o "tudo
+    // desalinhado" que o Thiago apontou. Limitando a largura do conjunto,
+    // ele fica compacto e centralizado dentro do Card, do jeito que já
+    // funcionava no protótipo (frame de celular, nunca mais largo que isso).
+    <div className="flex items-center gap-5 flex-wrap sm:flex-nowrap max-w-sm mx-auto">
       <div className="relative shrink-0 mx-auto sm:mx-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Composição do gasto por categoria neste mês">
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-onbrand)" strokeOpacity={0.07} strokeWidth={14} />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-onbrand)" strokeOpacity={0.07} strokeWidth={strokeWidth} />
           {items.map((c, i) => {
             return (
               <circle
@@ -1317,9 +1350,8 @@ function BudgetDonut({ items, total }: { items: { id: string; label: string; act
                 cy={cy}
                 r={r}
                 fill="none"
-                stroke="var(--color-gold-400)"
-                strokeOpacity={budgetOpacity(i)}
-                strokeWidth={14}
+                stroke={categoryChartColor(i)}
+                strokeWidth={strokeWidth}
                 strokeDasharray={`${dashes[i]} ${circumference}`}
                 strokeDashoffset={offsets[i]}
                 transform={`rotate(-90 ${cx} ${cy})`}
@@ -1327,11 +1359,11 @@ function BudgetDonut({ items, total }: { items: { id: string; label: string; act
             );
           })}
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
-          <span className="font-sans font-semibold text-base tabular-nums text-onbrand leading-none">
-            {formatBRL(total)}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-3">
+          <span className="font-sans font-semibold text-lg tabular-nums text-onbrand leading-tight">
+            {formatCompactBRL(total)}
           </span>
-          <span className="text-[10px] text-onbrand/50 mt-1">gasto no mês</span>
+          <span className="text-[10px] text-onbrand/50 mt-1 leading-tight">gasto no mês</span>
         </div>
       </div>
       <div className="flex flex-col gap-1.5 min-w-0 w-full sm:w-auto sm:flex-1">
@@ -1339,11 +1371,11 @@ function BudgetDonut({ items, total }: { items: { id: string; label: string; act
           <div key={c.id} className="flex items-center gap-1.5 text-xs min-w-0">
             <span
               className="h-2 w-2 rounded-full shrink-0"
-              style={{ background: "var(--color-gold-400)", opacity: budgetOpacity(i) }}
+              style={{ background: categoryChartColor(i) }}
               aria-hidden
             />
             <span className="text-onbrand/70 truncate">{c.label}</span>
-            <span className="ml-auto tabular-nums text-onbrand/45 shrink-0">
+            <span className="ml-auto pl-2 tabular-nums text-onbrand/45 shrink-0">
               {Math.round((c.actual / total) * 100)}%
             </span>
           </div>
@@ -1393,7 +1425,7 @@ function BudgetTab({ budgets }: { budgets: BudgetRow[] }) {
           <Card className="p-0 overflow-hidden">
             <div className="divide-y divide-onbrand/[0.06]">
               {ranked.map((b, i) => (
-                <BudgetRankRow key={b.id} budget={b} dotOpacity={budgetOpacity(i)} />
+                <BudgetRankRow key={b.id} budget={b} dotColor={categoryChartColor(i)} />
               ))}
             </div>
           </Card>
@@ -1403,7 +1435,7 @@ function BudgetTab({ budgets }: { budgets: BudgetRow[] }) {
   );
 }
 
-function BudgetRankRow({ budget, dotOpacity }: { budget: BudgetRow; dotOpacity: number }) {
+function BudgetRankRow({ budget, dotColor }: { budget: BudgetRow; dotColor: string }) {
   const [editing, setEditing] = useState(false);
   const [newLimit, setNewLimit] = useState(budget.limitAmount);
   const [pending, startTransition] = useTransition();
@@ -1422,14 +1454,9 @@ function BudgetRankRow({ budget, dotOpacity }: { budget: BudgetRow; dotOpacity: 
     <div className="px-4 py-3.5">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {/* Mesma cor/opacidade da fatia do donut acima — a bolinha liga
-              visualmente cada linha do ranking à sua fatia, sem precisar de
-              uma cor nova por categoria. */}
-          <span
-            className="h-2 w-2 rounded-full shrink-0"
-            style={{ background: "var(--color-gold-400)", opacity: dotOpacity }}
-            aria-hidden
-          />
+          {/* Mesma cor da fatia do donut acima — a bolinha liga visualmente
+              cada linha do ranking à sua fatia. */}
+          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: dotColor }} aria-hidden />
           <p className="font-medium text-onbrand truncate">{budget.label}</p>
           {!budget.isAutoCalculated && <Badge tone="neutral">Ajustado por você</Badge>}
           {budget.isOverrun && <Badge tone="danger">Estourou</Badge>}
