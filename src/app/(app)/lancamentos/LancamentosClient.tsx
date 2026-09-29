@@ -1258,9 +1258,106 @@ function TransactionRow({ transaction, onEdit }: { transaction: Transaction; onE
 // ---------------------------------------------------------------------------
 // Orçamento
 // ---------------------------------------------------------------------------
+// Redesenho aprovado (screen 3 do briefing, 29/09/2026): a pilha de um Card
+// por categoria vira um gráfico de composição (pra onde foi o dinheiro no
+// mês) + o mesmo ranking de antes, só compacto (linhas dentro de um único
+// Card, sem sombra/raio repetidos por categoria).
+//
+// O protótipo original propunha uma cor própria por categoria (6 tons novos,
+// tipo terracota/laranja/azul) — sinalizado ali mesmo como algo que
+// precisava da aprovação do Thiago antes de virar código. Ao revisar,
+// achamos um conflito com a seção 15 do Design System ("todo gráfico deriva
+// cor dos tokens do tema, nunca inventar uma cor fora da paleta do
+// produto"). Decisão do Thiago: manter só a paleta atual — cada fatia usa o
+// MESMO dourado (`--color-gold-400`), variando só a opacidade por posição no
+// ranking (a maior fatia mais opaca, as menores mais claras). Sem token novo,
+// categorias ficam menos distintas entre si do que no protótipo original,
+// mas dentro da regra já documentada.
+const BUDGET_OPACITY_STEPS = [1, 0.82, 0.66, 0.52, 0.4, 0.3, 0.22, 0.16];
+
+function budgetOpacity(rank: number): number {
+  return BUDGET_OPACITY_STEPS[Math.min(rank, BUDGET_OPACITY_STEPS.length - 1)];
+}
+
+/** Deslocamento (offset) de cada fatia do donut, uma por vez, como o
+ * `stroke-dashoffset` de um `<circle>` espera: a soma acumulada das fatias
+ * ANTERIORES, negativa. Uma função utilitária comum (fora do corpo do
+ * componente) em vez de uma variável reatribuída dentro do `.map` que monta
+ * o JSX — o eslint-plugin-react-hooks acusa essa segunda forma como
+ * mutação impura durante a renderização. */
+function cumulativeOffsets(dashes: number[]): number[] {
+  const offsets: number[] = [];
+  let sum = 0;
+  for (const dash of dashes) {
+    offsets.push(-sum);
+    sum += dash;
+  }
+  return offsets;
+}
+
+function BudgetDonut({ items, total }: { items: { id: string; label: string; actual: number }[]; total: number }) {
+  const size = 112;
+  const r = 42;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const dashes = items.map((c) => (c.actual / total) * circumference);
+  const offsets = cumulativeOffsets(dashes);
+
+  return (
+    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+      <div className="relative shrink-0 mx-auto sm:mx-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Composição do gasto por categoria neste mês">
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-onbrand)" strokeOpacity={0.07} strokeWidth={14} />
+          {items.map((c, i) => {
+            return (
+              <circle
+                key={c.id}
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke="var(--color-gold-400)"
+                strokeOpacity={budgetOpacity(i)}
+                strokeWidth={14}
+                strokeDasharray={`${dashes[i]} ${circumference}`}
+                strokeDashoffset={offsets[i]}
+                transform={`rotate(-90 ${cx} ${cy})`}
+              />
+            );
+          })}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
+          <span className="font-sans font-semibold text-base tabular-nums text-onbrand leading-none">
+            {formatBRL(total)}
+          </span>
+          <span className="text-[10px] text-onbrand/50 mt-1">gasto no mês</span>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5 min-w-0 w-full sm:w-auto sm:flex-1">
+        {items.map((c, i) => (
+          <div key={c.id} className="flex items-center gap-1.5 text-xs min-w-0">
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ background: "var(--color-gold-400)", opacity: budgetOpacity(i) }}
+              aria-hidden
+            />
+            <span className="text-onbrand/70 truncate">{c.label}</span>
+            <span className="ml-auto tabular-nums text-onbrand/45 shrink-0">
+              {Math.round((c.actual / total) * 100)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function BudgetTab({ budgets }: { budgets: BudgetRow[] }) {
   const [pending, startTransition] = useTransition();
+  const ranked = [...budgets].sort((a, b) => b.actual - a.actual);
+  const totalActual = ranked.reduce((s, b) => s + b.actual, 0);
+  const donutItems = ranked.filter((b) => b.actual > 0).map((b) => ({ id: b.id, label: b.label, actual: b.actual }));
 
   return (
     <div>
@@ -1280,17 +1377,33 @@ function BudgetTab({ budgets }: { budgets: BudgetRow[] }) {
           Ainda não há um orçamento sugerido. Conte pro Tobias sua renda no chat para ele montar um guia inicial.
         </p>
       ) : (
-        <div className="space-y-3">
-          {budgets.map((b) => (
-            <BudgetRowCard key={b.id} budget={b} />
-          ))}
+        <div className="space-y-5">
+          <Card>
+            <CardContent className="py-5">
+              {totalActual > 0 ? (
+                <BudgetDonut items={donutItems} total={totalActual} />
+              ) : (
+                <p className="text-sm text-onbrand/55 text-center py-3">
+                  Nenhum gasto lançado neste mês ainda — o gráfico de composição aparece assim que houver dados.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="p-0 overflow-hidden">
+            <div className="divide-y divide-onbrand/[0.06]">
+              {ranked.map((b, i) => (
+                <BudgetRankRow key={b.id} budget={b} dotOpacity={budgetOpacity(i)} />
+              ))}
+            </div>
+          </Card>
         </div>
       )}
     </div>
   );
 }
 
-function BudgetRowCard({ budget }: { budget: BudgetRow }) {
+function BudgetRankRow({ budget, dotOpacity }: { budget: BudgetRow; dotOpacity: number }) {
   const [editing, setEditing] = useState(false);
   const [newLimit, setNewLimit] = useState(budget.limitAmount);
   const [pending, startTransition] = useTransition();
@@ -1306,56 +1419,64 @@ function BudgetRowCard({ budget }: { budget: BudgetRow }) {
   }
 
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-medium text-onbrand">{budget.label}</p>
-            {!budget.isAutoCalculated && <Badge tone="neutral">Ajustado por você</Badge>}
-            {budget.isOverrun && <Badge tone="danger">Estourou</Badge>}
-          </div>
+    <div className="px-4 py-3.5">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          {/* Mesma cor/opacidade da fatia do donut acima — a bolinha liga
+              visualmente cada linha do ranking à sua fatia, sem precisar de
+              uma cor nova por categoria. */}
+          <span
+            className="h-2 w-2 rounded-full shrink-0"
+            style={{ background: "var(--color-gold-400)", opacity: dotOpacity }}
+            aria-hidden
+          />
+          <p className="font-medium text-onbrand truncate">{budget.label}</p>
+          {!budget.isAutoCalculated && <Badge tone="neutral">Ajustado por você</Badge>}
+          {budget.isOverrun && <Badge tone="danger">Estourou</Badge>}
+        </div>
 
-          {editing ? (
-            <div className="flex items-center gap-1.5">
-              <CurrencyInput
-                autoFocus
-                defaultValue={budget.limitAmount}
-                onValueChange={setNewLimit}
-                className="h-8 w-28 text-sm"
-              />
-              <button className="text-ok-400 disabled:opacity-50" disabled={pending} onClick={save} title="Salvar">
-                <Check className="h-4 w-4" />
-              </button>
-              <button
-                className="text-onbrand/40"
-                onClick={() => {
-                  setEditing(false);
-                  setNewLimit(budget.limitAmount);
-                }}
-                title="Cancelar"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <button
-              className="text-onbrand/40 hover:text-gold-400 shrink-0"
-              title="Ajustar limite"
-              onClick={() => setEditing(true)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
+        {editing ? (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <CurrencyInput
+              autoFocus
+              defaultValue={budget.limitAmount}
+              onValueChange={setNewLimit}
+              className="h-8 w-28 text-sm"
+            />
+            <button className="text-ok-400 disabled:opacity-50" disabled={pending} onClick={save} title="Salvar">
+              <Check className="h-4 w-4" />
             </button>
-          )}
-        </div>
+            <button
+              className="text-onbrand/40"
+              onClick={() => {
+                setEditing(false);
+                setNewLimit(budget.limitAmount);
+              }}
+              title="Cancelar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            className="text-onbrand/40 hover:text-gold-400 shrink-0"
+            title="Ajustar limite"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
 
-        <div className="flex justify-between text-sm mb-1">
-          <span className="text-onbrand/55">
-            {formatBRL(budget.actual)} de {formatBRL(budget.limitAmount)}
-          </span>
-          <span className={budget.isOverrun ? "text-danger-300 font-medium" : "text-onbrand/70"}>{pct}%</span>
-        </div>
+      <div className="flex justify-between text-sm mb-1 pl-3.5">
+        <span className="text-onbrand/55">
+          {formatBRL(budget.actual)} de {formatBRL(budget.limitAmount)}
+        </span>
+        <span className={budget.isOverrun ? "text-danger-300 font-medium" : "text-onbrand/70"}>{pct}%</span>
+      </div>
+      <div className="pl-3.5">
         <ProgressBar value={Math.min(100, pct)} barClassName={budget.isOverrun ? "bg-danger-300" : undefined} />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
