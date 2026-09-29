@@ -9,6 +9,7 @@ import { formatBRL } from "@/lib/utils/money";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 import { CompassDial } from "@/components/dashboard/CompassDial";
 import { CompassDimensionList } from "@/components/dashboard/CompassDimensionList";
+import { BehavioralProfileIcon } from "@/components/profile/BehavioralProfileIcon";
 import { cn } from "@/lib/utils/cn";
 
 const DARK_CARD = "bg-brand-800 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)]";
@@ -29,9 +30,6 @@ export default async function DashboardPage() {
       <div className="max-w-5xl mx-auto w-full space-y-6">
         <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
 
-        {/* "Seu perfil" (nome + ícone do PCA) saiu daqui — já tem um jeito de
-            ver o mesmo perfil (badge "Vive o Presente" etc.) na barra
-            superior do app, então o card ficava redundante. */}
         <Card className={DARK_CARD}>
           <CardContent className="py-5">
             <div className="flex gap-3 items-start">
@@ -49,6 +47,23 @@ export default async function DashboardPage() {
                     inverteria pra escuro e ficaria ilegível no tema claro */}
                 <p className="text-sm leading-relaxed text-brand-50">{data.tobiasMessage}</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Seu perfil comportamental (PCA) — tinha sumido sem querer numa
+            passada anterior (eu tinha achado que era redundante com algo na
+            barra superior; não é, "Vive o Presente" ali é só o texto do
+            próprio perfil, coincidência de nome). Volta aqui, entre o
+            card do Tobias e os 3 cards do mês. */}
+        <Card className="bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]">
+          <CardContent className="py-5">
+            <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-1.5">Seu perfil</p>
+            <div className="flex items-center gap-2.5">
+              <BehavioralProfileIcon profile={data.behavioralProfile.type} size="sm" />
+              <p className="font-sans font-medium text-[17px] leading-tight tracking-tight text-onbrand">
+                {data.behavioralProfile.label}
+              </p>
             </div>
           </CardContent>
         </Card>
