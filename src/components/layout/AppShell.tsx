@@ -5,7 +5,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  MessageCircle,
   Receipt,
   Wallet,
   TrendingUp,
@@ -20,21 +19,23 @@ import { TrialBadge } from "./TrialBadge";
 import { MandatoryTourOverlay } from "@/components/tour/MandatoryTourOverlay";
 import { cn } from "@/lib/utils/cn";
 
+// Ordem pedida pelo Thiago (2026-09-29). "Tobias" saiu do menu: o chat passa
+// a ser acessado pelo card "Tobias" da tela Início, não mais por uma aba
+// própria na sidebar/rodapé — ver DashboardPage.
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
-  { href: "/chat", label: "Tobias", icon: MessageCircle },
   { href: "/lancamentos", label: "Transações", icon: Receipt },
-  { href: "/conta", label: "Conta", icon: Wallet },
   // Aba nova (Thiago, 2026-09-20): renda e gastos fixos obrigatórios
   // (salário, Uber, Airbnb, aluguel, pensão) com lançamento automático
   // mensal — ver services/incomeExpenseSources.ts.
   { href: "/renda-despesas", label: "Renda e Despesas", icon: PiggyBank },
   { href: "/patrimonio", label: "Patrimônio", icon: Landmark },
+  { href: "/retirement", label: "Aposentadoria", icon: TrendingUp },
   { href: "/investimentos", label: "Investimentos", icon: LineChart },
+  { href: "/conta", label: "Conta", icon: Wallet },
   // "/compass" (Ponteiro) saiu do menu por decisão do Thiago (2026-09-20) —
   // a rota continua existindo e acessível pelo link "Ver tudo" no card do
   // Dashboard, só não tem mais aba própria aqui.
-  { href: "/retirement", label: "Aposentadoria", icon: TrendingUp },
 ];
 
 export function AppShell({
