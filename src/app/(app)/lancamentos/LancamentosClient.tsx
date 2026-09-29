@@ -62,7 +62,6 @@ import { toast } from "sonner";
 import {
   createTransactionAction,
   updateTransactionAction,
-  updateCategoryAction,
   deleteTransactionAction,
   recalculateBudgetAction,
   updateBudgetLimitAction,
@@ -393,20 +392,100 @@ function TransactionsTab({
             : "Nenhuma transação registrada neste mês ainda. Adicione uma ou conte pro Tobias no chat."}
         </p>
       ) : (
-        <ul className="space-y-2">
-          {transactions.map((t) => (
-            <TransactionRow
-              key={t.id}
-              transaction={t}
-              categories={expenseCategories}
-              onEdit={() => {
+        <div className="space-y-5">
+          {groupByDay(transactions).map((group) => (
+            <DayGroup
+              key={group.dayKey}
+              group={group}
+              onEdit={(t) => {
                 setShowForm(false);
                 setEditingTransaction(t);
               }}
             />
           ))}
-        </ul>
+        </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Feed agrupado por dia (redesenho aprovado, 29/09/2026) — antes cada
+// transação era um Card avulso, com data repetida em toda linha e o dia sem
+// nenhum resumo próprio. Agora um único painel por dia mostra o total líquido
+// do dia no cabeçalho (créditos menos débitos, transferência não conta pra
+// nenhum lado — é só dinheiro mudando de lugar) e cada linha vira só ícone +
+// descrição + valor + seta, já que excluir/trocar categoria saíram da lista
+// pra dentro do modal de editar (ver EditTransactionModal).
+// ---------------------------------------------------------------------------
+
+type DayGroupData = { dayKey: string; date: string; transactions: Transaction[] };
+
+function groupByDay(transactions: Transaction[]): DayGroupData[] {
+  const groups: DayGroupData[] = [];
+  const byKey = new Map<string, DayGroupData>();
+  for (const t of transactions) {
+    const dayKey = t.date.slice(0, 10);
+    let group = byKey.get(dayKey);
+    if (!group) {
+      group = { dayKey, date: t.date, transactions: [] };
+      byKey.set(dayKey, group);
+      groups.push(group);
+    }
+    group.transactions.push(t);
+  }
+  return groups;
+}
+
+function dayLabel(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86_400_000);
+  if (diffDays === 0) return "Hoje";
+  if (diffDays === 1) return "Ontem";
+  const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(d);
+  const dayMonth = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long" }).format(d);
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dayMonth}`;
+}
+
+function dayNetTotal(transactions: Transaction[]): number {
+  return transactions.reduce((sum, t) => {
+    if (t.type === "TRANSFER") return sum;
+    const sign = t.type === "EXPENSE" ? -1 : 1;
+    return sum + sign * t.amount;
+  }, 0);
+}
+
+function DayGroup({
+  group,
+  onEdit,
+}: {
+  group: DayGroupData;
+  onEdit: (t: Transaction) => void;
+}) {
+  const net = dayNetTotal(group.transactions);
+  return (
+    <div>
+      <div className="flex items-center justify-between px-1 mb-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-onbrand/45">{dayLabel(group.date)}</span>
+        <span
+          className={cn(
+            "text-xs font-medium tabular-nums",
+            net > 0 ? "text-ok-400" : net < 0 ? "text-onbrand/60" : "text-onbrand/35"
+          )}
+        >
+          {net > 0 ? "+" : net < 0 ? "−" : ""}
+          {formatBRL(Math.abs(net))}
+        </span>
+      </div>
+      <Card className="p-0 overflow-hidden">
+        <div className="divide-y divide-onbrand/[0.06]">
+          {group.transactions.map((t) => (
+            <TransactionRow key={t.id} transaction={t} onEdit={() => onEdit(t)} />
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }
@@ -530,6 +609,7 @@ function TransactionFields({
   accounts,
   defaults,
   showInstallments,
+  onCategoryIdChange,
 }: {
   type: string;
   setType: (t: string) => void;
@@ -538,9 +618,18 @@ function TransactionFields({
   accounts: Account[];
   defaults?: Partial<Transaction>;
   showInstallments: boolean;
+  /**
+   * Só usado pelo modal de editar: precisa saber qual categoria está
+   * selecionada AGORA (sem esperar o submit do form) pra habilitar a ação
+   * "sempre categorizar assim" com a categoria certa. `NewTransactionForm`
+   * não passa isso — o select continua funcionando normalmente pro submit
+   * de qualquer forma, via `name="categoryId"`.
+   */
+  onCategoryIdChange?: (categoryId: string) => void;
 }) {
   const [paymentMethod, setPaymentMethod] = useState(defaults?.paymentMethod ?? "");
   const [amount, setAmount] = useState(defaults?.amount ?? 0);
+  const [categoryId, setCategoryId] = useState(defaults?.categoryId ?? "");
   // "Parcelas" (cartão de crédito) e "gasto fixo mensal" (qualquer outra
   // forma de pagamento) usam o mesmo campo installmentTotal por trás — só um
   // dos dois blocos abaixo fica montado por vez, então nunca colidem.
@@ -598,7 +687,15 @@ function TransactionFields({
       {type === "EXPENSE" && (
         <div>
           <Label htmlFor="categoryId">Categoria</Label>
-          <Select id="categoryId" name="categoryId" defaultValue={defaults?.categoryId ?? ""}>
+          <Select
+            id="categoryId"
+            name="categoryId"
+            value={categoryId}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              onCategoryIdChange?.(e.target.value);
+            }}
+          >
             <option value="">Deixar o Tobias categorizar</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
@@ -773,11 +870,34 @@ function EditTransactionModal({
 }) {
   const [type, setType] = useState(transaction.type);
   const [state, formAction, pending] = useActionState<LancamentosFormState, FormData>(updateTransactionAction, undefined);
+  // A linha da lista não mostra mais excluir/trocar categoria direto (pedido
+  // do Thiago, 29/09/2026: "mover para dentro do modal") — as duas ações e a
+  // regra automática ("sempre categorizar assim") moram aqui agora.
+  const [categoryId, setCategoryId] = useState(transaction.categoryId ?? "");
+  const [showRule, setShowRule] = useState(false);
+  const [keyword, setKeyword] = useState(transaction.description);
+  const [rulePending, startRuleTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletePending, startDeleteTransition] = useTransition();
 
   useEffect(() => {
     if (state?.success) onClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
+
+  function saveRule() {
+    if (!categoryId || !keyword.trim()) return;
+    startRuleTransition(async () => {
+      const appliedCount = await saveRecurringRuleAction(keyword.trim(), categoryId, transaction.id);
+      setShowRule(false);
+      const categoryName = categories.find((c) => c.id === categoryId)?.name ?? "essa categoria";
+      toast.success(
+        appliedCount > 0
+          ? `Regra salva. ${appliedCount} transação${appliedCount > 1 ? "ões" : ""} antiga${appliedCount > 1 ? "s" : ""} também ${appliedCount > 1 ? "foram atualizadas" : "foi atualizada"} pra ${categoryName}.`
+          : `Regra salva. Daqui pra frente, "${keyword.trim()}" cai direto em ${categoryName}.`
+      );
+    });
+  }
 
   return (
     // `Modal` (design-system-tobias.md, seção 13) no lugar do overlay/Card
@@ -806,19 +926,97 @@ function EditTransactionModal({
           accounts={accounts}
           defaults={transaction}
           showInstallments={false}
+          onCategoryIdChange={setCategoryId}
         />
+
+        {type === "EXPENSE" && (
+          <div className="sm:col-span-2 -mt-1.5">
+            {!showRule ? (
+              <button
+                type="button"
+                title={categoryId ? undefined : "Escolha uma categoria primeiro"}
+                disabled={!categoryId}
+                className={cn(
+                  "inline-flex items-center gap-1.5 text-xs font-medium transition-colors",
+                  categoryId ? "text-onbrand/50 hover:text-gold-400" : "text-onbrand/25 cursor-not-allowed"
+                )}
+                onClick={() => setShowRule(true)}
+              >
+                <Repeat className="h-3.5 w-3.5" /> Sempre categorizar assim
+              </button>
+            ) : (
+              <div className="rounded-xl bg-onbrand/[0.04] p-3">
+                <p className="text-xs text-onbrand/55 mb-2">
+                  Transações antigas ou futuras com este trecho na descrição caem direto nessa categoria.
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    placeholder='Trecho que se repete, ex: "quinto andar"'
+                    className="text-xs rounded-lg border border-transparent bg-brand-900 text-onbrand px-2 py-1.5 flex-1 min-w-0"
+                  />
+                  <button
+                    type="button"
+                    className="text-ok-400 disabled:opacity-40 shrink-0"
+                    title="Salvar regra"
+                    disabled={rulePending || !keyword.trim()}
+                    onClick={saveRule}
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="text-onbrand/40 shrink-0"
+                    title="Cancelar"
+                    onClick={() => setShowRule(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="sm:col-span-2">
           <FieldError>{state?.error}</FieldError>
-          <div className="flex gap-2 mt-1">
-            <Button type="submit" loading={pending}>
-              Salvar alterações
-            </Button>
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancelar
-            </Button>
+          <div className="flex items-center justify-between gap-2 mt-1">
+            <div className="flex gap-2">
+              <Button type="submit" loading={pending}>
+                Salvar alterações
+              </Button>
+              <Button type="button" variant="ghost" onClick={onClose}>
+                Cancelar
+              </Button>
+            </div>
+            <IconButton
+              label="Excluir transação"
+              tone="danger"
+              disabled={deletePending}
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </IconButton>
           </div>
         </div>
       </form>
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Excluir esta transação?"
+        description="Isso não pode ser desfeito."
+        pending={deletePending}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          startDeleteTransition(async () => {
+            await deleteTransactionAction(transaction.id);
+            setConfirmDelete(false);
+            onClose();
+          });
+        }}
+      />
     </Modal>
   );
 }
@@ -952,25 +1150,57 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
   );
 }
 
-function TransactionRow({
-  transaction,
-  categories,
-  onEdit,
-}: {
-  transaction: Transaction;
-  categories: Category[];
-  onEdit: () => void;
-}) {
-  const [pending, startTransition] = useTransition();
-  // Espelha transaction.categoryId em vez de ler só a prop: o <select> muda
-  // na hora (otimista), e o botão "sempre categorizar assim" precisa saber
-  // JÁ qual categoria foi escolhida, sem esperar o round-trip do servidor +
-  // revalidação terminar (a pessoa pode escolher a categoria e clicar em
-  // "sempre" quase junto).
-  const [categoryId, setCategoryId] = useState(transaction.categoryId ?? "");
-  const [showRule, setShowRule] = useState(false);
-  const [keyword, setKeyword] = useState(transaction.description);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+// Ícone com fundo colorido por tipo — mesma leitura rápida em créditos/
+// investimentos/transferências, uma cor de destaque; gasto fica num círculo
+// neutro (a variedade de categorias já é o ícone em si, uma cor por
+// categoria é uma evolução futura, fora do escopo deste redesenho).
+const TYPE_ICON_BG: Record<string, string> = {
+  INCOME: "bg-ok-400/15 text-ok-400",
+  EXPENSE: "bg-onbrand/[0.07] text-onbrand/70",
+  INVESTMENT_CONTRIBUTION: "bg-gold-400/15 text-gold-400",
+  TRANSFER: "bg-onbrand/[0.07] text-onbrand/50",
+};
+
+/** Pedacinhos de contexto (banco, categoria, estabelecimento, forma de
+ * pagamento) juntados numa linha só, separados por "·" — só entram os que
+ * existem pra essa transação, então a linha nunca fica com separadores
+ * soltos. */
+function TransactionSubtext({ transaction }: { transaction: Transaction }) {
+  const parts: React.ReactNode[] = [];
+
+  const bankName = transaction.bankAccountBankName ?? transaction.cardBankName ?? null;
+  const accountOrCardLabel = transaction.bankAccountName ?? transaction.creditCardNickname ?? null;
+  if (bankName) {
+    parts.push(
+      <span key="bank" className="inline-flex items-center gap-1">
+        <BankBadge bankName={bankName} /> {bankName}
+      </span>
+    );
+  } else if (accountOrCardLabel) {
+    parts.push(<span key="acct">{accountOrCardLabel}</span>);
+  }
+
+  if (transaction.type === "EXPENSE") {
+    parts.push(<span key="cat">{transaction.categoryName ?? "Sem categoria"}</span>);
+  }
+  if (transaction.merchant) parts.push(<span key="merchant">{transaction.merchant}</span>);
+  if (transaction.paymentMethod) parts.push(<span key="pm">{PAYMENT_LABELS[transaction.paymentMethod]}</span>);
+
+  if (parts.length === 0) return null;
+
+  return (
+    <p className="text-xs text-onbrand/55 flex items-center gap-1.5 flex-wrap">
+      {parts.map((part, i) => (
+        <span key={i} className="inline-flex items-center gap-1.5">
+          {i > 0 && <span className="text-onbrand/25">·</span>}
+          {part}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function TransactionRow({ transaction, onEdit }: { transaction: Transaction; onEdit: () => void }) {
   const lowConfidence = transaction.categoryId && transaction.confidence < 0.7;
   const meta = TYPE_META[transaction.type] ?? TYPE_META.EXPENSE;
   // Um gasto categorizado mostra o ícone da própria categoria (Moradia,
@@ -980,228 +1210,48 @@ function TransactionRow({
   const categoryIcon = transaction.categoryIcon ? CATEGORY_ICON_MAP[transaction.categoryIcon] : undefined;
   const Icon = transaction.type === "EXPENSE" ? categoryIcon ?? Tag : meta.icon;
 
-  function saveRule() {
-    if (!categoryId || !keyword.trim()) return;
-    startTransition(async () => {
-      const appliedCount = await saveRecurringRuleAction(keyword.trim(), categoryId, transaction.id);
-      setShowRule(false);
-      const categoryName = categories.find((c) => c.id === categoryId)?.name ?? "essa categoria";
-      toast.success(
-        appliedCount > 0
-          ? `Regra salva. ${appliedCount} transação${appliedCount > 1 ? "ões" : ""} antiga${appliedCount > 1 ? "s" : ""} também ${appliedCount > 1 ? "foram atualizadas" : "foi atualizada"} pra ${categoryName}.`
-          : `Regra salva. Daqui pra frente, "${keyword.trim()}" cai direto em ${categoryName}.`
-      );
-    });
-  }
-
   return (
-    <li>
-      <Card className="cursor-pointer hover:bg-onbrand/[0.03] transition-colors" onClick={onEdit} title="Clique pra editar">
-        {/* Duas linhas em vez de um grid de uma linha só: as duas tentativas
-            anteriores de aproximar o selo do banco e o seletor de categoria
-            (juntando os dois numa coluna do MESMO grid que também tem a
-            descrição e o valor) sempre trocavam um problema por outro — ou o
-            valor desalinhava entre linhas (grids independentes, coluna
-            "auto" varia de largura por linha), ou a coluna do meio ficava
-            larga demais e espremia a descrição. Separando em duas linhas,
-            banco+categoria saem de vez da disputa por espaço com
-            descrição/valor: a linha de cima (ícone, descrição, valor+
-            excluir) só compete consigo mesma, e a de baixo (banco+categoria
-            num "chip" destacado) fica livre pra ficar perto um do outro. */}
-        <CardContent className="py-3.5">
-          <div className="flex items-center gap-3">
-            <Icon className={`h-5 w-5 shrink-0 ${meta.amountClass}`} aria-hidden />
+    <button
+      type="button"
+      onClick={onEdit}
+      title="Clique pra editar"
+      className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-onbrand/[0.03] transition-colors"
+    >
+      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TYPE_ICON_BG[transaction.type])}>
+        <Icon className="h-[18px] w-[18px]" aria-hidden />
+      </span>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* title = tooltip nativo do navegador: passando o mouse por
-                    cima de uma descrição cortada (truncate), o texto inteiro
-                    aparece, sem precisar alargar a linha pra isso. */}
-                <p className="font-medium text-onbrand truncate" title={transaction.description}>
-                  {transaction.description}
-                </p>
-                {transaction.installmentTotal && transaction.installmentTotal > 1 && (
-                  <Badge tone="neutral">
-                    {transaction.installmentNumber}/{transaction.installmentTotal}
-                  </Badge>
-                )}
-                {transaction.goalTitle && <Badge tone="gold">→ {transaction.goalTitle}</Badge>}
-                {lowConfidence && (
-                  <Badge tone="warn" title="Categoria sugerida com baixa confiança, confira">
-                    <Sparkles className="h-3 w-3" /> confirmar
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-onbrand/55">
-                {new Date(transaction.date).toLocaleDateString("pt-BR")}
-                {transaction.merchant ? ` · ${transaction.merchant}` : ""}
-                {transaction.paymentMethod ? ` · ${PAYMENT_LABELS[transaction.paymentMethod]}` : ""}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
-              <span className={`font-medium tabular-nums ${meta.amountClass}`}>
-                {meta.sign}
-                {formatBRL(transaction.amount)}
-              </span>
-
-              <IconButton
-                label="Excluir"
-                tone="danger"
-                disabled={pending}
-                onClick={() => setConfirmDelete(true)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </IconButton>
-              <ConfirmDialog
-                open={confirmDelete}
-                title="Excluir esta transação?"
-                description="Isso não pode ser desfeito."
-                pending={pending}
-                onCancel={() => setConfirmDelete(false)}
-                onConfirm={() => {
-                  startTransition(() => {
-                    deleteTransactionAction(transaction.id);
-                    setConfirmDelete(false);
-                  });
-                }}
-              />
-            </div>
-          </div>
-
-          {(transaction.bankAccountName || transaction.creditCardId || transaction.type === "EXPENSE") && (
-            <div className="flex items-center gap-2 mt-2.5 pl-8" onClick={(e) => e.stopPropagation()}>
-              {/* Banco + categoria juntos num "chip" destacado — os dois lidos
-                  como um bloco só (de onde veio, pra onde foi), em vez de
-                  duas informações soltas na linha. */}
-              <div className="flex items-center gap-2 rounded-lg bg-onbrand/[0.06] pl-1.5 pr-2 py-1">
-                {transaction.bankAccountName ? (
-                  transaction.bankAccountBankName ? (
-                    <>
-                      <BankBadge bankName={transaction.bankAccountBankName} />
-                      <span className="text-xs font-medium text-onbrand/75 whitespace-nowrap">
-                        {transaction.bankAccountBankName}
-                      </span>
-                    </>
-                  ) : (
-                    <Badge tone="neutral" className="whitespace-nowrap">
-                      {transaction.bankAccountName}
-                    </Badge>
-                  )
-                ) : (
-                  transaction.creditCardId && (
-                    // Fatura de cartão: a transação não tem bankAccountId
-                    // direto (transactions.creditCardId é o vínculo aqui) —
-                    // mostra o banco da conta que paga essa fatura, quando o
-                    // cartão está ligado a uma (creditCards.bankAccountId),
-                    // senão só o apelido do cartão. O ícone de cartão logo
-                    // abaixo é quem sinaliza "foi no crédito", não este selo.
-                    (transaction.cardBankName ? (
-                      <>
-                        <BankBadge bankName={transaction.cardBankName} />
-                        <span className="text-xs font-medium text-onbrand/75 whitespace-nowrap">
-                          {transaction.cardBankName}
-                        </span>
-                      </>
-                    ) : (
-                      <Badge tone="neutral" className="whitespace-nowrap">
-                        {transaction.creditCardNickname}
-                      </Badge>
-                    ))
-                  )
-                )}
-
-                {(transaction.creditCardId || transaction.paymentMethod === "CREDIT_CARD") && (
-                  <CreditCard
-                    className="h-3 w-3 text-onbrand/50 shrink-0"
-                    aria-label="Pago no cartão de crédito"
-                  />
-                )}
-
-                {transaction.type === "EXPENSE" && (
-                  <select
-                    className={cn(
-                      "text-xs rounded-lg border border-transparent bg-brand-900 text-onbrand px-2 py-1 max-w-[140px]",
-                      (transaction.bankAccountName || transaction.creditCardId) && "ml-1"
-                    )}
-                    value={categoryId}
-                    disabled={pending}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      if (!next) return;
-                      setCategoryId(next);
-                      setShowRule(false);
-                      startTransition(async () => {
-                        const { retroCount } = await updateCategoryAction(transaction.id, next);
-                        // Só avisa quando corrigiu outras juntas — trocar a
-                        // categoria de uma transação isolada (a maioria dos
-                        // casos) não precisa de um toast pra cada clique.
-                        if (retroCount > 0) {
-                          const categoryName = categories.find((c) => c.id === next)?.name ?? "essa categoria";
-                          toast.success(
-                            `${retroCount} outra${retroCount > 1 ? "s" : ""} transação${retroCount > 1 ? "ões" : ""} com a mesma descrição também ${retroCount > 1 ? "foram atualizadas" : "foi atualizada"} pra ${categoryName}.`
-                          );
-                        }
-                      });
-                    }}
-                  >
-                    <option value="">Sem categoria</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {transaction.type === "EXPENSE" && (
-                <button
-                  type="button"
-                  title={
-                    categoryId
-                      ? "Categorizar assim sempre (inclusive transações antigas parecidas)"
-                      : "Escolha uma categoria primeiro"
-                  }
-                  disabled={!categoryId}
-                  className={cn(
-                    "shrink-0 transition-colors",
-                    categoryId ? "text-onbrand/40 hover:text-gold-400" : "text-onbrand/15 cursor-not-allowed"
-                  )}
-                  onClick={() => setShowRule((v) => !v)}
-                >
-                  <Repeat className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* title = tooltip nativo do navegador: passando o mouse por cima
+              de uma descrição cortada (truncate), o texto inteiro aparece,
+              sem precisar alargar a linha pra isso. */}
+          <p className="font-medium text-onbrand truncate" title={transaction.description}>
+            {transaction.description}
+          </p>
+          {transaction.installmentTotal && transaction.installmentTotal > 1 && (
+            <Badge tone="neutral">
+              {transaction.installmentNumber}/{transaction.installmentTotal}
+            </Badge>
           )}
-
-          {showRule && (
-            <div className="flex items-center gap-2 mt-2.5 pl-8" onClick={(e) => e.stopPropagation()}>
-              <input
-                autoFocus
-                type="text"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder='Trecho que se repete, ex: "quinto andar"'
-                className="text-xs rounded-lg border border-transparent bg-brand-900 text-onbrand px-2 py-1.5 flex-1 min-w-0"
-              />
-              <button
-                className="text-ok-400 disabled:opacity-40 shrink-0"
-                title="Salvar regra"
-                disabled={pending || !keyword.trim()}
-                onClick={saveRule}
-              >
-                <Check className="h-4 w-4" />
-              </button>
-              <button className="text-onbrand/40 shrink-0" title="Cancelar" onClick={() => setShowRule(false)}>
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+          {transaction.goalTitle && <Badge tone="gold">→ {transaction.goalTitle}</Badge>}
+          {lowConfidence && (
+            <Badge tone="warn" title="Categoria sugerida com baixa confiança, confira">
+              <Sparkles className="h-3 w-3" /> confirmar
+            </Badge>
           )}
-        </CardContent>
-      </Card>
-    </li>
+        </div>
+        <TransactionSubtext transaction={transaction} />
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <span className={`font-medium tabular-nums ${meta.amountClass}`}>
+          {meta.sign}
+          {formatBRL(transaction.amount)}
+        </span>
+        <ChevronRight className="h-4 w-4 text-onbrand/30" aria-hidden />
+      </div>
+    </button>
   );
 }
 
