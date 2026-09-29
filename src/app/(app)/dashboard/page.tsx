@@ -38,26 +38,35 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <Card className={DARK_CARD}>
-          <CardContent className="py-5">
-            <div className="flex gap-3 items-start">
-              <Image
-                src="/avatars/tobias-alertas.png"
-                alt="Tobias"
-                width={38}
-                height={38}
-                className="tobias-mascot-soft shrink-0"
-              />
-              <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400 mb-1">Tobias</p>
-                {/* brand-700 não troca de tom com o tema (de propósito), então o
-                    texto usa brand-50 (também fixo) em vez de onbrand — que
-                    inverteria pra escuro e ficaria ilegível no tema claro */}
-                <p className="text-sm leading-relaxed text-brand-50">{data.tobiasMessage}</p>
+        {/* Card clicável — entra no chat com o Tobias (pedido do Thiago:
+            "Tobias" sai do menu lateral, passa a operar por aqui). */}
+        <Link href="/chat" className="block group" data-tour="dashboard-tobias-card">
+          <Card className={cn(DARK_CARD, "transition-colors hover:bg-brand-700/60")}>
+            <CardContent className="py-5">
+              <div className="flex gap-3 items-start">
+                <Image
+                  src="/avatars/tobias-alertas.png"
+                  alt="Tobias"
+                  width={38}
+                  height={38}
+                  className="tobias-mascot-soft shrink-0"
+                />
+                <div className="rounded-tl-sm rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-brand-700 px-4 py-3.5 flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-gold-400">Tobias</p>
+                    <span className="text-[11px] font-medium text-gold-400/70 inline-flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Conversar <ArrowRight className="h-3 w-3" />
+                    </span>
+                  </div>
+                  {/* brand-700 não troca de tom com o tema (de propósito), então o
+                      texto usa brand-50 (também fixo) em vez de onbrand — que
+                      inverteria pra escuro e ficaria ilegível no tema claro */}
+                  <p className="text-sm leading-relaxed text-brand-50">{data.tobiasMessage}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
         {/* Receitas/Despesas/Saldo do mês — antes era um card único "Seu mês";
             são os mesmos 3 números (income/expenses/balance), cada um agora
