@@ -30,6 +30,18 @@ export default async function DashboardPage() {
       <div className="max-w-5xl mx-auto w-full space-y-6">
         <h1 className="font-sans font-bold text-[23px] tracking-tight text-onbrand">Olá, {firstName}.</h1>
 
+        <Card className="bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]">
+          <CardContent className="py-5">
+            <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-1.5">Seu perfil</p>
+            <div className="flex items-center gap-2.5">
+              <BehavioralProfileIcon profile={data.behavioralProfile.type} size="sm" />
+              <p className="font-sans font-medium text-[17px] leading-tight tracking-tight text-onbrand">
+                {data.behavioralProfile.label}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Receitas/Despesas/Saldo do mês — antes era um card único "Seu mês";
             são os mesmos 3 números (income/expenses/balance), cada um agora
             com seu próprio card, ícone e variação vs. mês anterior. */}
@@ -56,18 +68,6 @@ export default async function DashboardPage() {
             Icon={Wallet}
           />
         </div>
-
-        <Card className="bg-brand-800 border-gold-500/40 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.6)]">
-          <CardContent className="py-5">
-            <p className="text-xs uppercase tracking-wide text-onbrand/60 mb-1.5">Seu perfil</p>
-            <div className="flex items-center gap-2.5">
-              <BehavioralProfileIcon profile={data.behavioralProfile.type} size="sm" />
-              <p className="font-sans font-medium text-[17px] leading-tight tracking-tight text-onbrand">
-                {data.behavioralProfile.label}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Ponteiro + Curva de aposentadoria lado a lado (mesma proporção de
             colunas de antes) — "Dica do Tobias" desceu pra uma faixa própria

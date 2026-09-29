@@ -32,15 +32,15 @@ export function CompassDimensionList({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1.5 w-full", className)}>
+    <div className={cn("flex flex-col gap-1.5 w-full min-w-0", className)}>
       {dimensions.map((d) => {
         const Icon = DIMENSION_ICON[d.dimension];
         return (
-          <div key={d.dimension} className="flex items-center gap-1.5">
+          <div key={d.dimension} className="flex items-center gap-1.5 min-w-0">
             <Icon className="h-3.5 w-3.5 shrink-0 text-onbrand/50" strokeWidth={1.75} />
-            <span className="text-[0.7rem] text-onbrand/70 truncate min-w-0">{d.label}</span>
-            <span className="flex-1 min-w-[8px] border-b border-dotted border-onbrand/25 mb-[3px]" />
-            <span className="text-[0.72rem] font-semibold tabular-nums shrink-0 w-[2.6em] text-right text-onbrand">
+            <span className="text-[0.68rem] text-onbrand/70 truncate min-w-0">{d.label}</span>
+            <span className="flex-1 min-w-[6px] border-b border-dotted border-onbrand/25 mb-[3px]" />
+            <span className="text-[0.64rem] font-normal tabular-nums shrink-0 w-[2.3em] text-right text-onbrand">
               {d.score}/100
             </span>
           </div>
