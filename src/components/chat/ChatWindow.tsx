@@ -28,6 +28,7 @@ function TobiasAvatar() {
 
 export function ChatWindow<TReveal = never>({
   initialMessages,
+  openingGreeting,
   onSend,
   onAction,
   onReveal,
@@ -37,6 +38,15 @@ export function ChatWindow<TReveal = never>({
   quickReplies,
 }: {
   initialMessages: ChatMessage[];
+  /**
+   * Uma saudação já sorteada e salva no servidor (ver `startNewConversation`
+   * em services/chat.ts), mas que a tela ainda não mostrou — em vez de
+   * aparecer pronta junto de `initialMessages`, ela só entra na conversa
+   * depois de uma breve animação de "Tobias está digitando" (mesma reação
+   * de quando a IA está respondendo de verdade), pra parecer uma mensagem
+   * chegando, não um texto estático já plantado na tela.
+   */
+  openingGreeting?: { id: string; content: string };
   onSend: (
     text: string
   ) => Promise<{ reply: string; actions?: { label: string; action: string }[]; completed?: boolean; reveal?: TReveal | null }>;
@@ -68,14 +78,30 @@ export function ChatWindow<TReveal = never>({
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [pending, startTransition] = useTransition();
+  const [introTyping, setIntroTyping] = useState(!!openingGreeting);
+  const introStarted = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, pending]);
+  }, [messages, pending, introTyping]);
+
+  // Toca a animação de "digitando" por um instante antes de revelar a
+  // saudação — só uma vez por montagem (o `ref` evita duplicar em
+  // desenvolvimento, onde o React monta os efeitos duas vezes de propósito).
+  useEffect(() => {
+    if (!openingGreeting || introStarted.current) return;
+    introStarted.current = true;
+    const timer = setTimeout(() => {
+      setMessages((prev) => [...prev, { id: openingGreeting.id, role: "ASSISTANT", content: openingGreeting.content }]);
+      setIntroTyping(false);
+    }, 1100);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function sendText(text: string) {
-    if (!text || pending) return;
+    if (!text || pending || introTyping) return;
     setInput("");
     const userMsg: ChatMessage = { id: `local-${Date.now()}`, role: "USER", content: text };
     setMessages((prev) => [...prev, userMsg]);
@@ -190,12 +216,15 @@ export function ChatWindow<TReveal = never>({
           </div>
           );
         })}
-        {pending && (
+        {(pending || introTyping) && (
           <div className="flex items-end gap-2 justify-start">
             <TobiasAvatar />
             {/* "Tobias está digitando" com três pontos pulsando em sequência
                 (.typing-dot, já existia em globals.css mas nunca tinha sido
-                usada — substitui o spinner genérico anterior). */}
+                usada — substitui o spinner genérico anterior). Mesma UI usada
+                tanto pra resposta real da IA (`pending`) quanto pro pequeno
+                delay antes de revelar a saudação de abertura
+                (`introTyping`). */}
             <div className="rounded-2xl rounded-bl-sm bg-brand-800 px-4 py-2.5 flex items-center gap-2">
               <span className="text-[13px] text-onbrand/50">Tobias está digitando</span>
               <span className="flex items-center gap-0.5 text-onbrand/60">
@@ -227,7 +256,7 @@ export function ChatWindow<TReveal = never>({
             placeholder={placeholder}
             className="flex-1 resize-none max-h-32 rounded-xl border border-black/20 bg-brand-900 text-onbrand placeholder:text-onbrand/35 px-3.5 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-gold-400/30 focus:border-gold-400/60"
           />
-          <Button onClick={handleSend} disabled={!input.trim()} loading={pending} size="md" className="shrink-0">
+          <Button onClick={handleSend} disabled={!input.trim() || introTyping} loading={pending} size="md" className="shrink-0">
             <Send className="h-4 w-4" />
           </Button>
         </div>

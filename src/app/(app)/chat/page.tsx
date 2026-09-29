@@ -9,7 +9,7 @@ export default async function ChatPage() {
   // Cada visita a esta tela começa uma conversa nova (pedido do Thiago): o
   // histórico de conversas anteriores continua salvo no banco, só não
   // aparece mais aqui — ver o comentário em services/chat.ts.
-  const [messages, compass] = await Promise.all([
+  const [greeting, compass] = await Promise.all([
     startNewConversation(user.id, firstName),
     getLatestCompass(user.id),
   ]);
@@ -25,12 +25,11 @@ export default async function ChatPage() {
 
   return (
     <ChatPageClient
-      initialMessages={messages.map((m) => ({
-        id: m.id,
-        role: m.role as "USER" | "ASSISTANT",
-        content: m.content,
-        actions: m.actions as { label: string; action: string }[] | null,
-      }))}
+      // Sem mensagens já prontas: a saudação (`openingGreeting`) só aparece
+      // na tela depois de uma breve animação de "Tobias está digitando",
+      // em vez de já surgir pronta — ver ChatWindow.
+      initialMessages={[]}
+      openingGreeting={greeting}
       firstName={firstName}
       healthStatus={healthStatus}
     />

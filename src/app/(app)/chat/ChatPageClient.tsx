@@ -33,10 +33,12 @@ function moodMessage(firstName: string, status: CompassDimensionResult["status"]
 
 export function ChatPageClient({
   initialMessages,
+  openingGreeting,
   firstName,
   healthStatus,
 }: {
   initialMessages: ChatMessage[];
+  openingGreeting?: { id: string; content: string };
   firstName: string;
   healthStatus: CompassDimensionResult["status"] | null;
 }) {
@@ -67,6 +69,7 @@ export function ChatPageClient({
       </div>
       <ChatWindow
         initialMessages={initialMessages}
+        openingGreeting={openingGreeting}
         onSend={sendChatMessageAction}
         onAction={(action) => {
           const route = ACTION_ROUTES[action];
