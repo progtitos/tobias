@@ -8,29 +8,71 @@ import { simulateRetirementCurve } from "./retirement";
 import { buildRetirementInputs } from "./retirementPlan";
 import { BEHAVIORAL_PROFILE_LABELS, type BehavioralProfile } from "./behavioralProfile";
 import { getCreditCardsUsage, pickCardNeedingAttention } from "./creditCards";
+import { nowInBrazil } from "@/lib/utils/dates";
+
+// Variação percentual vs. o mês anterior, pros 3 cards do Dashboard
+// (Receitas/Despesas/Saldo). `null` quando não há base de comparação (mês
+// anterior zerado ou negativo/zero em "receitas", onde % não faz sentido) —
+// o card então simplesmente não mostra a linha de variação, em vez de
+// inventar um número ou mostrar "+Infinity%"/"-100%" enganoso.
+function pctChange(current: number, previous: number): number | null {
+  if (previous <= 0) return null;
+  return ((current - previous) / previous) * 100;
+}
 
 export async function getDashboardData(userId: string) {
-  const { start, end } = monthRange();
+  const now = nowInBrazil();
+  const { start, end } = monthRange(now);
+  const prevMonthAnchor = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const { start: prevStart, end: prevEnd } = monthRange(prevMonthAnchor);
 
-  const [netWorth, income, expenses, investmentContributions, compass, goals, activeAlerts, retirementPlan, financialProfile, profile, cardsUsage] =
-    await Promise.all([
-      computeNetWorth(userId),
-      sumIncome(userId, start, end),
-      sumExpenses(userId, start, end),
-      sumInvestmentContributions(userId, start, end),
-      getLatestCompass(userId),
-      activeGoals(userId),
-      db
-        .select()
-        .from(alerts)
-        .where(and(eq(alerts.userId, userId), eq(alerts.isDismissed, false)))
-        .orderBy(desc(alerts.createdAt))
-        .limit(3),
-      db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).then((r) => r[0] ?? null),
-      db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).then((r) => r[0] ?? null),
-      db.select().from(profiles).where(eq(profiles.userId, userId)).then((r) => r[0] ?? null),
-      getCreditCardsUsage(userId),
-    ]);
+  const [
+    netWorth,
+    income,
+    expenses,
+    investmentContributions,
+    prevIncome,
+    prevExpenses,
+    prevInvestmentContributions,
+    compass,
+    goals,
+    activeAlerts,
+    retirementPlan,
+    financialProfile,
+    profile,
+    cardsUsage,
+  ] = await Promise.all([
+    computeNetWorth(userId),
+    sumIncome(userId, start, end),
+    sumExpenses(userId, start, end),
+    sumInvestmentContributions(userId, start, end),
+    sumIncome(userId, prevStart, prevEnd),
+    sumExpenses(userId, prevStart, prevEnd),
+    sumInvestmentContributions(userId, prevStart, prevEnd),
+    getLatestCompass(userId),
+    activeGoals(userId),
+    db
+      .select()
+      .from(alerts)
+      .where(and(eq(alerts.userId, userId), eq(alerts.isDismissed, false)))
+      .orderBy(desc(alerts.createdAt))
+      .limit(3),
+    db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).then((r) => r[0] ?? null),
+    db.select().from(financialProfiles).where(eq(financialProfiles.userId, userId)).then((r) => r[0] ?? null),
+    db.select().from(profiles).where(eq(profiles.userId, userId)).then((r) => r[0] ?? null),
+    getCreditCardsUsage(userId),
+  ]);
+
+  const balance = income - expenses - investmentContributions;
+  const prevBalance = prevIncome - prevExpenses - prevInvestmentContributions;
+  const monthTrend = {
+    incomePct: pctChange(income, prevIncome),
+    expensesPct: pctChange(expenses, prevExpenses),
+    // Saldo pode ser negativo, então a variação percentual usa o valor
+    // absoluto do mês anterior como base (senão um saldo que vira negativo
+    // dá uma % sem sentido, tipo "melhorou 340%" quando na verdade piorou).
+    balancePct: prevBalance !== 0 ? ((balance - prevBalance) / Math.abs(prevBalance)) * 100 : null,
+  };
 
   // Card "Seu patrimônio" do Dashboard virou o cartão que precisa de mais
   // atenção (maior % do limite usado no ciclo aberto) — decisão do Thiago.
@@ -74,7 +116,7 @@ export async function getDashboardData(userId: string) {
     cardNeedingAttention,
     totalCreditCards: cardsUsage.length,
     monthlyCapacity,
-    month: { income, expenses, investments: investmentContributions, balance: income - expenses - investmentContributions },
+    month: { income, expenses, investments: investmentContributions, balance, trend: monthTrend },
     compass,
     goals,
     alerts: activeAlerts,
