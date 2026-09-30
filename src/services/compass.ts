@@ -108,6 +108,24 @@ export async function computeCompass(userId: string): Promise<CompassDimensionRe
   const totalActual = budgetsWithActuals.reduce((s, b) => s + b.actual, 0);
   const spendingRatio = totalPlanned > 0 ? totalActual / totalPlanned : 1;
   const spendingScore = clamp(100 - (spendingRatio - 1) * 200);
+  // Pedido do Thiago (2026-09-30): a mensagem do card "Tobias" no Dashboard
+  // (a nextAction da dimensão mais fraca da Bússola) tem que ser um conselho
+  // de verdade, não um convite genérico pra pessoa ir descobrir sozinha.
+  // Nomeia a categoria que mais estourou (e quanto), quando existir uma —
+  // mesmo padrão de especificidade que "Reserva de emergência" já usa
+  // (valor real calculado, não "veja aí quanto falta").
+  const overrunCategories = [...budgetsWithActuals]
+    .filter((b) => b.isOverrun)
+    .sort((a, b) => b.actual - b.limitAmount - (a.actual - a.limitAmount));
+  const topOverrun = overrunCategories[0];
+  const spendingNextAction =
+    spendingRatio > 1 && topOverrun
+      ? overrunCategories.length > 1
+        ? `${topOverrun.label} estourou mais (${formatBRL(topOverrun.actual - topOverrun.limitAmount)} acima do limite), junto com mais ${overrunCategories.length - 1} categoria(s). Comece ajustando essa.`
+        : `${topOverrun.label} estourou o orçamento em ${formatBRL(topOverrun.actual - topOverrun.limitAmount)}. Ajustar essa categoria já resolve o mês.`
+      : spendingRatio > 1
+        ? "Você está acima do orçamento planejado este mês, mesmo sem uma categoria específica estourada. Vale revisar os limites definidos."
+        : "Continue acompanhando, está funcionando.";
   results.push({
     dimension: "SPENDING_CONTROL",
     label: "Controle de gastos",
@@ -119,13 +137,25 @@ export async function computeCompass(userId: string): Promise<CompassDimensionRe
           ? `Você está ${(((spendingRatio - 1) * 100)).toFixed(0)}% acima do orçamento planejado este mês.`
           : `Você está dentro do orçamento planejado este mês (${(spendingRatio * 100).toFixed(0)}% utilizado).`
         : "Ainda não há um orçamento definido para comparar.",
-    nextAction: spendingRatio > 1 ? "Veja quais categorias estouraram o orçamento e ajuste o que for possível." : "Continue acompanhando, está funcionando.",
+    nextAction: spendingNextAction,
   });
 
   // 3. Dívidas
   const totalMonthlyDebtPayments = activeDebts.reduce((s, d) => s + (d.installmentAmount ?? 0), 0);
   const debtRatio = income > 0 ? totalMonthlyDebtPayments / income : activeDebts.length > 0 ? 1 : 0;
   const debtScore = activeDebts.length === 0 ? 100 : clamp(100 - debtRatio * 300);
+  // Mesmo princípio: nomeia a dívida específica com o juro mais alto (dado
+  // que já existe em cada dívida, `interestRateMonthly`), em vez de mandar a
+  // pessoa "priorizar" sem dizer qual.
+  const costliestDebt = [...activeDebts]
+    .filter((d) => d.interestRateMonthly != null)
+    .sort((a, b) => (b.interestRateMonthly ?? 0) - (a.interestRateMonthly ?? 0))[0];
+  const debtNextAction =
+    activeDebts.length === 0
+      ? "Continue assim."
+      : costliestDebt
+        ? `"${costliestDebt.description}" tem o juro mais alto (${costliestDebt.interestRateMonthly?.toFixed(2)}% ao mês). Priorize quitar essa primeiro.`
+        : "Priorize quitar as dívidas com juros mais altos primeiro.";
   results.push({
     dimension: "DEBT",
     label: "Dívidas",
@@ -135,7 +165,7 @@ export async function computeCompass(userId: string): Promise<CompassDimensionRe
       activeDebts.length === 0
         ? "Você não tem dívidas ativas registradas."
         : `Suas parcelas de dívida somam ${formatBRL(totalMonthlyDebtPayments)}/mês, cerca de ${(debtRatio * 100).toFixed(0)}% da sua renda.`,
-    nextAction: activeDebts.length === 0 ? "Continue assim." : "Priorize quitar as dívidas com juros mais altos primeiro.",
+    nextAction: debtNextAction,
   });
 
   // 4. Proteção (seguros) — heuristic based on recorded insurance-related spending
