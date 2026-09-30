@@ -269,6 +269,23 @@ export async function listLeadsForAdmin(opts: {
   return { rows, total: totalRow[0]?.n ?? 0, page, pageSize };
 }
 
+const KANBAN_LEAD_LIMIT = 500;
+
+/**
+ * Leads pra visão Kanban do admin (pedido do Thiago, 2026-09-30) — diferente
+ * de `listLeadsForAdmin`, aqui não pagina por página numerada (não faz
+ * sentido dividir colunas de status em páginas), só traz os mais recentes até
+ * um teto (`KANBAN_LEAD_LIMIT`) pra nunca carregar a base inteira de uma vez.
+ * `truncated` avisa a tela quando existem mais leads do que o teto trazido.
+ */
+export async function listLeadsForKanban(): Promise<{ rows: AdminLeadRow[]; truncated: boolean }> {
+  const [rows, totalRow] = await Promise.all([
+    db.select().from(leads).orderBy(desc(leads.createdAt)).limit(KANBAN_LEAD_LIMIT),
+    db.select({ n: count() }).from(leads),
+  ]);
+  return { rows, truncated: (totalRow[0]?.n ?? 0) > KANBAN_LEAD_LIMIT };
+}
+
 export async function updateLeadStatus(leadId: string, status: (typeof leadStatusEnum.enumValues)[number]) {
   await db.update(leads).set({ status, updatedAt: new Date() }).where(eq(leads.id, leadId));
 }

@@ -3,12 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Contact, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Contact, Landmark, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { adminLogoutAction } from "@/app/(admin)/admin/login/actions";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Visão geral", icon: LayoutDashboard },
+  { href: "/admin/financeiro", label: "Financeiro", icon: Landmark },
   { href: "/admin/usuarios", label: "Usuários", icon: Users },
   { href: "/admin/leads", label: "Leads (CRM)", icon: Contact },
 ];

@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import { getPreApprovalClient, getMercadoPagoAccessToken } from "@/lib/mercadopago/client";
 import { PRICING_PLANS, type BillingCycle } from "@/lib/billing/plans";
+import { isPlanCycleActive } from "./billingPlans";
 import { trackEvent, logFinancialEvent } from "./analytics";
 import { convertLeadsForPaidUser } from "./admin";
 import type {
@@ -39,6 +40,12 @@ export async function createSubscriptionCheckout(
 ): Promise<{ preapprovalId: string; initPoint: string }> {
   const plan = PRICING_PLANS.find((p) => p.cycle === cycle);
   if (!plan) throw new Error(`Ciclo de cobrança inválido: ${cycle}`);
+  // Reforça no servidor o que o Signup já esconde na tela: um ciclo
+  // desativado pelo admin (Admin › Financeiro) não pode virar assinatura nem
+  // por um link antigo com ?plano=... ou uma chamada direta da action.
+  if (!(await isPlanCycleActive(cycle))) {
+    throw new Error(`O ciclo de cobrança "${plan.label}" não está disponível no momento.`);
+  }
 
   const autoRecurring: AutoRecurringWithFreeTrial = {
     frequency: plan.months,

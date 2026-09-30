@@ -21,7 +21,15 @@ import {
 } from "./actions";
 import type { AdminLeadRow } from "@/services/admin";
 
-const STATUS_OPTIONS = ["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"] as const;
+export const STATUS_OPTIONS = ["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"] as const;
+
+export const STATUS_LABELS: Record<(typeof STATUS_OPTIONS)[number], string> = {
+  NEW: "Novo",
+  CONTACTED: "Contatado",
+  QUALIFIED: "Qualificado",
+  CONVERTED: "Convertido",
+  LOST: "Perdido",
+};
 
 export function ImportLeadsForm() {
   const [state, formAction, pending] = useActionState<ImportLeadsState, FormData>(importLeadsAction, undefined);
@@ -244,10 +252,51 @@ export function LeadsTable({ rows }: { rows: AdminLeadRow[] }) {
   );
 }
 
-function LeadRow({ lead, checked, onToggle }: { lead: AdminLeadRow; checked: boolean; onToggle: () => void }) {
+// Botões de editar/excluir + os dois diálogos que eles abrem — extraído da
+// linha da tabela pra ser reaproveitado igual no card do Kanban (Admin ›
+// Leads, visão Kanban, pedido do Thiago 2026-09-30), sem duplicar a lógica de
+// confirmação/edição nos dois lugares.
+export function LeadActions({ lead }: { lead: AdminLeadRow }) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, startTransition] = useTransition();
+  const label = lead.name || lead.email || lead.phone || "lead";
+
+  return (
+    <>
+      <div className="flex items-center gap-1">
+        <IconButton label={`Editar ${label}`} onClick={() => setEditing(true)}>
+          <Pencil className="h-3.5 w-3.5" />
+        </IconButton>
+        <IconButton label={`Excluir ${label}`} tone="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </IconButton>
+      </div>
+
+      {editing && <EditLeadModal lead={lead} open={editing} onClose={() => setEditing(false)} />}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Excluir o lead "${label}"?`}
+        description="Isso não pode ser desfeito."
+        pending={pending}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          startTransition(async () => {
+            try {
+              await deleteLeadAction(lead.id);
+              setConfirmDelete(false);
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Falha ao excluir.");
+            }
+          });
+        }}
+      />
+    </>
+  );
+}
+
+function LeadRow({ lead, checked, onToggle }: { lead: AdminLeadRow; checked: boolean; onToggle: () => void }) {
   const label = lead.name || lead.email || lead.phone || "lead";
 
   return (
@@ -270,35 +319,10 @@ function LeadRow({ lead, checked, onToggle }: { lead: AdminLeadRow; checked: boo
       </td>
       <td className="px-4 py-3 text-onbrand/70 tabular-nums">{formatDate(lead.createdAt)}</td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1 justify-end">
-          <IconButton label={`Editar ${label}`} onClick={() => setEditing(true)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </IconButton>
-          <IconButton label={`Excluir ${label}`} tone="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </IconButton>
+        <div className="flex justify-end">
+          <LeadActions lead={lead} />
         </div>
       </td>
-
-      {editing && <EditLeadModal lead={lead} open={editing} onClose={() => setEditing(false)} />}
-
-      <ConfirmDialog
-        open={confirmDelete}
-        title={`Excluir o lead "${label}"?`}
-        description="Isso não pode ser desfeito."
-        pending={pending}
-        onCancel={() => setConfirmDelete(false)}
-        onConfirm={() => {
-          startTransition(async () => {
-            try {
-              await deleteLeadAction(lead.id);
-              setConfirmDelete(false);
-            } catch (e) {
-              toast.error(e instanceof Error ? e.message : "Falha ao excluir.");
-            }
-          });
-        }}
-      />
     </tr>
   );
 }

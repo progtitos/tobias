@@ -1,0 +1,1 @@
+ALTER TABLE "billing_plan_settings" ENABLE ROW LEVEL SECURITY;

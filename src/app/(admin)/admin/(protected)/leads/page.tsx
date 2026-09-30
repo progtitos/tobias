@@ -1,8 +1,9 @@
-import { listLeadsForAdmin } from "@/services/admin";
+import { listLeadsForAdmin, listLeadsForKanban } from "@/services/admin";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { ImportLeadsForm, LeadsTable } from "./LeadsClient";
+import { ImportLeadsForm } from "./LeadsClient";
+import { LeadsViewSwitcher } from "./LeadsViewSwitcher";
 
 export default async function AdminLeadsPage({
   searchParams,
@@ -11,7 +12,10 @@ export default async function AdminLeadsPage({
 }) {
   const params = await searchParams;
   const page = Number(params.page ?? "1") || 1;
-  const { rows, total, pageSize } = await listLeadsForAdmin({ search: params.q, status: params.status, page });
+  const [{ rows, total, pageSize }, kanban] = await Promise.all([
+    listLeadsForAdmin({ search: params.q, status: params.status, page }),
+    listLeadsForKanban(),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
@@ -45,16 +49,13 @@ export default async function AdminLeadsPage({
         </Button>
       </form>
 
-      {/* key força remontar a tabela (e limpar qualquer seleção antiga) toda
-          vez que o conjunto de linhas muda de verdade: filtro novo, página
-          nova, ou uma exclusão/importação que muda quem está na lista. */}
-      <LeadsTable key={rows.map((l) => l.id).join(",")} rows={rows} />
-
-      {totalPages > 1 && (
-        <div className="flex items-center gap-2 mt-4 text-sm text-onbrand/60">
-          Página {page} de {totalPages}
-        </div>
-      )}
+      <LeadsViewSwitcher
+        tableRows={rows}
+        kanbanRows={kanban.rows}
+        kanbanTruncated={kanban.truncated}
+        page={page}
+        totalPages={totalPages}
+      />
     </div>
   );
 }

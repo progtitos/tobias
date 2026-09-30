@@ -1241,7 +1241,13 @@ export const financialEvents = pgTable(
     payload: jsonb("payload"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("financial_events_user_created_idx").on(t.userId, t.createdAt)]
+  (t) => [
+    index("financial_events_user_created_idx").on(t.userId, t.createdAt),
+    // Admin financeiro (2026-09-30) filtra por `type` (cobrança confirmada vs.
+    // falha) através de todos os usuários pra montar o gráfico mensal — sem
+    // esse índice cairia em varredura sequencial da tabela inteira.
+    index("financial_events_type_created_idx").on(t.type, t.createdAt),
+  ]
 );
 
 export const analyticsEvents = pgTable(
@@ -1338,3 +1344,19 @@ export const leads = pgTable(
   },
   (t) => [index("leads_status_idx").on(t.status), index("leads_email_idx").on(t.email)]
 );
+
+// ----------------------------------------------------------------------------
+// CONTROLE DE PLANOS (admin financeiro, 2026-09-30)
+// ----------------------------------------------------------------------------
+
+// Liga/desliga a venda de um ciclo de cobrança (Mensal/Semestral/Anual) pelo
+// admin. `src/lib/billing/plans.ts` (PRICING_PLANS) continua sendo a fonte da
+// verdade pra preço/label — esta tabela só guarda se aquele ciclo está sendo
+// oferecido no cadastro agora. Sem linha pra um ciclo = considerado ativo (ver
+// getVisiblePricingPlans em services/billingPlans.ts), pra um ciclo novo em
+// PRICING_PLANS não nascer escondido só por faltar seed.
+export const billingPlanSettings = pgTable("billing_plan_settings", {
+  cycle: planBillingCycleEnum("cycle").primaryKey(),
+  active: boolean("active").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();

@@ -6,18 +6,27 @@ import Link from "next/link";
 import { signupAction, type AuthActionState } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
-import { PRICING_PLANS, type BillingCycle } from "@/lib/billing/plans";
+import type { BillingCycle, PricingPlan } from "@/lib/billing/plans";
 import { cn } from "@/lib/utils/cn";
 
-function isBillingCycle(value: string | null): value is BillingCycle {
-  return PRICING_PLANS.some((p) => p.cycle === value);
-}
-
-export function SignupForm() {
+export function SignupForm({ plans }: { plans: PricingPlan[] }) {
   const searchParams = useSearchParams();
   const requested = searchParams.get("plano");
-  const [cycle, setCycle] = useState<BillingCycle>(isBillingCycle(requested) ? requested : "SEMESTRAL");
+  const fallback = plans.find((p) => p.cycle === "SEMESTRAL") ?? plans[0];
+  const requestedPlan = plans.find((p) => p.cycle === requested);
+  const [cycle, setCycle] = useState<BillingCycle | undefined>((requestedPlan ?? fallback)?.cycle);
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(signupAction, undefined);
+
+  if (!fallback || !cycle) {
+    // Os 3 ciclos foram desativados pelo admin ao mesmo tempo (Admin ›
+    // Financeiro) — situação que não deveria acontecer em operação normal,
+    // mas travar o cadastro com um erro genérico de servidor seria pior.
+    return (
+      <p className="text-sm text-onbrand/70">
+        O cadastro está temporariamente indisponível. Tente novamente em instantes.
+      </p>
+    );
+  }
 
   return (
     <>
@@ -27,7 +36,7 @@ export function SignupForm() {
       </p>
 
       <div className="grid grid-cols-3 gap-2 mb-5">
-        {PRICING_PLANS.map((plan) => (
+        {plans.map((plan) => (
           <button
             key={plan.cycle}
             type="button"
