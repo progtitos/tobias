@@ -366,7 +366,7 @@ function Pillars() {
         </div>
 
         <p className="mx-auto mt-10 max-w-2xl text-center text-[0.73rem] leading-relaxed text-brand-100/50">
-          A ordem sugere prioridade — primeiro a base, depois o resto — mas é a mesma lente sobre os dados que você
+          A ordem sugere prioridade (primeiro a base, depois o resto), mas é a mesma lente sobre os dados que você
           já tem no Tobias, não uma etapa extra de cadastro.
         </p>
       </div>

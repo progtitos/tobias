@@ -384,7 +384,7 @@ function NewAccountForm({
               zerada em vez de pedir um número que a pessoa não tem de cabeça. */}
           <input type="hidden" name="balance" value="0" />
           <p className="text-xs text-onbrand/45 -mt-1">
-            Contas de investimento começam com saldo zero — cadastre as posições ou suba o extrato consolidado depois
+            Contas de investimento começam com saldo zero. Cadastre as posições ou suba o extrato consolidado depois
             de criar.
           </p>
         </>

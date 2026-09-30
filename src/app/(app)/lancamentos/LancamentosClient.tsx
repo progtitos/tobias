@@ -471,8 +471,12 @@ function DayGroup({
         <span className="text-xs font-semibold uppercase tracking-wide text-onbrand/45">{dayLabel(group.date)}</span>
         <span
           className={cn(
+            // Verde quando o dia fecha positivo, vermelho quando fecha
+            // negativo — antes o negativo ficava num cinza neutro, a mesma
+            // cor por sinal que o Saldo do mês já usa no Dashboard (Thiago,
+            // 30/09/2026: "não parece se comunicar bem com todo o sistema").
             "text-xs font-medium tabular-nums",
-            net > 0 ? "text-ok-400" : net < 0 ? "text-onbrand/60" : "text-onbrand/35"
+            net > 0 ? "text-ok-400" : net < 0 ? "text-danger-300" : "text-onbrand/35"
           )}
         >
           {net > 0 ? "+" : net < 0 ? "−" : ""}
@@ -518,18 +522,23 @@ function FilterBar({
     if (value !== filters.q) go({ q: value });
   }
 
+  // Barra bem mais enxuta (pedido do Thiago, 30/09/2026: "pode ficar bem
+  // mais enxuta que isso") — antes eram duas linhas dentro de um Card com
+  // padding generoso (busca sozinha em cima, 4 selects embaixo). Agora é uma
+  // única linha compacta (h-9, texto menor), busca e filtros lado a lado,
+  // só quebrando linha em telas estreitas.
   return (
     <Card className="mb-3">
-      <CardContent className="py-4 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-onbrand/40 pointer-events-none" />
+      <CardContent className="py-2.5 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[160px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-onbrand/40 pointer-events-none" />
           {/* Não-controlado (defaultValue), remontado via `key` quando o
               filtro muda por fora (navegação de mês, por exemplo) — evita
               precisar de um useEffect só pra sincronizar estado derivado de
               props, que o React recomenda evitar. */}
           <Input
             key={filters.q}
-            className="pl-9"
+            className="h-9 pl-8 text-sm"
             placeholder="Buscar por descrição ou estabelecimento..."
             defaultValue={filters.q}
             onKeyDown={(e) => {
@@ -538,58 +547,60 @@ function FilterBar({
             onBlur={(e) => commitSearch(e.target.value)}
           />
         </div>
-        <div className="flex flex-wrap gap-2">
+        <Select
+          className="w-auto min-w-[108px] h-9 px-2.5 pr-7 text-sm"
+          value={filters.conta}
+          onChange={(e) => go({ conta: e.target.value })}
+        >
+          <option value="">Conta: Todas</option>
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </Select>
+        {cards.length > 0 && (
+          // Uma transação de fatura de cartão não tem bankAccountId (só
+          // creditCardId — ver listTransactions), então o filtro "Conta"
+          // acima nunca a pega. Sem isso não tinha como isolar só os
+          // gastos no crédito.
           <Select
-            className="w-auto min-w-[140px]"
-            value={filters.conta}
-            onChange={(e) => go({ conta: e.target.value })}
+            className="w-auto min-w-[108px] h-9 px-2.5 pr-7 text-sm"
+            value={filters.cartao}
+            onChange={(e) => go({ cartao: e.target.value })}
           >
-            <option value="">Conta: Todas</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </Select>
-          {cards.length > 0 && (
-            // Uma transação de fatura de cartão não tem bankAccountId (só
-            // creditCardId — ver listTransactions), então o filtro "Conta"
-            // acima nunca a pega. Sem isso não tinha como isolar só os
-            // gastos no crédito.
-            <Select
-              className="w-auto min-w-[140px]"
-              value={filters.cartao}
-              onChange={(e) => go({ cartao: e.target.value })}
-            >
-              <option value="">Cartão: Todos</option>
-              {cards.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nickname}
-                </option>
-              ))}
-            </Select>
-          )}
-          <Select className="w-auto min-w-[140px]" value={filters.tipo} onChange={(e) => go({ tipo: e.target.value })}>
-            <option value="">Tipo: Todos</option>
-            {Object.entries(TYPE_META).map(([value, meta]) => (
-              <option key={value} value={value}>
-                {meta.label}
-              </option>
-            ))}
-          </Select>
-          <Select
-            className="w-auto min-w-[140px]"
-            value={filters.categoria}
-            onChange={(e) => go({ categoria: e.target.value })}
-          >
-            <option value="">Categoria: Todas</option>
-            {categories.map((c) => (
+            <option value="">Cartão: Todos</option>
+            {cards.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                {c.nickname}
               </option>
             ))}
           </Select>
-        </div>
+        )}
+        <Select
+          className="w-auto min-w-[108px] h-9 px-2.5 pr-7 text-sm"
+          value={filters.tipo}
+          onChange={(e) => go({ tipo: e.target.value })}
+        >
+          <option value="">Tipo: Todos</option>
+          {Object.entries(TYPE_META).map(([value, meta]) => (
+            <option key={value} value={value}>
+              {meta.label}
+            </option>
+          ))}
+        </Select>
+        <Select
+          className="w-auto min-w-[108px] h-9 px-2.5 pr-7 text-sm"
+          value={filters.categoria}
+          onChange={(e) => go({ categoria: e.target.value })}
+        >
+          <option value="">Categoria: Todas</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
       </CardContent>
     </Card>
   );
@@ -1290,18 +1301,6 @@ function categoryChartColor(rank: number): string {
   return CATEGORY_CHART_COLORS[rank % CATEGORY_CHART_COLORS.length];
 }
 
-/** Só pro número dentro do donut: "R$ 13.515,74" não cabia no miolo do
- * círculo sem estourar a borda. "R$ 13,5 mil" cabe numa linha só. */
-function formatCompactBRL(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    notation: "compact",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
 /** Deslocamento (offset) de cada fatia do donut, uma por vez, como o
  * `stroke-dashoffset` de um `<circle>` espera: a soma acumulada das fatias
  * ANTERIORES, negativa. Uma função utilitária comum (fora do corpo do
@@ -1319,12 +1318,16 @@ function cumulativeOffsets(dashes: number[]): number[] {
 }
 
 function BudgetDonut({ items, total }: { items: { id: string; label: string; actual: number }[]; total: number }) {
-  // Aumentado de 112 -> 152 (pedido do Thiago, 29/09/2026: "pode aumentar o
-  // card do gráfico") — no tamanho antigo o miolo do círculo era estreito
-  // demais pro valor total ("R$ 13.515,74" estourava a borda do anel).
-  const size = 152;
-  const r = 56;
-  const strokeWidth = 16;
+  // O valor total NÃO fica dentro do miolo do anel (isso é o que causava o
+  // "não cabe" persistente, não importa quanto se aumentasse o anel ou se
+  // encolhesse a fonte — um texto retangular sempre acaba estourando um
+  // círculo pequeno o bastante em algum valor). O protótipo aprovado nunca
+  // colocou o número ali: ele fica do LADO do anel, como um bloco de texto
+  // comum, sem limite de espaço nenhum (ver artefato original, seção
+  // Orçamento, `.donut-card`/`.donut-total`) — corrigido aqui, 30/09/2026.
+  const size = 128;
+  const r = 48;
+  const strokeWidth = 14;
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * r;
@@ -1338,9 +1341,9 @@ function BudgetDonut({ items, total }: { items: { id: string; label: string; act
     // desalinhado" que o Thiago apontou. Limitando a largura do conjunto,
     // ele fica compacto e centralizado dentro do Card, do jeito que já
     // funcionava no protótipo (frame de celular, nunca mais largo que isso).
-    <div className="flex items-center gap-5 flex-wrap sm:flex-nowrap max-w-sm mx-auto">
-      <div className="relative shrink-0 mx-auto sm:mx-0" style={{ width: size, height: size }}>
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Composição do gasto por categoria neste mês">
+    <div className="max-w-sm mx-auto">
+      <div className="flex items-center gap-4">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0" role="img" aria-label="Composição do gasto por categoria neste mês">
           <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-onbrand)" strokeOpacity={0.07} strokeWidth={strokeWidth} />
           {items.map((c, i) => {
             return (
@@ -1359,14 +1362,14 @@ function BudgetDonut({ items, total }: { items: { id: string; label: string; act
             );
           })}
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-3">
-          <span className="font-sans font-semibold text-lg tabular-nums text-onbrand leading-tight">
-            {formatCompactBRL(total)}
-          </span>
-          <span className="text-[10px] text-onbrand/50 mt-1 leading-tight">gasto no mês</span>
+        <div className="min-w-0">
+          <div className="font-sans font-bold text-2xl tabular-nums text-onbrand leading-none truncate">
+            {formatBRL(total)}
+          </div>
+          <div className="text-xs text-onbrand/50 mt-1.5">gasto no mês</div>
         </div>
       </div>
-      <div className="flex flex-col gap-1.5 min-w-0 w-full sm:w-auto sm:flex-1">
+      <div className="flex flex-col gap-1.5 mt-4">
         {items.map((c, i) => (
           <div key={c.id} className="flex items-center gap-1.5 text-xs min-w-0">
             <span
@@ -1416,7 +1419,7 @@ function BudgetTab({ budgets }: { budgets: BudgetRow[] }) {
                 <BudgetDonut items={donutItems} total={totalActual} />
               ) : (
                 <p className="text-sm text-onbrand/55 text-center py-3">
-                  Nenhum gasto lançado neste mês ainda — o gráfico de composição aparece assim que houver dados.
+                  Nenhum gasto lançado neste mês ainda. O gráfico de composição aparece assim que houver dados.
                 </p>
               )}
             </CardContent>

@@ -22,7 +22,7 @@ export default async function PagamentoPendentePage() {
         </div>
         <h1 className="font-sans font-bold text-xl text-onbrand mb-2">Confirmando seu cartão</h1>
         <p className="text-sm text-onbrand/60 leading-relaxed">
-          Nenhum valor é cobrado agora — só estamos aguardando o Mercado Pago confirmar que o cartão foi cadastrado
+          Nenhum valor é cobrado agora. Só estamos aguardando o Mercado Pago confirmar que o cartão foi cadastrado
           pra liberar seus 15 dias grátis. Isso costuma levar poucos segundos. Se você fechou a página do Mercado
           Pago antes de terminar, pode tentar de novo abaixo.
         </p>

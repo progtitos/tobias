@@ -101,15 +101,15 @@ export function RendaDespesasClient({
 
   return (
     <div className="flex-1 bg-brand-950 px-5 py-6">
-      <div className="max-w-3xl mx-auto w-full space-y-6">
+      <div className="max-w-4xl mx-auto w-full space-y-6">
         <div>
           <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Renda e Despesas</h1>
           <p className="text-sm text-onbrand/55">
-            Cadastre sua renda e seus gastos fixos uma vez — todo mês o Tobias já lança sozinho, você só confirma ou
+            Cadastre sua renda e seus gastos fixos uma vez. Todo mês o Tobias já lança sozinho, você só confirma ou
             ajusta.
           </p>
           <p className="text-xs text-onbrand/45 mt-1">
-            Procurando sua reserva de emergência? Ela é um cofre de patrimônio, não uma renda ou despesa — acompanhe e
+            Procurando sua reserva de emergência? Ela é um cofre de patrimônio, não uma renda ou despesa. Acompanhe e
             aporte nela em{" "}
             <Link href="/patrimonio#sonhos" className="text-gold-400 hover:underline">
               Patrimônio → Sonhos
@@ -123,7 +123,7 @@ export function RendaDespesasClient({
             <CardContent className="py-5">
               <h2 className="font-display font-semibold text-onbrand mb-1">Pra confirmar este mês</h2>
               <p className="text-sm text-onbrand/55 mb-4">
-                Gerados a partir do que você cadastrou abaixo — confira o valor e confirme, ou ajuste se veio
+                Gerados a partir do que você cadastrou abaixo. Confira o valor e confirme, ou ajuste se veio
                 diferente (renda e despesa de uma fonte variável, tipo Uber ou Airbnb, aparecem em linhas separadas
                 pra ajustar cada uma). O valor que você confirmar aqui vira a nova expectativa pro mês que vem, então
                 não precisa editar o cadastro da fonte toda vez que o valor mudar.
@@ -144,8 +144,10 @@ export function RendaDespesasClient({
           </CardContent>
         </Card>
 
-        <SourcesSection sources={sources} incomeCategories={incomeCategories} expenseCategories={expenseCategories} />
-        <FixedExpensesSection fixedExpenses={fixedExpenses} expenseCategories={expenseCategories} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <SourcesSection sources={sources} incomeCategories={incomeCategories} expenseCategories={expenseCategories} />
+          <FixedExpensesSection fixedExpenses={fixedExpenses} expenseCategories={expenseCategories} />
+        </div>
       </div>
     </div>
   );
@@ -265,7 +267,7 @@ function SourcesSection({
             </div>
             {VARIABLE_KINDS.has(kind) && (
               <p className="text-xs text-onbrand/45 -mt-1">
-                Não precisa ser exato — é só o ponto de partida. Todo mês você confirma ou ajusta o valor real em
+                Não precisa ser exato: é só o ponto de partida. Todo mês você confirma ou ajusta o valor real em
                 &quot;Pra confirmar este mês&quot;, e o Tobias já usa esse valor como estimativa do mês seguinte.
               </p>
             )}

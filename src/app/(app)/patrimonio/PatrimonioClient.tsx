@@ -149,7 +149,7 @@ const GOAL_TYPE_ICONS: Record<string, LucideIcon> = {
 
 const GOAL_TYPE_DESCRIPTIONS: Record<string, string> = {
   DREAM: "Um sonho seu, no seu tempo",
-  EMERGENCY_FUND: "Seu colchão de segurança pra imprevistos — perda de renda, emergência médica etc.",
+  EMERGENCY_FUND: "Seu colchão de segurança pra imprevistos: perda de renda, emergência médica etc.",
   PROPERTY: "Um imóvel que você quer conquistar",
   RETIREMENT: "Reserva extra pra complementar sua aposentadoria",
   CUSTOM: "Objetivo personalizado",
@@ -235,7 +235,7 @@ export function PatrimonioClient({
               Outros bens
             </h2>
             <p className="text-sm text-onbrand/45 mb-4">
-              Carro, imóvel quitado, joias — tudo que tem valor real mas não é dinheiro em conta nem investimento.
+              Carro, imóvel quitado, joias: tudo que tem valor real mas não é dinheiro em conta nem investimento.
             </p>
             <AssetsSection assets={assets} />
           </div>
@@ -245,7 +245,7 @@ export function PatrimonioClient({
               Dívidas
             </h2>
             <p className="text-sm text-onbrand/45 mb-4">
-              Financiamentos, empréstimos, cartão parcelado — o que falta pagar.
+              Financiamentos, empréstimos, cartão parcelado: o que falta pagar.
             </p>
             <DebtsSection debts={debts} />
           </div>
@@ -506,7 +506,7 @@ function DebtsSection({ debts }: { debts: Debt[] }) {
                 <CurrencyInput id="debt-total" name="totalAmount" required />
               </div>
               <div className="col-span-2">
-                <Label htmlFor="debt-remaining">Quanto ainda falta pagar (opcional — se vazio, assume o total)</Label>
+                <Label htmlFor="debt-remaining">Quanto ainda falta pagar (opcional; se vazio, assume o total)</Label>
                 <CurrencyInput id="debt-remaining" name="remainingAmount" />
               </div>
               <div className="col-span-2">
@@ -790,7 +790,7 @@ function EmergencyFundSuggestionBox({
       <div className="flex-1 min-w-0">
         <p className="text-xs text-onbrand/75">
           Sugestão: <b className="text-onbrand">{formatBRL(suggestion.suggestedTarget)}</b> ({suggestion.months} meses de
-          gastos fixos, {formatBRL(suggestion.monthlyEssentialExpenses)}/mês) — {suggestion.reason}.
+          gastos fixos, {formatBRL(suggestion.monthlyEssentialExpenses)}/mês): {suggestion.reason}.
         </p>
         <button
           type="button"
@@ -942,7 +942,7 @@ function GoalCard({
 // mesmo "Meta concluída" genérico pra tudo soaria automático demais pro
 // momento que é (Thiago pediu "celebração de verdade", só que contida).
 const GOAL_ACHIEVED_MESSAGES: Record<string, string> = {
-  DREAM: "Sonho realizado — agora é hora de aproveitar.",
+  DREAM: "Sonho realizado. Agora é hora de aproveitar.",
   EMERGENCY_FUND: "Sua reserva de emergência está completa.",
   PROPERTY: "Você juntou o valor pro imóvel. Bora dar o próximo passo?",
   RETIREMENT: "Meta de aposentadoria alcançada.",
