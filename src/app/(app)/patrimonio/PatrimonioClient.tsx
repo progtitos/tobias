@@ -36,6 +36,7 @@ import {
   addContributionAction,
   updateGoalStatusAction,
   updateGoalTargetAction,
+  deleteGoalAction,
   type GoalFormState,
 } from "../goals/actions";
 import {
@@ -818,6 +819,8 @@ function GoalCard({
   // CurrencyInput não aceita `value` controlado (ver componente); mudar essa
   // key força ele a remontar em branco depois de um aporte confirmado.
   const [contributionKey, setContributionKey] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletePending, startDeleteTransition] = useTransition();
   const pct = goal.targetAmount ? (goal.currentAmount / goal.targetAmount) * 100 : null;
   const isEmergencyFund = goal.type === "EMERGENCY_FUND";
   const TypeIcon = GOAL_TYPE_ICONS[goal.type] ?? Target;
@@ -877,16 +880,39 @@ function GoalCard({
               <p className="text-xs text-onbrand/40 mt-0.5">{GOAL_TYPE_DESCRIPTIONS[goal.type]}</p>
             </div>
           </div>
-          <button
-            className="text-onbrand/40 hover:text-gold-400 shrink-0"
-            title={goal.status === "ACTIVE" ? "Pausar" : "Retomar"}
-            onClick={() =>
-              startTransition(() => updateGoalStatusAction(goal.id, goal.status === "ACTIVE" ? "PAUSED" : "ACTIVE"))
-            }
-          >
-            {goal.status === "ACTIVE" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </button>
+          {/* Ambos IconButton (44×44 de alvo de toque, `design-system-tobias.md`
+              §8/21) num `-m-2.5` só pra compensar o espaço extra que esse
+              alvo maior adiciona ao layout do card — sem isso os dois botões
+              empurravam o card mais largo/alto que os vizinhos sem ação. */}
+          <div className="flex items-center shrink-0 -m-2.5">
+            <IconButton
+              label={goal.status === "ACTIVE" ? "Pausar objetivo" : "Retomar objetivo"}
+              disabled={pending}
+              onClick={() =>
+                startTransition(() => updateGoalStatusAction(goal.id, goal.status === "ACTIVE" ? "PAUSED" : "ACTIVE"))
+              }
+            >
+              {goal.status === "ACTIVE" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </IconButton>
+            <IconButton
+              label="Excluir objetivo"
+              tone="danger"
+              disabled={deletePending}
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </IconButton>
+          </div>
         </div>
+
+        <ConfirmDialog
+          open={confirmDelete}
+          title={`Excluir "${goal.title}"?`}
+          description="Isso apaga o objetivo e todo o histórico de progresso dele. Não pode ser desfeito. Transações já lançadas continuam existindo, só deixam de estar ligadas a este objetivo."
+          pending={deletePending}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => startDeleteTransition(() => deleteGoalAction(goal.id))}
+        />
 
         {goal.status === "ACTIVE" &&
           (isEmergencyFund ? (

@@ -114,6 +114,18 @@ export async function updateGoalStatus(userId: string, goalId: string, status: "
 }
 
 /**
+ * Exclusão de verdade (DELETE físico, não soft-delete) — pedido do Thiago
+ * (30/09/2026): objetivos de teste/lixo (ex.: criados só pra experimentar)
+ * precisavam sumir de vez, não só pausar. Seguro: `transactions.goalId` e
+ * `recurringRules.goalId` (schema.ts) já são `onDelete: "set null"`, então
+ * qualquer transação/regra que apontava pra esse objetivo simplesmente perde
+ * o vínculo em vez de quebrar a constraint.
+ */
+export async function deleteGoal(userId: string, goalId: string) {
+  await db.delete(goals).where(and(eq(goals.id, goalId), eq(goals.userId, userId)));
+}
+
+/**
  * Define ou ajusta a meta (valor-alvo) de um objetivo já existente — não
  * existia nenhum jeito de fazer isso depois da criação. Usado principalmente
  * pra "usar a meta sugerida" na Reserva de emergência (ver

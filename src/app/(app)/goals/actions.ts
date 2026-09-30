@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOnboardedUser } from "@/lib/auth/guards";
-import { createGoal, addGoalContribution, updateGoalStatus, updateGoalTarget } from "@/services/goals";
+import { createGoal, addGoalContribution, updateGoalStatus, updateGoalTarget, deleteGoal } from "@/services/goals";
 
 export type GoalFormState = { error?: string } | undefined;
 
@@ -46,6 +46,13 @@ export async function updateGoalTargetAction(goalId: string, targetAmount: numbe
   const user = await requireOnboardedUser();
   if (!(targetAmount > 0)) return;
   await updateGoalTarget(user.id, goalId, targetAmount);
+  revalidatePath("/patrimonio");
+  revalidatePath("/dashboard");
+}
+
+export async function deleteGoalAction(goalId: string) {
+  const user = await requireOnboardedUser();
+  await deleteGoal(user.id, goalId);
   revalidatePath("/patrimonio");
   revalidatePath("/dashboard");
 }
