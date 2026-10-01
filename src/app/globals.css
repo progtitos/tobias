@@ -84,6 +84,12 @@
   --color-danger-300: #f08a72;
   --color-danger-100: #fbe3df;
   --color-warn-600: #a8791f;
+  /* Faltava a variante clara de "warn" (só existia 600/100) — a mesma lacuna
+     que o design-system-tobias.md §2.4 já registrava ("usar sempre a
+     variante clara equivalente... criando o tom que faltar"). Admin ›
+     Marketing (29/09) foi o primeiro texto de aviso solto sobre superfície
+     escura que precisou dela; mesma lógica de warn-600 -> danger-300/ok-400. */
+  --color-warn-400: #e0b64f;
   --color-warn-100: #f5ecd8;
   --color-ok-600: #1f8f74;
   --color-ok-400: #5ecbb8;
@@ -190,6 +196,7 @@
   --color-danger-300: var(--color-danger-300);
   --color-danger-100: var(--color-danger-100);
   --color-warn-600: var(--color-warn-600);
+  --color-warn-400: var(--color-warn-400);
   --color-warn-100: var(--color-warn-100);
   --color-ok-600: var(--color-ok-600);
   --color-ok-400: var(--color-ok-400);

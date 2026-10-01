@@ -1360,3 +1360,94 @@ export const billingPlanSettings = pgTable("billing_plan_settings", {
   active: boolean("active").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
+
+// ----------------------------------------------------------------------------
+// MARKETING: CAMPANHAS DE E-MAIL E WHATSAPP (admin, 2026-09-30)
+// ----------------------------------------------------------------------------
+
+// Compartilhado pelos dois canais (mesmo ciclo de vida: rascunho -> enviando
+// -> enviado ou falhou parcialmente).
+export const campaignStatusEnum = pgEnum("campaign_status", ["DRAFT", "SENDING", "SENT", "FAILED"]);
+// Status por destinatário individual dentro de uma campanha — PENDING nunca
+// deveria sobreviver a um envio concluído (vira SENT/FAILED/SKIPPED ao
+// final), fica só pra representar o meio de um envio em andamento.
+export const campaignRecipientStatusEnum = pgEnum("campaign_recipient_status", [
+  "PENDING",
+  "SENT",
+  "FAILED",
+  "SKIPPED", // ex.: e-mail que já estava na lista de descadastro
+]);
+
+// `segment` (jsonb) guarda o critério de audiência escolhido no admin no
+// momento da criação — ex.: {"leadStatuses": ["NEW","CONTACTED"], "userStatuses": ["ACTIVE"]}.
+// A lista de destinatários de verdade (email_campaign_recipients) só é
+// resolvida e congelada no momento do envio (resolveEmailAudience em
+// services/emailMarketing.ts), não em tempo de criação — assim um lead que
+// muda de status entre criar e enviar a campanha usa o estado mais atual.
+export const emailCampaigns = pgTable("email_campaigns", {
+  id: id(),
+  subject: text("subject").notNull(),
+  bodyHtml: text("body_html").notNull(),
+  segment: jsonb("segment").notNull(),
+  status: campaignStatusEnum("status").notNull().default("DRAFT"),
+  recipientCount: integer("recipient_count").notNull().default(0),
+  sentCount: integer("sent_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+}).enableRLS();
+
+export const emailCampaignRecipients = pgTable(
+  "email_campaign_recipients",
+  {
+    id: id(),
+    campaignId: text("campaign_id").notNull().references(() => emailCampaigns.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    status: campaignRecipientStatusEnum("status").notNull().default("PENDING"),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [index("email_campaign_recipients_campaign_idx").on(t.campaignId)]
+).enableRLS();
+
+// Lista de descadastro (LGPD/CAN-SPAM) — checada antes de qualquer envio
+// (resolveEmailAudience filtra por aqui) e alimentada só pelo link de
+// descadastro real que toda campanha inclui no rodapé (`/api/email/unsubscribe`,
+// token assinado por e-mail, nunca um clique de admin nem um toggle na UI).
+export const emailUnsubscribes = pgTable("email_unsubscribes", {
+  email: text("email").primaryKey(),
+  campaignId: text("campaign_id").references(() => emailCampaigns.id, { onDelete: "set null" }),
+  unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+// `segment` aqui só pode apontar pra whatsapp_connections com `optedIn = true`
+// (ver resolveWhatsAppAudience em services/whatsappMarketing.ts) — é o único
+// jeito do produto ter um consentimento de verdade pra contato por WhatsApp
+// hoje (a pessoa verificou o número ativamente em Configurações). Mensagem
+// de marketing pela Cloud API da Meta exige um template pré-aprovado
+// (`templateName`), não texto livre — ver setup-whatsapp-business-api.md.
+export const whatsappCampaigns = pgTable("whatsapp_campaigns", {
+  id: id(),
+  templateName: text("template_name").notNull(),
+  templateLanguage: text("template_language").notNull().default("pt_BR"),
+  segment: jsonb("segment").notNull(),
+  status: campaignStatusEnum("status").notNull().default("DRAFT"),
+  recipientCount: integer("recipient_count").notNull().default(0),
+  sentCount: integer("sent_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+}).enableRLS();
+
+export const whatsappCampaignRecipients = pgTable(
+  "whatsapp_campaign_recipients",
+  {
+    id: id(),
+    campaignId: text("campaign_id").notNull().references(() => whatsappCampaigns.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    status: campaignRecipientStatusEnum("status").notNull().default("PENDING"),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [index("whatsapp_campaign_recipients_campaign_idx").on(t.campaignId)]
+).enableRLS();

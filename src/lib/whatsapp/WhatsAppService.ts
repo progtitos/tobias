@@ -28,6 +28,7 @@ export type WhatsAppInboundMessage = {
 export interface WhatsAppProvider {
   sendMessage(to: string, text: string): Promise<void>;
   sendMedia(to: string, mediaUrl: string, caption?: string): Promise<void>;
+  sendTemplate(to: string, templateName: string, languageCode: string): Promise<void>;
 }
 
 class NoopWhatsAppProvider implements WhatsAppProvider {
@@ -36,6 +37,9 @@ class NoopWhatsAppProvider implements WhatsAppProvider {
   }
   async sendMedia(to: string, mediaUrl: string, caption?: string) {
     console.warn(`[whatsapp] no provider configured — would send media to ${to}: ${mediaUrl}${caption ? ` (${caption})` : ""}`);
+  }
+  async sendTemplate(to: string, templateName: string, languageCode: string) {
+    console.warn(`[whatsapp] no provider configured — would send template "${templateName}" (${languageCode}) to ${to}`);
   }
 }
 
@@ -75,6 +79,23 @@ class MetaCloudApiProvider implements WhatsAppProvider {
 
   async sendMedia(to: string, mediaUrl: string, caption?: string): Promise<void> {
     await this.postMessage({ to, type: "image", image: { link: mediaUrl, caption } });
+  }
+
+  /**
+   * Mensagem de marketing (business-initiated, fora da janela de 24h de
+   * atendimento) só pode ser enviada como um template pré-aprovado pela Meta
+   * — texto livre é recusado pela API pra esse caso. `templateName` precisa
+   * bater exatamente com um template já aprovado no WhatsApp Manager da
+   * conta configurada (ver setup-whatsapp-business-api.md). Sem componentes
+   * de variável por enquanto — cobre o caso de um template só com texto fixo;
+   * se um template com variáveis for necessário, `components` entra aqui.
+   */
+  async sendTemplate(to: string, templateName: string, languageCode: string): Promise<void> {
+    await this.postMessage({
+      to,
+      type: "template",
+      template: { name: templateName, language: { code: languageCode } },
+    });
   }
 }
 
@@ -145,6 +166,10 @@ export const WhatsAppService = {
 
   async sendMedia(to: string, mediaUrl: string, caption?: string): Promise<void> {
     await getProvider().sendMedia(to, mediaUrl, caption);
+  },
+
+  async sendTemplate(to: string, templateName: string, languageCode: string): Promise<void> {
+    await getProvider().sendTemplate(to, templateName, languageCode);
   },
 
   /**
