@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type ExcelJS from "exceljs";
 import { db } from "@/lib/db/client";
 import { users, sessions, leads, leadStatusEnum, userRoleEnum, subscriptionPlanEnum, subscriptionStatusEnum } from "@/lib/db/schema";
@@ -31,20 +31,19 @@ export async function getAdminOverview() {
 
   // isNull(deletedAt) em toda contagem de usuário — desde que excluir pelo
   // admin virou soft delete, uma conta desativada não deve inflar "total de
-  // usuários"/"por status"/"por plano".
+  // usuários"/"por status"/"por plano". ne(role, "ADMIN") pelo mesmo motivo
+  // (pedido do Thiago, 01/10/2026): conta de staff carrega plano/status de
+  // assinatura reais (histórico de antes de virar admin, ou valor padrão de
+  // criação) que não são clientes de verdade — sem esse filtro, uma única
+  // conta admin "ativa" infla "assinantes ativos"/"por plano" como se fosse
+  // receita de cliente. PLANNER continua contado normalmente: é um papel de
+  // cliente real (planejador que usa o produto com clientes dele), não staff.
+  const notStaff = and(isNull(users.deletedAt), ne(users.role, "ADMIN"));
   const [totalRow, byStatusRows, byPlanRows, newLast30Row, totalLeadsRow, leadsByStatusRows] = await Promise.all([
-    db.select({ n: count() }).from(users).where(isNull(users.deletedAt)),
-    db
-      .select({ status: users.subscriptionStatus, n: count() })
-      .from(users)
-      .where(isNull(users.deletedAt))
-      .groupBy(users.subscriptionStatus),
-    db
-      .select({ plan: users.subscriptionPlan, n: count() })
-      .from(users)
-      .where(isNull(users.deletedAt))
-      .groupBy(users.subscriptionPlan),
-    db.select({ n: count() }).from(users).where(and(isNull(users.deletedAt), gte(users.createdAt, thirtyDaysAgo))),
+    db.select({ n: count() }).from(users).where(notStaff),
+    db.select({ status: users.subscriptionStatus, n: count() }).from(users).where(notStaff).groupBy(users.subscriptionStatus),
+    db.select({ plan: users.subscriptionPlan, n: count() }).from(users).where(notStaff).groupBy(users.subscriptionPlan),
+    db.select({ n: count() }).from(users).where(and(notStaff, gte(users.createdAt, thirtyDaysAgo))),
     db.select({ n: count() }).from(leads),
     db.select({ status: leads.status, n: count() }).from(leads).groupBy(leads.status),
   ]);

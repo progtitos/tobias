@@ -70,6 +70,13 @@ export default async function AdminUsersPage({
               </tr>
             </thead>
             <tbody>
+              {/* role === "ADMIN" mostra "Equipe" em vez do plano/status/trial reais
+                  (pedido do Thiago, 01/10/2026: um admin não é cliente, não deveria
+                  parecer um). A conta pode carregar plano/status de assinatura de
+                  verdade por baixo — histórico de antes de virar staff, ou o valor
+                  padrão de criação — só não faz sentido mostrar isso como se fosse
+                  um dado de negócio real. Mesmo padrão do TrialBadge: nunca mexe no
+                  dado guardado, só não mostra/conta pra quem é da equipe. */}
               {rows.map((u) => (
                 <tr key={u.id} className="even:bg-onbrand/[0.025]">
                   <td className="px-4 py-3 text-onbrand font-medium">
@@ -77,12 +84,18 @@ export default async function AdminUsersPage({
                     {u.role !== "USER" && <span className="ml-1.5 text-[10px] text-gold-400 uppercase">{u.role}</span>}
                   </td>
                   <td className="px-4 py-3 text-onbrand/70">{u.email}</td>
-                  <td className="px-4 py-3 text-onbrand/70">{u.subscriptionPlan}</td>
+                  <td className="px-4 py-3 text-onbrand/70">{u.role === "ADMIN" ? "Equipe" : u.subscriptionPlan}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={STATUS_TONE[u.subscriptionStatus] ?? "neutral"}>{u.subscriptionStatus}</Badge>
+                    {u.role === "ADMIN" ? (
+                      <Badge tone="neutral">Equipe</Badge>
+                    ) : (
+                      <Badge tone={STATUS_TONE[u.subscriptionStatus] ?? "neutral"}>{u.subscriptionStatus}</Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-onbrand/70">{u.onboardingCompleted ? "Completo" : "Incompleto"}</td>
-                  <td className="px-4 py-3 text-onbrand/70 tabular-nums">{formatDate(u.trialEndsAt)}</td>
+                  <td className="px-4 py-3 text-onbrand/70 tabular-nums">
+                    {u.role === "ADMIN" ? "-" : formatDate(u.trialEndsAt)}
+                  </td>
                   <td className="px-4 py-3 text-onbrand/70 tabular-nums">{formatDate(u.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end">

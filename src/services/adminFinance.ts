@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { users, financialEvents } from "@/lib/db/schema";
 import { PRICING_PLANS, type BillingCycle } from "@/lib/billing/plans";
@@ -37,18 +37,27 @@ export type FinanceOverview = {
   plans: PlanCatalogRow[];
 };
 
-/** MRR + catálogo de planos com o número de assinantes ativos em cada ciclo. */
+/**
+ * MRR + catálogo de planos com o número de assinantes ativos em cada ciclo.
+ *
+ * ne(role, "ADMIN") em toda query de usuário (pedido do Thiago, 01/10/2026):
+ * uma conta de staff pode carregar plano/status de assinatura reais —
+ * histórico de antes de virar admin (ex.: a própria conta do Thiago), ou o
+ * valor padrão de criação de uma conta nova pelo admin — mas não é receita
+ * de verdade. Sem esse filtro, uma única conta admin "ACTIVE" já entra no
+ * MRR e na contagem de assinantes ativos como se fosse um cliente pagante.
+ */
 export async function getFinanceOverview(): Promise<FinanceOverview> {
   const [activeByCycle, statusCounts, activeMap] = await Promise.all([
     db
       .select({ cycle: users.planBillingCycle, n: sql<number>`count(*)::int` })
       .from(users)
-      .where(and(eq(users.subscriptionStatus, "ACTIVE"), isNull(users.deletedAt)))
+      .where(and(eq(users.subscriptionStatus, "ACTIVE"), isNull(users.deletedAt), ne(users.role, "ADMIN")))
       .groupBy(users.planBillingCycle),
     db
       .select({ status: users.subscriptionStatus, n: sql<number>`count(*)::int` })
       .from(users)
-      .where(isNull(users.deletedAt))
+      .where(and(isNull(users.deletedAt), ne(users.role, "ADMIN")))
       .groupBy(users.subscriptionStatus),
     getPlanCycleActiveMap(),
   ]);
@@ -148,7 +157,7 @@ export async function getPastDuePayments(): Promise<PastDuePayment[]> {
       planBillingCycle: users.planBillingCycle,
     })
     .from(users)
-    .where(and(eq(users.subscriptionStatus, "PAST_DUE"), isNull(users.deletedAt)))
+    .where(and(eq(users.subscriptionStatus, "PAST_DUE"), isNull(users.deletedAt), ne(users.role, "ADMIN")))
     .orderBy(desc(users.updatedAt));
 
   if (rows.length === 0) return [];

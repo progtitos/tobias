@@ -1,6 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "crypto";
-import { eq, inArray, isNull, and, desc } from "drizzle-orm";
+import { eq, inArray, isNull, ne, and, desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leads, users, emailCampaigns, emailCampaignRecipients, emailUnsubscribes, leadStatusEnum, subscriptionStatusEnum } from "@/lib/db/schema";
 import { isResendConfigured, sendEmailBatch } from "@/lib/email/resendClient";
@@ -30,10 +30,15 @@ export async function resolveEmailAudience(segment: EmailAudienceSegment): Promi
   }
 
   if (segment.userStatuses?.length) {
+    // ne(role, "ADMIN"): segmentar por "assinante ativo"/"em trial" etc. é
+    // pensado pra cliente de verdade — uma conta de staff que carrega esse
+    // status por histórico ou valor padrão de criação não deveria poder
+    // entrar numa campanha de marketing (pedido do Thiago, 01/10/2026, mesmo
+    // motivo do filtro em adminFinance.ts/getAdminOverview).
     const rows = await db
       .select({ email: users.email })
       .from(users)
-      .where(and(inArray(users.subscriptionStatus, segment.userStatuses), isNull(users.deletedAt)));
+      .where(and(inArray(users.subscriptionStatus, segment.userStatuses), isNull(users.deletedAt), ne(users.role, "ADMIN")));
     for (const r of rows) if (r.email) emails.add(r.email.trim().toLowerCase());
   }
 
