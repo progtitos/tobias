@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
-import type { RetirementSimulation } from "@/services/retirement";
+import type { RetirementSimulation, MetaTrajectory } from "@/services/retirement";
 import { formatBRL } from "@/lib/utils/money";
 
 // Um Sonho/Objetivo (Patrimônio) já convertido pra idade (eixo X do
@@ -103,7 +103,21 @@ function ScenarioTooltipContent(
   );
 }
 
-function buildDataset(sim: RetirementSimulation, targetAge: number) {
+/** Valor compacto só pro rótulo da curva Meta ("R$ 540 mil", "R$ 1,2 mi") —
+ * formatBRL por extenso não cabe num rótulo curto dentro do gráfico. */
+function formatCompactBRL(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000) {
+    return `${sign}R$ ${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  }
+  if (abs >= 1_000) {
+    return `${sign}R$ ${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
+  }
+  return formatBRL(value);
+}
+
+function buildDataset(sim: RetirementSimulation, targetAge: number, metaTrajectory?: MetaTrajectory | null) {
   const byAge = (series: RetirementSimulation["base"]["series"]) => {
     const map = new Map<number, number>();
     for (const p of series) map.set(Math.round(p.age), p.value);
@@ -112,6 +126,7 @@ function buildDataset(sim: RetirementSimulation, targetAge: number) {
   const cons = byAge(sim.conservative.series);
   const base = byAge(sim.base.series);
   const agg = byAge(sim.aggressive.series);
+  const meta = metaTrajectory ? byAge(metaTrajectory.series) : null;
 
   const minAge = Math.round(sim.conservative.series[0]?.age ?? 0);
   const lastAge = (series: RetirementSimulation["base"]["series"]) => Math.round(series.at(-1)?.age ?? minAge);
@@ -123,6 +138,7 @@ function buildDataset(sim: RetirementSimulation, targetAge: number) {
     conservador: cons.get(age) ?? null,
     base: base.get(age) ?? null,
     agressivo: agg.get(age) ?? null,
+    meta: meta?.get(age) ?? null,
   }));
 }
 
@@ -133,6 +149,8 @@ export function RetirementChart({
   dark = false,
   goalMarkers = [],
   showLegend = false,
+  variant = "scenarios",
+  metaTrajectory = null,
 }: {
   simulation: RetirementSimulation;
   targetAge: number;
@@ -141,16 +159,29 @@ export function RetirementChart({
   dark?: boolean;
   /** Sonhos/Objetivos com data-alvo, plotados como marcadores na linha do tempo (ver ChartGoalMarker acima). */
   goalMarkers?: ChartGoalMarker[];
-  /** Legenda fixa dos 3 cenários abaixo do gráfico — ligada só na tela cheia
-   * de /retirement. O eixo Y com valores em R$ foi tentado no mesmo
-   * redesenho (02/10/2026) mas revertido no mesmo dia: o print de
-   * referência do Thiago não tinha essa escala, e ela não ajudava — os
-   * cards compactos (Dashboard, reveal do onboarding) continuam sem
-   * legenda nem eixo de propósito: pouco espaço pra algo que ali só
-   * repetiria o que o texto ao lado já diz. */
+  /** Legenda abaixo do gráfico — 3 cenários em "scenarios", Projeção + Meta
+   * em "hero". O eixo Y com valores em R$ foi tentado no redesenho de
+   * 02/10/2026 mas revertido no mesmo dia: o print de referência do Thiago
+   * não tinha essa escala, e ela não ajudava — os cards compactos (Dashboard,
+   * reveal do onboarding) continuam sem legenda nem eixo de propósito: pouco
+   * espaço pra algo que ali só repetiria o que o texto ao lado já diz. */
   showLegend?: boolean;
+  /** "scenarios" (padrão): as 3 linhas de cenário lado a lado, como hoje nos
+   * cards compactos do Dashboard/onboarding. "hero": só a projeção do
+   * cenário base (preenchida, mais grossa) + a curva Meta tracejada —
+   * redesenho aprovado pro card de destaque de /retirement (02/10/2026,
+   * pedido do Thiago: "uma curva simulada... pra visualizar como fazer pra
+   * fechar nela" em vez da linha vertical "Aposentadoria" + comparação dos 3
+   * cenários virou só um selo de status, calculado fora daqui). */
+  variant?: "scenarios" | "hero";
+  /** Série da curva Meta (ver buildMetaTrajectory em services/retirement) —
+   * só usada quando variant="hero". `null` quando a meta já está coberta
+   * pelo patrimônio de hoje, ou quando nem um retorno de 50%/ano chegaria
+   * lá — nos dois casos a curva simplesmente não aparece. */
+  metaTrajectory?: MetaTrajectory | null;
 }) {
-  const data = buildDataset(simulation, targetAge);
+  const isHero = variant === "hero";
+  const data = buildDataset(simulation, targetAge, isHero ? metaTrajectory : null);
 
   // Normally 0 already sits at the bottom of the axis (it's the domain's
   // minimum whenever there's any positive net worth in the series). But for
@@ -179,6 +210,11 @@ export function RetirementChart({
         conservador: "#5c7d6c",
         base: "#7fc79a",
         agressivo: "#d1b567",
+        // Cor dedicada da curva Meta (variante "hero") — distinta do dourado
+        // de "reference"/agressivo pra não confundir as duas (coral/danger-300
+        // do design system, usado aqui só como diferenciador visual, sem
+        // significado de "erro").
+        metaLine: "#f08a72",
       }
     : {
         grid: "#ece5d3",
@@ -191,6 +227,7 @@ export function RetirementChart({
         conservador: "#a3a89c",
         base: "#1a6349",
         agressivo: "#bd9a44",
+        metaLine: "#c14a3a",
       };
 
   const gradientId = dark ? "retirementBaseFillDark" : "retirementBaseFillLight";
@@ -216,7 +253,7 @@ export function RetirementChart({
       <ComposedChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={palette.base} stopOpacity={0.28} />
+            <stop offset="0%" stopColor={palette.base} stopOpacity={isHero ? 0.32 : 0.28} />
             <stop offset="100%" stopColor={palette.base} stopOpacity={0} />
           </linearGradient>
         </defs>
@@ -230,25 +267,28 @@ export function RetirementChart({
         <YAxis tick={false} width={0} axisLine={false} tickLine={false} domain={[yDomainMin, yDomainMax]} reversed={yReversed} />
         <Tooltip content={(props) => <ScenarioTooltipContent {...props} palette={palette} />} />
         <ReferenceLine y={0} stroke={palette.tick} strokeOpacity={0.5} />
-        {/* Só desenha a linha de "Necessário" quando ela é um valor acima de
-            zero — quando a renda garantida (INSS etc.) já cobre o objetivo,
-            requiredNetWorth é 0 e a linha cairia exatamente em cima da linha
-            de base (y=0) e dos rótulos do eixo X, uma poluição visual sem
-            informação nova (bug reportado pelo Thiago, 02/10/2026: "nome
-            necessário sobreposto em cima de uns números"). */}
-        {simulation.requiredNetWorth > 0 && (
+        {/* A linha horizontal "Necessário" e a vertical "Aposentadoria" só
+            fazem sentido na variante "scenarios" (cards compactos do
+            Dashboard/onboarding) — na "hero" (tela cheia de /retirement) as
+            duas foram substituídas pela curva Meta abaixo, que mostra o
+            mesmo ritmo necessário de um jeito mais direto (pedido do Thiago,
+            02/10/2026: "uma curva simulada... em vez da linha vertical
+            'aposentadoria'"). */}
+        {!isHero && simulation.requiredNetWorth > 0 && (
           <ReferenceLine
             y={simulation.requiredNetWorth}
             stroke={palette.reference}
             label={{ value: "Necessário", fontSize: 11, fill: palette.referenceLabel, position: "insideTopLeft" }}
           />
         )}
-        <ReferenceLine
-          x={targetAge}
-          stroke={palette.tick}
-          strokeOpacity={0.5}
-          label={{ value: "Aposentadoria", fontSize: 11, fill: palette.tick, position: "insideTop" }}
-        />
+        {!isHero && (
+          <ReferenceLine
+            x={targetAge}
+            stroke={palette.tick}
+            strokeOpacity={0.5}
+            label={{ value: "Aposentadoria", fontSize: 11, fill: palette.tick, position: "insideTop" }}
+          />
+        )}
         <Area
           type="monotone"
           dataKey="base"
@@ -257,31 +297,68 @@ export function RetirementChart({
           fill={`url(#${gradientId})`}
           isAnimationActive={false}
         />
-        <Line
-          type="monotone"
-          dataKey="conservador"
-          stroke={palette.conservador}
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          dot={false}
-        />
+        {!isHero && (
+          <Line
+            type="monotone"
+            dataKey="conservador"
+            stroke={palette.conservador}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            dot={false}
+          />
+        )}
         <Line
           type="monotone"
           dataKey="base"
           stroke={palette.base}
-          strokeWidth={2.5}
+          strokeWidth={isHero ? 3 : 2.5}
           strokeLinecap="round"
           dot={false}
           activeDot={{ r: 4 }}
         />
-        <Line
-          type="monotone"
-          dataKey="agressivo"
-          stroke={palette.agressivo}
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          dot={false}
-        />
+        {!isHero && (
+          <Line
+            type="monotone"
+            dataKey="agressivo"
+            stroke={palette.agressivo}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            dot={false}
+          />
+        )}
+        {/* Curva Meta: só na variante "hero", e só quando há mesmo uma meta a
+            perseguir (ver buildMetaTrajectory — null quando já coberta ou
+            inatingível só com retorno). Termina na idade-alvo (não continua
+            pra fase de "viver da renda", diferente da linha "base"), com um
+            marcador + rótulo do valor necessário na ponta. */}
+        {isHero && metaTrajectory && (
+          <>
+            <Line
+              type="monotone"
+              dataKey="meta"
+              stroke={palette.metaLine}
+              strokeWidth={2.5}
+              strokeDasharray="9 6"
+              strokeLinecap="round"
+              dot={false}
+              isAnimationActive={false}
+            />
+            <ReferenceDot
+              x={targetAge}
+              y={simulation.requiredNetWorth}
+              r={4}
+              fill={palette.metaLine}
+              stroke="none"
+              label={{
+                value: `Meta: ${formatCompactBRL(simulation.requiredNetWorth)}`,
+                fontSize: 11,
+                fontWeight: 600,
+                fill: palette.metaLine,
+                position: "top",
+              }}
+            />
+          </>
+        )}
         {visibleGoalMarkers.map((marker) => (
           <ReferenceDot
             key={marker.id}
@@ -294,7 +371,13 @@ export function RetirementChart({
         ))}
       </ComposedChart>
     </ResponsiveContainer>
-    {showLegend && (
+    {showLegend && isHero && (
+      <div className="flex items-center justify-center gap-4 mt-2.5 flex-wrap">
+        <ChartLegendEntry color={palette.base} label="Projeção (cenário base)" />
+        {metaTrajectory && <ChartLegendEntry color={palette.metaLine} label="Meta (ritmo necessário)" dashed />}
+      </div>
+    )}
+    {showLegend && !isHero && (
       <div className="flex items-center justify-center gap-4 mt-2.5 flex-wrap">
         <ChartLegendEntry color={palette.conservador} label="Conservador" />
         <ChartLegendEntry color={palette.base} label="Base" />
@@ -308,10 +391,18 @@ export function RetirementChart({
 /** Bolinha colorida + nome do cenário — mesma cor da linha correspondente no
  * gráfico, pra quem olha a curva saber qual é qual sem depender só do
  * tooltip ao passar o mouse (pedido do Thiago, 02/10/2026: "legenda"). */
-function ChartLegendEntry({ color, label }: { color: string; label: string }) {
+function ChartLegendEntry({ color, label, dashed = false }: { color: string; label: string; dashed?: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-onbrand/70">
-      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} aria-hidden />
+      {dashed ? (
+        <span
+          className="w-3.5 shrink-0"
+          style={{ borderTop: `2px dashed ${color}` }}
+          aria-hidden
+        />
+      ) : (
+        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} aria-hidden />
+      )}
       {label}
     </span>
   );

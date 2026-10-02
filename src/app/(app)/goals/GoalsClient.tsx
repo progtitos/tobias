@@ -7,7 +7,6 @@ import { Input, Label, FieldError } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatBRL } from "@/lib/utils/money";
 import { createGoalAction, addContributionAction, updateGoalStatusAction, type GoalFormState } from "./actions";
 
@@ -122,8 +121,6 @@ export function GoalsClient({ goals }: { goals: Goal[] }) {
 function GoalCard({ goal }: { goal: Goal }) {
   const [pending, startTransition] = useTransition();
   const [contribution, setContribution] = useState("");
-  const pct = goal.targetAmount ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100)) : null;
-
   return (
     <Card data-testid="goal-card" data-goal-title={goal.title}>
       <CardContent className="py-4">
@@ -154,7 +151,7 @@ function GoalCard({ goal }: { goal: Goal }) {
           </button>
         </div>
 
-        {pct !== null && <ProgressBar value={pct} className="mt-3" />}
+        <GoalMiniChart goal={goal} />
 
         {goal.status === "ACTIVE" &&
           (goal.type === "EMERGENCY_FUND" ? (
@@ -192,5 +189,78 @@ function GoalCard({ goal }: { goal: Goal }) {
           ))}
       </CardContent>
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Mini-gráfico por sonho (redesenho aprovado, 02/10/2026 — mesma linguagem
+// visual da curva Meta da aposentadoria: curva preenchida em vez de barra
+// linear). Substitui a antiga <ProgressBar>.
+// ---------------------------------------------------------------------------
+
+// gold-400/ok-400/warn-400 são acentos FIXOS (não flipam com o tema — ver
+// globals.css); brand-700 flipa, usado aqui só como neutro pra "Imóvel" (sem
+// um acento próprio reservado pra esse tipo).
+const GOAL_TYPE_COLOR: Record<string, string> = {
+  DREAM: "var(--color-gold-400)",
+  EMERGENCY_FUND: "var(--color-ok-400)",
+  PROPERTY: "var(--color-brand-700)",
+  CUSTOM: "var(--color-warn-400)",
+  RETIREMENT: "var(--color-brand-700)",
+};
+
+/**
+ * De onde (hoje, em fração do valor-alvo) até onde (projeção, mesma fração)
+ * a curva vai. `goals` só guarda um `currentAmount` corrente, sem histórico
+ * de aportes salvo — então a curva não reconstrói o passado, só projeta daqui
+ * pra frente com o aporte mensal informado, do mesmo jeito que a curva Meta
+ * da aposentadoria (ver `buildMetaTrajectory` em services/retirement.ts).
+ * `null` quando não há valor-alvo (goal ainda não quantificado). Fica
+ * achatada no nível atual quando a meta já foi atingida, ou quando falta
+ * prazo/aporte pra projetar — sem inventar um prazo que ninguém informou.
+ */
+function goalProjection(goal: Goal): { from: number; to: number } | null {
+  if (!goal.targetAmount || goal.targetAmount <= 0) return null;
+  const pctNow = Math.min(1, goal.currentAmount / goal.targetAmount);
+  if (pctNow >= 1 || !goal.targetDate || !goal.monthlyContribution || goal.monthlyContribution <= 0) {
+    return { from: pctNow, to: pctNow };
+  }
+  const monthsRemaining = Math.max(
+    1,
+    Math.round((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30.44))
+  );
+  const projected = (goal.currentAmount + goal.monthlyContribution * monthsRemaining) / goal.targetAmount;
+  return { from: pctNow, to: Math.max(pctNow, Math.min(1, projected)) };
+}
+
+function GoalMiniChart({ goal }: { goal: Goal }) {
+  const projection = goalProjection(goal);
+  if (!projection) return null;
+
+  const color = GOAL_TYPE_COLOR[goal.type] ?? GOAL_TYPE_COLOR.CUSTOM;
+  const gradientId = `goal-fill-${goal.id}`;
+  const width = 240;
+  const height = 56;
+  const top = 6;
+  const bottom = height - 4;
+  const toY = (v: number) => bottom - v * (bottom - top);
+  const y0 = toY(projection.from);
+  const y1 = toY(projection.to);
+  // Só 2 pontos reais (hoje, projeção) — uma única curva suave entre eles em
+  // vez de reta, pra conversar visualmente com a curva Meta da aposentadoria.
+  const line = `M0,${y0} C${width * 0.35},${y0 - (y0 - y1) * 0.15} ${width * 0.65},${y1 + (y0 - y1) * 0.3} ${width},${y1}`;
+  const area = `${line} L${width},${bottom} L0,${bottom} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} className="mt-3">
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gradientId})`} />
+      <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </svg>
   );
 }

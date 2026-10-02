@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 import { formatBRL } from "@/lib/utils/money";
 import { parseDateOnly } from "@/lib/utils/dates";
-import { simulateRetirementCurve, requiredMonthlyContribution, type RetirementInputs } from "@/services/retirement";
+import { simulateRetirementCurve, requiredMonthlyContribution, buildMetaTrajectory, type RetirementInputs } from "@/services/retirement";
 import { computeGuaranteedMonthlyIncome, computeAverageSalaryFromHistory, type Gender } from "@/services/inss";
 import { saveRetirementPlanAction, uploadCnisAction, clearSalaryHistoryAction, type UploadCnisState } from "./actions";
 
@@ -105,6 +105,23 @@ export function RetirementClient({
     () => requiredMonthlyContribution(fullInputs, "base"),
     [JSON.stringify(fullInputs)]
   );
+  // Curva Meta do card de destaque (redesenho aprovado, 02/10/2026): o ritmo
+  // de patrimônio necessário pra chegar em `simulation.requiredNetWorth`
+  // bem na idade-alvo, desenhada ao lado da projeção real. `null` quando a
+  // meta já está coberta pelo patrimônio de hoje, ou quando nem um retorno
+  // de 50%/ano chegaria lá — nos dois casos o card de destaque simplesmente
+  // não desenha a curva (ver RetirementChart variant="hero").
+  const metaTrajectory = useMemo(
+    () =>
+      buildMetaTrajectory(
+        inputs.currentAge,
+        inputs.targetRetirementAge,
+        currentNetWorth,
+        inputs.monthlyContribution,
+        simulation.requiredNetWorth
+      ),
+    [inputs.currentAge, inputs.targetRetirementAge, currentNetWorth, inputs.monthlyContribution, simulation.requiredNetWorth]
+  );
 
   function set<K extends keyof Defaults>(key: K, value: Defaults[K]) {
     setSaved(false);
@@ -162,11 +179,17 @@ export function RetirementClient({
               dark
               goalMarkers={chartGoalMarkers}
               showLegend
+              variant="hero"
+              metaTrajectory={metaTrajectory}
             />
+            {/* Selo único (cenário base), em vez dos 3 anteriores — redesenho
+                aprovado, 02/10/2026: a curva agora só mostra a projeção base
+                + a curva Meta, então comparar os 3 cenários lado a lado por
+                selo deixou de fazer sentido visualmente; quem quiser ver o
+                cenário conservador/agressivo isolado ainda tem os números em
+                "Projeção no cenário base" + a sugestão de aporte abaixo. */}
             <div className="flex flex-wrap gap-1.5 mt-3">
-              <ScenarioBadge label="Conservador" onTrack={simulation.conservative.onTrack} />
-              <ScenarioBadge label="Base" onTrack={simulation.base.onTrack} />
-              <ScenarioBadge label="Agressivo" onTrack={simulation.aggressive.onTrack} />
+              <ScenarioBadge label="Aposentadoria" onTrack={simulation.base.onTrack} />
             </div>
             <div className="mt-4 space-y-1.5 text-sm">
               <p className="text-onbrand/70">

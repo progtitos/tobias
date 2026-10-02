@@ -199,6 +199,84 @@ export function estimateTargetAge(
   return inputs.currentAge + 25;
 }
 
+const REQUIRED_RATE_MAX = 0.5; // 50%/ano real — acima disso tratamos como inatingível só com retorno
+
+/** Future value of currentNetWorth + a monthly contribution annuity, compounding at annualRate for `months` months — mesma composição usada em `projectScenario`, isolada aqui pra dar pra resolver a taxa (abaixo) sem duplicar a conta de novo. */
+function futureValue(currentNetWorth: number, monthlyContribution: number, annualRate: number, months: number): number {
+  const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+  if (monthlyRate === 0) return currentNetWorth + monthlyContribution * months;
+  const growth = Math.pow(1 + monthlyRate, months);
+  return currentNetWorth * growth + monthlyContribution * ((growth - 1) / monthlyRate);
+}
+
+/**
+ * Resolve a taxa de retorno real anual que, compondo mensalmente com o aporte
+ * atual, levaria do patrimônio de hoje até `requiredNetWorth` bem em `months`
+ * meses — é o "ritmo necessário" que a curva Meta desenha ao lado da
+ * projeção real (pedido do Thiago, 02/10/2026: "uma curva simulada... pra
+ * visualizar como fazer pra fechar nela"). `futureValue` é crescente em
+ * annualRate (pra aporte >= 0), então busca binária converge.
+ *
+ * `null` quando não há nada a perseguir (a meta já está coberta pelo
+ * patrimônio de hoje) ou quando nem um retorno de 50%/ano chegaria lá — nesse
+ * caso a curva Meta simplesmente não aparece; a sugestão de aumentar o aporte
+ * já existe em texto em outro lugar da tela (ver `!simulation.base.onTrack`
+ * em RetirementClient).
+ */
+export function requiredAnnualReturnRate(
+  currentNetWorth: number,
+  monthlyContribution: number,
+  requiredNetWorth: number,
+  months: number
+): number | null {
+  if (requiredNetWorth <= currentNetWorth || months <= 0) return null;
+  if (futureValue(currentNetWorth, monthlyContribution, REQUIRED_RATE_MAX, months) < requiredNetWorth) return null;
+
+  let lo = 0;
+  let hi = REQUIRED_RATE_MAX;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (futureValue(currentNetWorth, monthlyContribution, mid, months) < requiredNetWorth) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
+
+export type MetaTrajectory = { rate: number; series: ScenarioPoint[] };
+
+/**
+ * A curva Meta em si: a série de pontos (idade, patrimônio) que resulta de
+ * compor `requiredAnnualReturnRate` mês a mês, do patrimônio de hoje até a
+ * idade-alvo — desenhada ao lado da projeção real pra mostrar visualmente o
+ * ritmo necessário. Só existe até a idade-alvo (depois disso a pergunta "que
+ * ritmo preciso manter" deixa de fazer sentido); as 3 projeções de cenário
+ * continuam além dela, na fase de "viver da renda". `null` nos mesmos casos
+ * de `requiredAnnualReturnRate` (meta já coberta, ou inatingível só com
+ * retorno).
+ */
+export function buildMetaTrajectory(
+  currentAge: number,
+  targetAge: number,
+  currentNetWorth: number,
+  monthlyContribution: number,
+  requiredNetWorth: number
+): MetaTrajectory | null {
+  const months = Math.round((targetAge - currentAge) * 12);
+  const rate = requiredAnnualReturnRate(currentNetWorth, monthlyContribution, requiredNetWorth, months);
+  if (rate === null) return null;
+
+  const monthlyRate = Math.pow(1 + rate, 1 / 12) - 1;
+  const series: ScenarioPoint[] = [{ age: currentAge, value: currentNetWorth }];
+  let value = currentNetWorth;
+  for (let m = 1; m <= months; m++) {
+    value = value * (1 + monthlyRate) + monthlyContribution;
+    if (m % 12 === 0 || m === months) {
+      series.push({ age: currentAge + m / 12, value });
+    }
+  }
+  return { rate, series };
+}
+
 /** How much the monthly contribution would need to change to reach the goal at the target age, holding everything else constant (binary search). */
 export function requiredMonthlyContribution(inputs: RetirementInputs, scenario: "conservative" | "base" | "aggressive" = "base"): number {
   const rate =
