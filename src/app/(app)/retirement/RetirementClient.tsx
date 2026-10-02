@@ -191,6 +191,21 @@ export function RetirementClient({
             <div className="flex flex-wrap gap-1.5 mt-3">
               <ScenarioBadge label="Aposentadoria" onTrack={simulation.base.onTrack} />
             </div>
+            {/* Explica o sumiço da curva Meta quando ela não aparece por já
+                estar coberta — sem isso, o gráfico simplesmente não desenha
+                nada diferente do "Projeção" e parece quebrado (bug reportado
+                pelo Thiago, 02/10/2026: "a curva de aposentadoria ficou bem
+                estranha", depois de ver o gráfico sem a curva tracejada no
+                caso dele, onde a renda garantida já cobre tudo). Quando é
+                inatingível mesmo a 50%/ano (metaTrajectory null por outro
+                motivo), a sugestão de aumentar o aporte logo abaixo já cobre
+                o caso — não precisa de outro aviso aqui. */}
+            {!metaTrajectory && simulation.requiredNetWorth <= currentNetWorth && (
+              <p className="text-xs text-onbrand/45 mt-2">
+                Sua renda garantida já cobre o patrimônio necessário — não existe uma meta extra de patrimônio pra
+                perseguir aqui, por isso não tem uma segunda curva no gráfico.
+              </p>
+            )}
             <div className="mt-4 space-y-1.5 text-sm">
               <p className="text-onbrand/70">
                 Patrimônio necessário para viver de renda: <span className="font-medium text-onbrand">{formatBRL(simulation.requiredNetWorth)}</span>

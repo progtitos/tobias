@@ -29,7 +29,6 @@ import { IconButton } from "@/components/ui/IconButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
-import { GoalProgressRing } from "./GoalProgressRing";
 import { EmergencyFundTank } from "./EmergencyFundTank";
 import {
   createGoalAction,
@@ -840,19 +839,31 @@ function GoalCard({
       <CardContent className="py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="relative shrink-0">
-              {isEmergencyFund ? <EmergencyFundTank pct={pct} /> : <GoalProgressRing pct={pct} />}
-              <span
-                className={cn(
-                  "absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center ring-2 ring-brand-800 text-ink-900",
-                  isEmergencyFund ? "bg-ok-400" : "bg-gold-500"
-                )}
-                title={GOAL_TYPE_LABELS[goal.type]}
-              >
-                <TypeIcon className="h-3 w-3" strokeWidth={2.5} />
-              </span>
-            </div>
-            <div className="min-w-0 pt-0.5">
+            {isEmergencyFund ? (
+              <div className="relative shrink-0">
+                <EmergencyFundTank pct={pct} />
+                <span
+                  className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center ring-2 ring-brand-800 text-ink-900 bg-ok-400"
+                  title={GOAL_TYPE_LABELS[goal.type]}
+                >
+                  <TypeIcon className="h-3 w-3" strokeWidth={2.5} />
+                </span>
+              </div>
+            ) : (
+              // Mesma pegada de 56×56 que o anel de progresso ocupava (ring
+              // h-14 w-14), só pra manter o `pl-[68px]` do aporte abaixo
+              // alinhado sem precisar remexer em outro lugar do arquivo — o
+              // progresso em si virou o mini-gráfico embaixo do texto.
+              <div className="h-14 w-14 shrink-0 flex items-center justify-center">
+                <span
+                  className="h-9 w-9 rounded-full flex items-center justify-center bg-gold-500 text-ink-900"
+                  title={GOAL_TYPE_LABELS[goal.type]}
+                >
+                  <TypeIcon className="h-4 w-4" strokeWidth={2.5} />
+                </span>
+              </div>
+            )}
+            <div className="min-w-0 pt-0.5 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium text-onbrand">{goal.title}</p>
                 <Badge tone="brand">{GOAL_TYPE_LABELS[goal.type]}</Badge>
@@ -878,6 +889,16 @@ function GoalCard({
                 </p>
               )}
               <p className="text-xs text-onbrand/40 mt-0.5">{GOAL_TYPE_DESCRIPTIONS[goal.type]}</p>
+              {/* Mini-gráfico de progresso (redesenho aprovado, 02/10/2026 —
+                  mesma linguagem visual da curva Meta da aposentadoria:
+                  curva preenchida em vez de anel). Reserva de emergência
+                  fica de fora: tem o próprio metáfora visual (o "tanque"
+                  acima) e progresso calculado automaticamente, não aportado
+                  à mão. Cor única (gold-500, mesma do selo/borda do card) —
+                  "sem introduzir nenhuma cor nova por tipo de objetivo", já
+                  decidido antes aqui perto (ver comentário na borda colorida
+                  do Card). */}
+              {!isEmergencyFund && <GoalMiniChart goal={goal} />}
             </div>
           </div>
           {/* Ambos IconButton (44×44 de alvo de toque, `design-system-tobias.md`
@@ -961,6 +982,66 @@ function GoalCard({
           ))}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * De onde (hoje, em fração do valor-alvo) até onde (projeção, mesma fração)
+ * a curva vai. `goals` só guarda um `currentAmount` corrente, sem histórico
+ * de aportes salvo — então a curva não reconstrói o passado, só projeta daqui
+ * pra frente com o aporte mensal informado, do mesmo jeito que a curva Meta
+ * da aposentadoria (ver `buildMetaTrajectory` em services/retirement.ts).
+ * `null` quando não há valor-alvo (goal ainda não quantificado). Fica
+ * achatada no nível atual quando a meta já foi atingida, ou quando falta
+ * prazo/aporte pra projetar — sem inventar um prazo que ninguém informou.
+ */
+function goalProjection(goal: Goal): { from: number; to: number } | null {
+  if (!goal.targetAmount || goal.targetAmount <= 0) return null;
+  const pctNow = Math.min(1, goal.currentAmount / goal.targetAmount);
+  if (pctNow >= 1 || !goal.targetDate || !goal.monthlyContribution || goal.monthlyContribution <= 0) {
+    return { from: pctNow, to: pctNow };
+  }
+  const monthsRemaining = Math.max(
+    1,
+    Math.round((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30.44))
+  );
+  const projected = (goal.currentAmount + goal.monthlyContribution * monthsRemaining) / goal.targetAmount;
+  return { from: pctNow, to: Math.max(pctNow, Math.min(1, projected)) };
+}
+
+// gold-500 — mesma cor do selo/borda que o card já usa pra todo objetivo que
+// não é reserva de emergência (ver comentário na borda colorida do Card,
+// acima): decisão deliberada de não introduzir uma cor nova por tipo.
+const GOAL_CHART_COLOR = "var(--color-gold-500)";
+
+function GoalMiniChart({ goal }: { goal: Goal }) {
+  const projection = goalProjection(goal);
+  if (!projection) return null;
+
+  const gradientId = `goal-fill-${goal.id}`;
+  const width = 240;
+  const height = 56;
+  const top = 6;
+  const bottom = height - 4;
+  const toY = (v: number) => bottom - v * (bottom - top);
+  const y0 = toY(projection.from);
+  const y1 = toY(projection.to);
+  // Só 2 pontos reais (hoje, projeção) — uma única curva suave entre eles em
+  // vez de reta, pra conversar visualmente com a curva Meta da aposentadoria.
+  const line = `M0,${y0} C${width * 0.35},${y0 - (y0 - y1) * 0.15} ${width * 0.65},${y1 + (y0 - y1) * 0.3} ${width},${y1}`;
+  const area = `${line} L${width},${bottom} L0,${bottom} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} className="mt-2.5 max-w-[320px]">
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={GOAL_CHART_COLOR} stopOpacity={0.35} />
+          <stop offset="100%" stopColor={GOAL_CHART_COLOR} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gradientId})`} />
+      <path d={line} fill="none" stroke={GOAL_CHART_COLOR} strokeWidth={2} strokeLinecap="round" />
+    </svg>
   );
 }
 
