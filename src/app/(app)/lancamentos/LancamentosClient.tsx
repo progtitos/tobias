@@ -19,28 +19,7 @@ import {
   Pencil,
   Check,
   X,
-  Home,
-  Utensils,
-  Car,
-  HeartPulse,
-  GraduationCap,
-  PartyPopper,
-  Plane,
-  ShoppingBag,
-  Users,
-  Baby,
-  Shield,
   Repeat,
-  CreditCard,
-  HandHeart,
-  Briefcase,
-  MoreHorizontal,
-  TrendingUp,
-  Wallet,
-  Laptop,
-  Key,
-  LineChart,
-  Tag,
   Search,
   Merge,
   type LucideIcon,
@@ -128,34 +107,6 @@ const TYPE_META: Record<string, { label: string; icon: LucideIcon; amountClass: 
   EXPENSE: { label: "Gasto", icon: ArrowUpCircle, amountClass: "text-onbrand/85", sign: "−" },
   INVESTMENT_CONTRIBUTION: { label: "Investimento", icon: PiggyBank, amountClass: "text-gold-400", sign: "+" },
   TRANSFER: { label: "Transferência", icon: ArrowLeftRight, amountClass: "text-onbrand/55", sign: "" },
-};
-
-// Mesmos ícones plantados em seedCategories.ts, um por categoria — assim uma
-// linha de "Alimentação" mostra um talher, não a mesma setinha genérica de
-// todo gasto. Categoria sem ícone (ou uma criada pelo usuário) cai no Tag.
-const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
-  home: Home,
-  utensils: Utensils,
-  car: Car,
-  "heart-pulse": HeartPulse,
-  "graduation-cap": GraduationCap,
-  "party-popper": PartyPopper,
-  plane: Plane,
-  "shopping-bag": ShoppingBag,
-  users: Users,
-  baby: Baby,
-  receipt: Receipt,
-  shield: Shield,
-  repeat: Repeat,
-  "credit-card": CreditCard,
-  "hand-heart": HandHeart,
-  briefcase: Briefcase,
-  "more-horizontal": MoreHorizontal,
-  "trending-up": TrendingUp,
-  wallet: Wallet,
-  laptop: Laptop,
-  key: Key,
-  "line-chart": LineChart,
 };
 
 const MONTH_LABEL = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
@@ -1071,32 +1022,22 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
   );
 }
 
-// Ícone com fundo colorido por tipo — mesma leitura rápida em créditos/
-// investimentos/transferências, uma cor de destaque; gasto fica num círculo
-// neutro (a variedade de categorias já é o ícone em si, uma cor por
-// categoria é uma evolução futura, fora do escopo deste redesenho).
-const TYPE_ICON_BG: Record<string, string> = {
-  INCOME: "bg-ok-400/15 text-ok-400",
-  EXPENSE: "bg-onbrand/[0.07] text-onbrand/70",
-  INVESTMENT_CONTRIBUTION: "bg-gold-400/15 text-gold-400",
-  TRANSFER: "bg-onbrand/[0.07] text-onbrand/50",
-};
-
 // ---------------------------------------------------------------------------
-// Tabela de transações (redesenho aprovado, 02/10/2026) — pedido explícito do
-// Thiago: "quero 4 colunas com as tags na frente, data, descrição banco e
-// valor, tudo isso muito bem alinhado o de cima com o debaixo e a linha mais
-// fina possível". Substitui o feed agrupado por dia (DayGroup) por uma grade
-// única: mesmo `TABLE_GRID` no cabeçalho e em cada linha garante que as 4
-// colunas batem exatinho de uma linha pra outra, sem precisar de <table>
-// (fora do padrão visual do produto — ver design-system-tobias.md).
+// Tabela de transações (redesenho aprovado, 02/10/2026, revisado 02/10/2026
+// a pedido do Thiago: "a ordem é data, descrição, tag, banco e valor... tudo
+// em uma linha só igual ao print que enviei" — o banco ganhou coluna própria
+// em vez de aparecer como ícone embutido na descrição). Substitui o feed
+// agrupado por dia (DayGroup) por uma grade única: mesmo `TABLE_GRID` no
+// cabeçalho e em cada linha garante que as colunas batem exatinho de uma
+// linha pra outra, sem precisar de <table> (fora do padrão visual do
+// produto — ver design-system-tobias.md).
 // Data não mostra horário: a coluna existe só como timestamptz à meia-noite
 // local (parseDateOnly em transactions.ts), não há captura de hora em lugar
 // nenhum do app, então mostrar um horário aqui seria inventar um dado que
 // não existe (confirmado com o Thiago antes de implementar).
 // ---------------------------------------------------------------------------
 
-const TABLE_GRID = "grid-cols-[64px_52px_minmax(0,1fr)_92px_16px]";
+const TABLE_GRID = "grid-cols-[52px_minmax(0,1fr)_56px_110px_92px_16px]";
 
 function TransactionsTableHeader() {
   return (
@@ -1106,9 +1047,10 @@ function TransactionsTableHeader() {
         TABLE_GRID
       )}
     >
-      <span>Tag</span>
       <span>Data</span>
       <span>Descrição</span>
+      <span>Tag</span>
+      <span>Banco</span>
       <span className="text-right">Valor</span>
       <span aria-hidden />
     </div>
@@ -1146,19 +1088,13 @@ function dateCellParts(dateStr: string): { dayMonth: string; weekday: string } {
 function TransactionRow({ transaction, onEdit }: { transaction: Transaction; onEdit: () => void }) {
   const lowConfidence = transaction.categoryId && transaction.confidence < 0.7;
   const meta = TYPE_META[transaction.type] ?? TYPE_META.EXPENSE;
-  // Um gasto categorizado mostra o ícone da própria categoria (Moradia,
-  // Mercado...) em vez da setinha genérica — as outras direções (receita,
-  // aporte, transferência) continuam com o ícone de tipo, já que não têm
-  // categoria própria.
-  const categoryIcon = transaction.categoryIcon ? CATEGORY_ICON_MAP[transaction.categoryIcon] : undefined;
-  const Icon = transaction.type === "EXPENSE" ? categoryIcon ?? Tag : meta.icon;
   const bankName = transaction.bankAccountBankName ?? transaction.cardBankName ?? null;
   const { dayMonth, weekday } = dateCellParts(transaction.date);
 
-  // Contexto além da descrição (banco quando não há logo próprio, categoria,
-  // estabelecimento, forma de pagamento) — a logo do banco já aparece como
-  // ícone da linha, então aqui só entra o nome quando não há conta/cartão
-  // vinculado (pra não repetir a mesma informação duas vezes).
+  // Contexto além da descrição (conta/cartão quando não há banco vinculado,
+  // categoria, estabelecimento) — o banco já tem coluna própria, então aqui
+  // só entra o nome da conta/cartão quando não há banco (pra não repetir a
+  // mesma informação duas vezes).
   const subParts: string[] = [];
   if (!bankName) {
     const accountOrCardLabel = transaction.bankAccountName ?? transaction.creditCardNickname ?? null;
@@ -1177,6 +1113,23 @@ function TransactionRow({ transaction, onEdit }: { transaction: Transaction; onE
         TABLE_GRID
       )}
     >
+      <span className="flex flex-col leading-tight">
+        <span className="text-xs font-medium text-onbrand/80 tabular-nums">{dayMonth}</span>
+        <span className="text-[10px] text-onbrand/45">{weekday}</span>
+      </span>
+
+      <span className="min-w-0">
+        {/* title = tooltip nativo do navegador: passando o mouse por cima
+            de uma descrição cortada (truncate), o texto inteiro aparece,
+            sem precisar alargar a linha pra isso. */}
+        <p className="text-sm font-medium text-onbrand truncate" title={transaction.description}>
+          {transaction.description}
+        </p>
+        {subParts.length > 0 && (
+          <p className="text-[11px] text-onbrand/55 truncate">{subParts.join(" · ")}</p>
+        )}
+      </span>
+
       <span className="flex items-center gap-1 flex-wrap min-w-0">
         {transaction.installmentTotal && transaction.installmentTotal > 1 && (
           <Badge tone="neutral" className={COMPACT_BADGE}>
@@ -1195,30 +1148,21 @@ function TransactionRow({ transaction, onEdit }: { transaction: Transaction; onE
         )}
       </span>
 
-      <span className="flex flex-col leading-tight">
-        <span className="text-xs font-medium text-onbrand/80 tabular-nums">{dayMonth}</span>
-        <span className="text-[10px] text-onbrand/45">{weekday}</span>
-      </span>
-
-      <span className="flex items-center gap-2 min-w-0">
+      {/* Caixa de 26×26 fixa em volta do logo (ou do traço, quando não há
+          banco vinculado) — mesma altura/largura nos dois casos garante que
+          a coluna fica alinhada verticalmente de uma linha pra outra (pedido
+          do Thiago: "só precisa alinhar os icones do banco"). */}
+      <span className="flex items-center gap-1.5 min-w-0">
         {bankName ? (
-          <BankBadge bankName={bankName} />
+          <>
+            <BankBadge bankName={bankName} />
+            <span className="text-xs text-onbrand/65 truncate">{bankName}</span>
+          </>
         ) : (
-          <span className={cn("flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full", TYPE_ICON_BG[transaction.type])}>
-            <Icon className="h-3.5 w-3.5" aria-hidden />
+          <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center text-onbrand/30 text-sm">
+            —
           </span>
         )}
-        <span className="min-w-0 flex-1">
-          {/* title = tooltip nativo do navegador: passando o mouse por cima
-              de uma descrição cortada (truncate), o texto inteiro aparece,
-              sem precisar alargar a linha pra isso. */}
-          <p className="text-sm font-medium text-onbrand truncate" title={transaction.description}>
-            {transaction.description}
-          </p>
-          {subParts.length > 0 && (
-            <p className="text-[11px] text-onbrand/55 truncate">{subParts.join(" · ")}</p>
-          )}
-        </span>
       </span>
 
       <span className={`text-sm font-medium tabular-nums text-right ${meta.amountClass}`}>
