@@ -16,6 +16,7 @@ import {
   updateLeadAction,
   deleteLeadAction,
   deleteLeadsAction,
+  deleteAllLeadsAction,
   type ImportLeadsState,
   type UpdateLeadState,
 } from "./actions";
@@ -64,6 +65,46 @@ export function ImportLeadsForm() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Excluir TODOS os leads de uma vez — pedido do Thiago (02/10/2026),
+// diferente do "selecionar tudo" da tabela, que só marca as linhas da
+// página atual carregada (ver comentário em LeadsTable). Fica no cabeçalho
+// da página, fora da tabela, porque age sobre a base inteira independente
+// de filtro/página/visão (Tabela ou Kanban).
+// ---------------------------------------------------------------------------
+export function DeleteAllLeadsButton({ total }: { total: number }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  if (total === 0) return null;
+
+  return (
+    <>
+      <Button type="button" size="sm" variant="danger" onClick={() => setConfirmOpen(true)}>
+        <Trash2 className="h-3.5 w-3.5" /> Excluir todos os leads
+      </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`Excluir todos os ${total} leads?`}
+        description="Isso apaga TODOS os leads cadastrados, de qualquer status e de todas as páginas, não só os desta tela. Não pode ser desfeito."
+        confirmLabel="Excluir todos"
+        pending={pending}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          startTransition(async () => {
+            try {
+              await deleteAllLeadsAction();
+              setConfirmOpen(false);
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Falha ao excluir os leads.");
+            }
+          });
+        }}
+      />
+    </>
   );
 }
 

@@ -2,7 +2,7 @@ import { listLeadsForAdmin, listLeadsForKanban } from "@/services/admin";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { ImportLeadsForm } from "./LeadsClient";
+import { ImportLeadsForm, DeleteAllLeadsButton } from "./LeadsClient";
 import { LeadsViewSwitcher } from "./LeadsViewSwitcher";
 
 export default async function AdminLeadsPage({
@@ -20,7 +20,10 @@ export default async function AdminLeadsPage({
 
   return (
     <div>
-      <h1 className="font-sans font-bold text-2xl text-onbrand mb-1">Leads (CRM)</h1>
+      <div className="flex items-start justify-between gap-4 mb-1">
+        <h1 className="font-sans font-bold text-2xl text-onbrand">Leads (CRM)</h1>
+        <DeleteAllLeadsButton total={total} />
+      </div>
       <p className="text-sm text-onbrand/55 mb-6">
         {total} lead(s) cadastrado(s). Envio de e-mail marketing e WhatsApp em massa ainda não estão conectados aqui,
         ver nota no schema (<span className="text-onbrand/70">leads</span>) sobre por quê.

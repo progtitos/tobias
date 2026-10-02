@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/auth/guards";
-import { deleteLead, deleteLeads, importLeadsFromFile, updateLeadForAdmin, updateLeadStatus } from "@/services/admin";
+import { deleteAllLeads, deleteLead, deleteLeads, importLeadsFromFile, updateLeadForAdmin, updateLeadStatus } from "@/services/admin";
 import { revalidatePath } from "next/cache";
 
 export type ImportLeadsState = { error?: string; success?: { imported: number; skipped: number; total: number } } | undefined;
@@ -85,6 +85,13 @@ export async function deleteLeadAction(leadId: string) {
 export async function deleteLeadsAction(leadIds: string[]): Promise<number> {
   await requireAdmin();
   const deleted = await deleteLeads(leadIds);
+  revalidateLeads();
+  return deleted;
+}
+
+export async function deleteAllLeadsAction(): Promise<number> {
+  await requireAdmin();
+  const deleted = await deleteAllLeads();
   revalidateLeads();
   return deleted;
 }

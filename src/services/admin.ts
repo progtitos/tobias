@@ -320,6 +320,20 @@ export async function deleteLeads(leadIds: string[]): Promise<number> {
 }
 
 /**
+ * Exclusão de TODOS os leads de uma vez — pedido do Thiago (02/10/2026),
+ * diferente de `deleteLeads`/"selecionar tudo" da tabela, que só marca as
+ * linhas da página atual (ver comentário em `LeadsTable`). Sem filtro de
+ * busca/status: apaga a base inteira, de qualquer página. DELETE físico
+ * mesmo (mesmo raciocínio de `deleteLead`/`deleteLeads`: `leads` não é
+ * referenciada por FK de ninguém, só referencia `users` via
+ * `convertedUserId` com `onDelete: "set null"` nessa direção).
+ */
+export async function deleteAllLeads(): Promise<number> {
+  const result = await db.delete(leads).returning({ id: leads.id });
+  return result.length;
+}
+
+/**
  * Chamada no momento em que o pagamento de um usuário é confirmado
  * (`markSubscriptionActive`, quando `subscriptionStatus` vira "ACTIVE") —
  * pedido do Thiago 2026-09-19 pra linkar quem pagou com "convertido" no CRM

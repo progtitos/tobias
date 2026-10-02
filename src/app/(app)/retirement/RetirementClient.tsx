@@ -161,6 +161,8 @@ export function RetirementClient({
               height={300}
               dark
               goalMarkers={chartGoalMarkers}
+              showYAxis
+              showLegend
             />
             <div className="flex flex-wrap gap-1.5 mt-3">
               <ScenarioBadge label="Conservador" onTrack={simulation.conservative.onTrack} />

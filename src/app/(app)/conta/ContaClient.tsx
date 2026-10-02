@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/Badge";
 import { BankBadge } from "@/components/ui/BankBadge";
 import { IconButton } from "@/components/ui/IconButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Modal } from "@/components/ui/Modal";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { BANKS, OTHER_BANK_ID, findBank } from "@/lib/utils/banks";
@@ -96,12 +97,14 @@ export function ContaClient({
   cardsUsage: CreditCardUsage[];
   totalInvested: number;
 }) {
-  const [showAccountForm, setShowAccountForm] = useState(false);
-  const [showCardForm, setShowCardForm] = useState(false);
-  const [accountFormState, accountFormAction, accountPending] = useActionState<ContaFormState, FormData>(
-    createBankAccountAction,
-    undefined
-  );
+  // Um só modal pra conta e cartão, com abas (redesenho aprovado,
+  // 02/10/2026 — pedido do Thiago: "modal para adicionar contas e cartões,
+  // na imagem vemos algo mais refinado"). `formTab` guarda tanto se o modal
+  // está aberto (`null` = fechado) quanto em qual aba ele abre: cada botão
+  // "+" abre já na aba certa, mas a pessoa pode trocar de aba dentro do
+  // modal sem perder o que já preencheu na outra (useActionState de cada
+  // formulário não reseta, já que o Modal só o esconde, não desmonta).
+  const [formTab, setFormTab] = useState<"account" | "card" | null>(null);
 
   const active = accounts.filter((a) => a.isActive);
   const inactive = accounts.filter((a) => !a.isActive);
@@ -161,7 +164,7 @@ export function ContaClient({
                 <h2 className="font-sans font-semibold text-onbrand">Contas</h2>
                 <button
                   type="button"
-                  onClick={() => setShowAccountForm((v) => !v)}
+                  onClick={() => setFormTab("account")}
                   className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-onbrand/5"
                   title="Adicionar conta"
                 >
@@ -178,17 +181,6 @@ export function ContaClient({
                   <span className="tabular-nums text-onbrand/80">{formatBRL(totalAccountsInvested)}</span>
                 </span>
               </div>
-
-              {showAccountForm && (
-                <div className="py-3 border-b border-onbrand/[0.06] mb-1">
-                  <NewAccountForm
-                    formAction={accountFormAction}
-                    pending={accountPending}
-                    error={accountFormState?.error}
-                    onDone={() => setShowAccountForm(false)}
-                  />
-                </div>
-              )}
 
               {accounts.length === 0 ? (
                 <p className="text-sm text-onbrand/55 py-8 text-center">
@@ -222,7 +214,7 @@ export function ContaClient({
                 {accounts.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setShowCardForm((v) => !v)}
+                    onClick={() => setFormTab("card")}
                     className="h-7 w-7 rounded-full flex items-center justify-center text-onbrand/60 hover:text-gold-400 hover:bg-onbrand/5"
                     title="Adicionar cartão"
                   >
@@ -243,12 +235,6 @@ export function ContaClient({
                   <span className="tabular-nums text-onbrand/80">{formatBRL(totalAvailableLimit)}</span>
                 </span>
               </div>
-
-              {showCardForm && (
-                <div className="py-3 border-b border-onbrand/[0.06] mb-1">
-                  <NewCreditCardForm accounts={accounts} onDone={() => setShowCardForm(false)} />
-                </div>
-              )}
 
               {creditCards.length === 0 ? (
                 <p className="text-sm text-onbrand/55 py-8 text-center">
@@ -272,7 +258,97 @@ export function ContaClient({
           </Card>
         </div>
       </div>
+
+      <AddAccountOrCardModal
+        open={formTab !== null}
+        initialTab={formTab ?? "account"}
+        accounts={accounts}
+        onClose={() => setFormTab(null)}
+      />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Modal "Adicionar" — substitui os dois formulários que nasciam dentro do
+// próprio Card de Contas/Cartões (redesenho aprovado, 02/10/2026: "modal
+// para adicionar contas e cartões, na imagem vemos algo mais refinado").
+// Um modal só, com abas Conta/Cartão — não dois modais, pra não duplicar a
+// decisão de qual abrir; cada botão "+" só define em qual aba ele nasce.
+// Os campos de cada formulário continuam os mesmos de antes (sem Cor/Débito
+// Automático — não existem no schema, ver bank_accounts/credit_cards em
+// schema.ts — e sem botão verde: o `primary` do Button já é a cor de ação
+// fixa do produto, ver variantClasses em Button.tsx).
+// ---------------------------------------------------------------------------
+
+function AddAccountOrCardModal({
+  open,
+  initialTab,
+  accounts,
+  onClose,
+}: {
+  open: boolean;
+  initialTab: "account" | "card";
+  accounts: BankAccount[];
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<"account" | "card">(initialTab);
+  // Reseta pra aba pedida só no instante em que o modal abre (transição
+  // fechado→aberto), ajustado durante a renderização em vez de um efeito —
+  // assim trocar de aba com o modal já aberto não é desfeito a cada render.
+  // Ver "You Might Not Need an Effect" na doc do React.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setTab(initialTab);
+  }
+
+  const [accountFormState, accountFormAction, accountPending] = useActionState<ContaFormState, FormData>(
+    createBankAccountAction,
+    undefined
+  );
+  const canAddCard = accounts.length > 0;
+
+  return (
+    <Modal open={open} onClose={onClose} title={tab === "account" ? "Adicionar conta" : "Adicionar cartão"}>
+      <div className="inline-flex p-0.5 rounded-lg bg-onbrand/[0.06] mb-4">
+        <button
+          type="button"
+          onClick={() => setTab("account")}
+          className={cn(
+            "px-4 h-8 rounded-md text-sm font-medium transition-colors",
+            tab === "account" ? "bg-brand-700 text-brand-50" : "text-onbrand/60 hover:text-onbrand"
+          )}
+        >
+          Conta
+        </button>
+        <button
+          type="button"
+          onClick={() => canAddCard && setTab("card")}
+          disabled={!canAddCard}
+          title={canAddCard ? undefined : "Adicione uma conta primeiro: todo cartão fica ligado à conta que paga a fatura."}
+          className={cn(
+            "px-4 h-8 rounded-md text-sm font-medium transition-colors",
+            tab === "card"
+              ? "bg-brand-700 text-brand-50"
+              : "text-onbrand/60 hover:text-onbrand disabled:opacity-40 disabled:hover:text-onbrand/60 disabled:cursor-not-allowed"
+          )}
+        >
+          Cartão
+        </button>
+      </div>
+
+      {tab === "account" ? (
+        <NewAccountForm
+          formAction={accountFormAction}
+          pending={accountPending}
+          error={accountFormState?.error}
+          onDone={onClose}
+        />
+      ) : (
+        <NewCreditCardForm accounts={accounts} onDone={onClose} />
+      )}
+    </Modal>
   );
 }
 

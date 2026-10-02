@@ -7,7 +7,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  DefaultTooltipContent,
   ReferenceLine,
   ReferenceDot,
   ResponsiveContainer,
@@ -58,20 +57,64 @@ const SCENARIO_TOOLTIP_LABEL = {
   agressivo: "Patrimônio · cenário agressivo",
 };
 
+// Tooltip em card (redesenho aprovado, 02/10/2026 — "legenda, eixo Y
+// visível, tooltip em card"): cabeçalho com a idade + uma linha por cenário
+// (bolinha colorida igual à linha do gráfico, nome e valor alinhados), em
+// vez do tooltip padrão do Recharts (DefaultTooltipContent, uma lista crua).
 // A <Area> usada só pra pintar o gradiente sob a linha "base" tem o mesmo
 // dataKey da <Line> "base" (mesmo dado, dois elementos gráficos) — sem essa
-// dedupe, o tooltip padrão do Recharts mostra "Patrimônio · cenário base"
-// duas vezes seguidas, o que looks like um bug bem na hora que a gente tá
-// tentando deixar o tooltip mais claro, não mais confuso.
-function ScenarioTooltipContent(props: TooltipContentProps<ValueType, NameType>) {
+// dedupe, o tooltip mostraria "Patrimônio · cenário base" duas vezes
+// seguidas.
+function ScenarioTooltipContent(
+  props: TooltipContentProps<ValueType, NameType> & {
+    palette: { tooltipBg: string; tooltipBorder: string; tooltipText: string };
+  }
+) {
+  const { active, label, palette } = props;
+  if (!active) return null;
+
   const seen = new Set<string>();
-  const payload = (props.payload ?? []).filter((p) => {
+  const rows = (props.payload ?? []).filter((p) => {
     const key = String(p.dataKey ?? p.name);
-    if (seen.has(key)) return false;
+    if (seen.has(key) || p.value == null) return false;
     seen.add(key);
     return true;
   });
-  return <DefaultTooltipContent {...props} payload={payload} />;
+  if (rows.length === 0) return null;
+
+  return (
+    <div
+      className="rounded-xl px-3.5 py-3 text-xs shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)]"
+      style={{ background: palette.tooltipBg, border: `1px solid ${palette.tooltipBorder}`, color: palette.tooltipText }}
+    >
+      <p className="font-semibold mb-2">{label} anos</p>
+      <div className="space-y-1.5">
+        {rows.map((p) => (
+          <div key={String(p.dataKey)} className="flex items-center gap-4 justify-between">
+            <span className="flex items-center gap-1.5 opacity-75">
+              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} aria-hidden />
+              {SCENARIO_TOOLTIP_LABEL[p.dataKey as keyof typeof SCENARIO_TOOLTIP_LABEL] ?? p.name}
+            </span>
+            <span className="font-medium tabular-nums">{typeof p.value === "number" ? formatBRL(p.value) : p.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Valor compacto só pro eixo Y ("R$ 200 mil", "R$ 1,2 mi") — formatBRL por
+ * extenso (ex. "R$ 1.234.567,89") não cabe no espaço estreito de um tick. */
+function formatCompactBRL(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000) {
+    return `${sign}R$ ${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  }
+  if (abs >= 1_000) {
+    return `${sign}R$ ${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
+  }
+  return formatBRL(value);
 }
 
 function buildDataset(sim: RetirementSimulation, targetAge: number) {
@@ -103,6 +146,8 @@ export function RetirementChart({
   height = 260,
   dark = false,
   goalMarkers = [],
+  showYAxis = false,
+  showLegend = false,
 }: {
   simulation: RetirementSimulation;
   targetAge: number;
@@ -111,6 +156,13 @@ export function RetirementChart({
   dark?: boolean;
   /** Sonhos/Objetivos com data-alvo, plotados como marcadores na linha do tempo (ver ChartGoalMarker acima). */
   goalMarkers?: ChartGoalMarker[];
+  /** Eixo Y com valores em R$ (escondido por padrão) e uma legenda fixa dos
+   * 3 cenários abaixo do gráfico — ligados só na tela cheia de /retirement
+   * (redesenho aprovado, 02/10/2026). Os cards compactos (Dashboard, reveal
+   * do onboarding) continuam sem isso de propósito: pouco espaço pra uma
+   * legenda ou eixo que ali só repetiriam o que o texto ao lado já diz. */
+  showYAxis?: boolean;
+  showLegend?: boolean;
 }) {
   const data = buildDataset(simulation, targetAge);
 
@@ -173,6 +225,7 @@ export function RetirementChart({
     minAge != null && maxAge != null ? goalMarkers.filter((g) => g.age >= minAge && g.age <= maxAge) : [];
 
   return (
+    <div>
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
         <defs>
@@ -189,28 +242,15 @@ export function RetirementChart({
           tickLine={false}
         />
         <YAxis
-          tick={false}
-          width={0}
-          axisLine={false}
+          tick={showYAxis ? { fontSize: 11, fill: palette.tick } : false}
+          width={showYAxis ? 60 : 0}
+          axisLine={showYAxis ? { stroke: palette.grid } : false}
           tickLine={false}
+          tickFormatter={showYAxis ? formatCompactBRL : undefined}
           domain={[yDomainMin, yDomainMax]}
           reversed={yReversed}
         />
-        <Tooltip
-          content={ScenarioTooltipContent}
-          formatter={(value, name) => [
-            typeof value === "number" ? formatBRL(value) : value,
-            SCENARIO_TOOLTIP_LABEL[name as keyof typeof SCENARIO_TOOLTIP_LABEL] ?? name,
-          ]}
-          labelFormatter={(age) => `${age} anos`}
-          contentStyle={{
-            borderRadius: 12,
-            border: `1px solid ${palette.tooltipBorder}`,
-            background: palette.tooltipBg,
-            color: palette.tooltipText,
-            fontSize: 13,
-          }}
-        />
+        <Tooltip content={(props) => <ScenarioTooltipContent {...props} palette={palette} />} />
         <ReferenceLine y={0} stroke={palette.tick} strokeOpacity={0.5} />
         <ReferenceLine
           y={simulation.requiredNetWorth}
@@ -268,6 +308,26 @@ export function RetirementChart({
         ))}
       </ComposedChart>
     </ResponsiveContainer>
+    {showLegend && (
+      <div className="flex items-center justify-center gap-4 mt-2.5 flex-wrap">
+        <ChartLegendEntry color={palette.conservador} label="Conservador" />
+        <ChartLegendEntry color={palette.base} label="Base" />
+        <ChartLegendEntry color={palette.agressivo} label="Agressivo" />
+      </div>
+    )}
+    </div>
+  );
+}
+
+/** Bolinha colorida + nome do cenário — mesma cor da linha correspondente no
+ * gráfico, pra quem olha a curva saber qual é qual sem depender só do
+ * tooltip ao passar o mouse (pedido do Thiago, 02/10/2026: "legenda"). */
+function ChartLegendEntry({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-onbrand/70">
+      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} aria-hidden />
+      {label}
+    </span>
   );
 }
 

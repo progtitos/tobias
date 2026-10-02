@@ -392,104 +392,14 @@ function TransactionsTab({
             : "Nenhuma transação registrada neste mês ainda. Adicione uma ou conte pro Tobias no chat."}
         </p>
       ) : (
-        <div className="space-y-5">
-          {groupByDay(transactions).map((group) => (
-            <DayGroup
-              key={group.dayKey}
-              group={group}
-              onEdit={(t) => {
-                setShowForm(false);
-                setEditingTransaction(t);
-              }}
-            />
-          ))}
-        </div>
+        <TransactionsTable
+          transactions={transactions}
+          onEdit={(t) => {
+            setShowForm(false);
+            setEditingTransaction(t);
+          }}
+        />
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Feed agrupado por dia (redesenho aprovado, 29/09/2026) — antes cada
-// transação era um Card avulso, com data repetida em toda linha e o dia sem
-// nenhum resumo próprio. Agora um único painel por dia mostra o total líquido
-// do dia no cabeçalho (créditos menos débitos, transferência não conta pra
-// nenhum lado — é só dinheiro mudando de lugar) e cada linha vira só ícone +
-// descrição + valor + seta, já que excluir/trocar categoria saíram da lista
-// pra dentro do modal de editar (ver EditTransactionModal).
-// ---------------------------------------------------------------------------
-
-type DayGroupData = { dayKey: string; date: string; transactions: Transaction[] };
-
-function groupByDay(transactions: Transaction[]): DayGroupData[] {
-  const groups: DayGroupData[] = [];
-  const byKey = new Map<string, DayGroupData>();
-  for (const t of transactions) {
-    const dayKey = t.date.slice(0, 10);
-    let group = byKey.get(dayKey);
-    if (!group) {
-      group = { dayKey, date: t.date, transactions: [] };
-      byKey.set(dayKey, group);
-      groups.push(group);
-    }
-    group.transactions.push(t);
-  }
-  return groups;
-}
-
-function dayLabel(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86_400_000);
-  if (diffDays === 0) return "Hoje";
-  if (diffDays === 1) return "Ontem";
-  const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(d);
-  const dayMonth = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long" }).format(d);
-  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dayMonth}`;
-}
-
-function dayNetTotal(transactions: Transaction[]): number {
-  return transactions.reduce((sum, t) => {
-    if (t.type === "TRANSFER") return sum;
-    const sign = t.type === "EXPENSE" ? -1 : 1;
-    return sum + sign * t.amount;
-  }, 0);
-}
-
-function DayGroup({
-  group,
-  onEdit,
-}: {
-  group: DayGroupData;
-  onEdit: (t: Transaction) => void;
-}) {
-  const net = dayNetTotal(group.transactions);
-  return (
-    <div>
-      <div className="flex items-center justify-between px-1 mb-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-onbrand/45">{dayLabel(group.date)}</span>
-        <span
-          className={cn(
-            // Verde quando o dia fecha positivo, vermelho quando fecha
-            // negativo — antes o negativo ficava num cinza neutro, a mesma
-            // cor por sinal que o Saldo do mês já usa no Dashboard (Thiago,
-            // 30/09/2026: "não parece se comunicar bem com todo o sistema").
-            "text-xs font-medium tabular-nums",
-            net > 0 ? "text-ok-400" : net < 0 ? "text-danger-300" : "text-onbrand/35"
-          )}
-        >
-          {net > 0 ? "+" : net < 0 ? "−" : ""}
-          {formatBRL(Math.abs(net))}
-        </span>
-      </div>
-      <Card className="p-0 overflow-hidden">
-        <div className="divide-y divide-onbrand/[0.06]">
-          {group.transactions.map((t) => (
-            <TransactionRow key={t.id} transaction={t} onEdit={() => onEdit(t)} />
-          ))}
-        </div>
-      </Card>
     </div>
   );
 }
@@ -1172,43 +1082,65 @@ const TYPE_ICON_BG: Record<string, string> = {
   TRANSFER: "bg-onbrand/[0.07] text-onbrand/50",
 };
 
-/** Pedacinhos de contexto (banco, categoria, estabelecimento, forma de
- * pagamento) juntados numa linha só, separados por "·" — só entram os que
- * existem pra essa transação, então a linha nunca fica com separadores
- * soltos. */
-function TransactionSubtext({ transaction }: { transaction: Transaction }) {
-  const parts: React.ReactNode[] = [];
+// ---------------------------------------------------------------------------
+// Tabela de transações (redesenho aprovado, 02/10/2026) — pedido explícito do
+// Thiago: "quero 4 colunas com as tags na frente, data, descrição banco e
+// valor, tudo isso muito bem alinhado o de cima com o debaixo e a linha mais
+// fina possível". Substitui o feed agrupado por dia (DayGroup) por uma grade
+// única: mesmo `TABLE_GRID` no cabeçalho e em cada linha garante que as 4
+// colunas batem exatinho de uma linha pra outra, sem precisar de <table>
+// (fora do padrão visual do produto — ver design-system-tobias.md).
+// Data não mostra horário: a coluna existe só como timestamptz à meia-noite
+// local (parseDateOnly em transactions.ts), não há captura de hora em lugar
+// nenhum do app, então mostrar um horário aqui seria inventar um dado que
+// não existe (confirmado com o Thiago antes de implementar).
+// ---------------------------------------------------------------------------
 
-  const bankName = transaction.bankAccountBankName ?? transaction.cardBankName ?? null;
-  const accountOrCardLabel = transaction.bankAccountName ?? transaction.creditCardNickname ?? null;
-  if (bankName) {
-    parts.push(
-      <span key="bank" className="inline-flex items-center gap-1">
-        <BankBadge bankName={bankName} /> {bankName}
-      </span>
-    );
-  } else if (accountOrCardLabel) {
-    parts.push(<span key="acct">{accountOrCardLabel}</span>);
-  }
+const TABLE_GRID = "grid-cols-[64px_52px_minmax(0,1fr)_92px_16px]";
 
-  if (transaction.type === "EXPENSE") {
-    parts.push(<span key="cat">{transaction.categoryName ?? "Sem categoria"}</span>);
-  }
-  if (transaction.merchant) parts.push(<span key="merchant">{transaction.merchant}</span>);
-  if (transaction.paymentMethod) parts.push(<span key="pm">{PAYMENT_LABELS[transaction.paymentMethod]}</span>);
-
-  if (parts.length === 0) return null;
-
+function TransactionsTableHeader() {
   return (
-    <p className="text-xs text-onbrand/55 flex items-center gap-1.5 flex-wrap">
-      {parts.map((part, i) => (
-        <span key={i} className="inline-flex items-center gap-1.5">
-          {i > 0 && <span className="text-onbrand/25">·</span>}
-          {part}
-        </span>
-      ))}
-    </p>
+    <div
+      className={cn(
+        "grid items-center px-3.5 py-2 gap-x-2.5 text-[11px] font-semibold uppercase tracking-wide text-onbrand/40 border-b border-onbrand/[0.06]",
+        TABLE_GRID
+      )}
+    >
+      <span>Tag</span>
+      <span>Data</span>
+      <span>Descrição</span>
+      <span className="text-right">Valor</span>
+      <span aria-hidden />
+    </div>
   );
+}
+
+function TransactionsTable({
+  transactions,
+  onEdit,
+}: {
+  transactions: Transaction[];
+  onEdit: (t: Transaction) => void;
+}) {
+  return (
+    <Card className="p-0 overflow-hidden">
+      <TransactionsTableHeader />
+      <div className="divide-y divide-onbrand/[0.06]">
+        {transactions.map((t) => (
+          <TransactionRow key={t.id} transaction={t} onEdit={() => onEdit(t)} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/** dd/mm numa linha, dia da semana abreviado embaixo — sem horário (ver nota
+ * acima). `Intl` já devolve em pt-BR, só maiusculizamos a abreviação. */
+function dateCellParts(dateStr: string): { dayMonth: string; weekday: string } {
+  const d = new Date(dateStr);
+  const dayMonth = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(d);
+  const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(d).replace(".", "");
+  return { dayMonth, weekday: weekday.charAt(0).toUpperCase() + weekday.slice(1) };
 }
 
 function TransactionRow({ transaction, onEdit }: { transaction: Transaction; onEdit: () => void }) {
@@ -1220,51 +1152,91 @@ function TransactionRow({ transaction, onEdit }: { transaction: Transaction; onE
   // categoria própria.
   const categoryIcon = transaction.categoryIcon ? CATEGORY_ICON_MAP[transaction.categoryIcon] : undefined;
   const Icon = transaction.type === "EXPENSE" ? categoryIcon ?? Tag : meta.icon;
+  const bankName = transaction.bankAccountBankName ?? transaction.cardBankName ?? null;
+  const { dayMonth, weekday } = dateCellParts(transaction.date);
+
+  // Contexto além da descrição (banco quando não há logo próprio, categoria,
+  // estabelecimento, forma de pagamento) — a logo do banco já aparece como
+  // ícone da linha, então aqui só entra o nome quando não há conta/cartão
+  // vinculado (pra não repetir a mesma informação duas vezes).
+  const subParts: string[] = [];
+  if (!bankName) {
+    const accountOrCardLabel = transaction.bankAccountName ?? transaction.creditCardNickname ?? null;
+    if (accountOrCardLabel) subParts.push(accountOrCardLabel);
+  }
+  if (transaction.type === "EXPENSE") subParts.push(transaction.categoryName ?? "Sem categoria");
+  if (transaction.merchant) subParts.push(transaction.merchant);
 
   return (
     <button
       type="button"
       onClick={onEdit}
       title="Clique pra editar"
-      className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-onbrand/[0.03] transition-colors"
+      className={cn(
+        "w-full grid items-center text-left hover:bg-onbrand/[0.03] transition-colors px-3.5 py-2 gap-x-2.5",
+        TABLE_GRID
+      )}
     >
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TYPE_ICON_BG[transaction.type])}>
-        <Icon className="h-[18px] w-[18px]" aria-hidden />
+      <span className="flex items-center gap-1 flex-wrap min-w-0">
+        {transaction.installmentTotal && transaction.installmentTotal > 1 && (
+          <Badge tone="neutral" className={COMPACT_BADGE}>
+            {transaction.installmentNumber}/{transaction.installmentTotal}
+          </Badge>
+        )}
+        {transaction.goalTitle && (
+          <Badge tone="gold" className={COMPACT_BADGE} title={`→ ${transaction.goalTitle}`}>
+            →
+          </Badge>
+        )}
+        {lowConfidence && (
+          <Badge tone="warn" className={COMPACT_BADGE} title="Categoria sugerida com baixa confiança, confira">
+            <Sparkles className="h-2.5 w-2.5" />
+          </Badge>
+        )}
       </span>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
+      <span className="flex flex-col leading-tight">
+        <span className="text-xs font-medium text-onbrand/80 tabular-nums">{dayMonth}</span>
+        <span className="text-[10px] text-onbrand/45">{weekday}</span>
+      </span>
+
+      <span className="flex items-center gap-2 min-w-0">
+        {bankName ? (
+          <BankBadge bankName={bankName} />
+        ) : (
+          <span className={cn("flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full", TYPE_ICON_BG[transaction.type])}>
+            <Icon className="h-3.5 w-3.5" aria-hidden />
+          </span>
+        )}
+        <span className="min-w-0 flex-1">
           {/* title = tooltip nativo do navegador: passando o mouse por cima
               de uma descrição cortada (truncate), o texto inteiro aparece,
               sem precisar alargar a linha pra isso. */}
-          <p className="font-medium text-onbrand truncate" title={transaction.description}>
+          <p className="text-sm font-medium text-onbrand truncate" title={transaction.description}>
             {transaction.description}
           </p>
-          {transaction.installmentTotal && transaction.installmentTotal > 1 && (
-            <Badge tone="neutral">
-              {transaction.installmentNumber}/{transaction.installmentTotal}
-            </Badge>
+          {subParts.length > 0 && (
+            <p className="text-[11px] text-onbrand/55 truncate">{subParts.join(" · ")}</p>
           )}
-          {transaction.goalTitle && <Badge tone="gold">→ {transaction.goalTitle}</Badge>}
-          {lowConfidence && (
-            <Badge tone="warn" title="Categoria sugerida com baixa confiança, confira">
-              <Sparkles className="h-3 w-3" /> confirmar
-            </Badge>
-          )}
-        </div>
-        <TransactionSubtext transaction={transaction} />
-      </div>
-
-      <div className="flex items-center gap-2 shrink-0">
-        <span className={`font-medium tabular-nums ${meta.amountClass}`}>
-          {meta.sign}
-          {formatBRL(transaction.amount)}
         </span>
-        <ChevronRight className="h-4 w-4 text-onbrand/30" aria-hidden />
-      </div>
+      </span>
+
+      <span className={`text-sm font-medium tabular-nums text-right ${meta.amountClass}`}>
+        {meta.sign}
+        {formatBRL(transaction.amount)}
+      </span>
+
+      <ChevronRight className="h-3.5 w-3.5 text-onbrand/30 justify-self-end" aria-hidden />
     </button>
   );
 }
+
+// Linha compacta (pedido do Thiago, 01/10/2026: a lista original — ícone
+// 36px, texto no tamanho padrão do corpo, badges de tamanho normal — ficava
+// "massante"/mais alta do que precisava numa lista longa), depois convertida
+// na grade de 4 colunas acima (02/10/2026). Badges de tag reaproveitam este
+// tamanho reduzido.
+const COMPACT_BADGE = "text-[10px] px-1.5 py-0 leading-[18px]";
 
 // ---------------------------------------------------------------------------
 // Orçamento
