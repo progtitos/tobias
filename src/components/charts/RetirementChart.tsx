@@ -103,20 +103,6 @@ function ScenarioTooltipContent(
   );
 }
 
-/** Valor compacto só pro eixo Y ("R$ 200 mil", "R$ 1,2 mi") — formatBRL por
- * extenso (ex. "R$ 1.234.567,89") não cabe no espaço estreito de um tick. */
-function formatCompactBRL(value: number): string {
-  const abs = Math.abs(value);
-  const sign = value < 0 ? "-" : "";
-  if (abs >= 1_000_000) {
-    return `${sign}R$ ${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
-  }
-  if (abs >= 1_000) {
-    return `${sign}R$ ${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
-  }
-  return formatBRL(value);
-}
-
 function buildDataset(sim: RetirementSimulation, targetAge: number) {
   const byAge = (series: RetirementSimulation["base"]["series"]) => {
     const map = new Map<number, number>();
@@ -146,7 +132,6 @@ export function RetirementChart({
   height = 260,
   dark = false,
   goalMarkers = [],
-  showYAxis = false,
   showLegend = false,
 }: {
   simulation: RetirementSimulation;
@@ -156,12 +141,13 @@ export function RetirementChart({
   dark?: boolean;
   /** Sonhos/Objetivos com data-alvo, plotados como marcadores na linha do tempo (ver ChartGoalMarker acima). */
   goalMarkers?: ChartGoalMarker[];
-  /** Eixo Y com valores em R$ (escondido por padrão) e uma legenda fixa dos
-   * 3 cenários abaixo do gráfico — ligados só na tela cheia de /retirement
-   * (redesenho aprovado, 02/10/2026). Os cards compactos (Dashboard, reveal
-   * do onboarding) continuam sem isso de propósito: pouco espaço pra uma
-   * legenda ou eixo que ali só repetiriam o que o texto ao lado já diz. */
-  showYAxis?: boolean;
+  /** Legenda fixa dos 3 cenários abaixo do gráfico — ligada só na tela cheia
+   * de /retirement. O eixo Y com valores em R$ foi tentado no mesmo
+   * redesenho (02/10/2026) mas revertido no mesmo dia: o print de
+   * referência do Thiago não tinha essa escala, e ela não ajudava — os
+   * cards compactos (Dashboard, reveal do onboarding) continuam sem
+   * legenda nem eixo de propósito: pouco espaço pra algo que ali só
+   * repetiria o que o texto ao lado já diz. */
   showLegend?: boolean;
 }) {
   const data = buildDataset(simulation, targetAge);
@@ -241,22 +227,22 @@ export function RetirementChart({
           axisLine={{ stroke: palette.grid }}
           tickLine={false}
         />
-        <YAxis
-          tick={showYAxis ? { fontSize: 11, fill: palette.tick } : false}
-          width={showYAxis ? 60 : 0}
-          axisLine={showYAxis ? { stroke: palette.grid } : false}
-          tickLine={false}
-          tickFormatter={showYAxis ? formatCompactBRL : undefined}
-          domain={[yDomainMin, yDomainMax]}
-          reversed={yReversed}
-        />
+        <YAxis tick={false} width={0} axisLine={false} tickLine={false} domain={[yDomainMin, yDomainMax]} reversed={yReversed} />
         <Tooltip content={(props) => <ScenarioTooltipContent {...props} palette={palette} />} />
         <ReferenceLine y={0} stroke={palette.tick} strokeOpacity={0.5} />
-        <ReferenceLine
-          y={simulation.requiredNetWorth}
-          stroke={palette.reference}
-          label={{ value: "Necessário", fontSize: 11, fill: palette.referenceLabel, position: "insideTopLeft" }}
-        />
+        {/* Só desenha a linha de "Necessário" quando ela é um valor acima de
+            zero — quando a renda garantida (INSS etc.) já cobre o objetivo,
+            requiredNetWorth é 0 e a linha cairia exatamente em cima da linha
+            de base (y=0) e dos rótulos do eixo X, uma poluição visual sem
+            informação nova (bug reportado pelo Thiago, 02/10/2026: "nome
+            necessário sobreposto em cima de uns números"). */}
+        {simulation.requiredNetWorth > 0 && (
+          <ReferenceLine
+            y={simulation.requiredNetWorth}
+            stroke={palette.reference}
+            label={{ value: "Necessário", fontSize: 11, fill: palette.referenceLabel, position: "insideTopLeft" }}
+          />
+        )}
         <ReferenceLine
           x={targetAge}
           stroke={palette.tick}
