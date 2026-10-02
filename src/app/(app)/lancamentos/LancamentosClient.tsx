@@ -1037,7 +1037,7 @@ function MergeDuplicatesModal({ transactions, onClose }: { transactions: Transac
 // não existe (confirmado com o Thiago antes de implementar).
 // ---------------------------------------------------------------------------
 
-const TABLE_GRID = "grid-cols-[52px_minmax(0,1fr)_56px_110px_92px_16px]";
+const TABLE_GRID = "grid-cols-[52px_minmax(0,1fr)_110px_92px_16px]";
 
 function TransactionsTableHeader() {
   return (
@@ -1049,7 +1049,6 @@ function TransactionsTableHeader() {
     >
       <span>Data</span>
       <span>Descrição</span>
-      <span>Tag</span>
       <span>Banco</span>
       <span className="text-right">Valor</span>
       <span aria-hidden />
@@ -1118,33 +1117,43 @@ function TransactionRow({ transaction, onEdit }: { transaction: Transaction; onE
         <span className="text-[10px] text-onbrand/45">{weekday}</span>
       </span>
 
-      <span className="min-w-0">
-        {/* title = tooltip nativo do navegador: passando o mouse por cima
-            de uma descrição cortada (truncate), o texto inteiro aparece,
-            sem precisar alargar a linha pra isso. */}
-        <p className="text-sm font-medium text-onbrand truncate" title={transaction.description}>
-          {transaction.description}
-        </p>
-        {subParts.length > 0 && (
-          <p className="text-[11px] text-onbrand/55 truncate">{subParts.join(" · ")}</p>
-        )}
-      </span>
-
-      <span className="flex items-center gap-1 flex-wrap min-w-0">
-        {transaction.installmentTotal && transaction.installmentTotal > 1 && (
-          <Badge tone="neutral" className={COMPACT_BADGE}>
-            {transaction.installmentNumber}/{transaction.installmentTotal}
-          </Badge>
-        )}
-        {transaction.goalTitle && (
-          <Badge tone="gold" className={COMPACT_BADGE} title={`→ ${transaction.goalTitle}`}>
-            →
-          </Badge>
-        )}
-        {lowConfidence && (
-          <Badge tone="warn" className={COMPACT_BADGE} title="Categoria sugerida com baixa confiança, confira">
-            <Sparkles className="h-2.5 w-2.5" />
-          </Badge>
+      <span className="flex items-center gap-1.5 min-w-0">
+        <span className="min-w-0 flex-1">
+          {/* title = tooltip nativo do navegador: passando o mouse por cima
+              de uma descrição cortada (truncate), o texto inteiro aparece,
+              sem precisar alargar a linha pra isso. */}
+          <p className="text-sm font-medium text-onbrand truncate" title={transaction.description}>
+            {transaction.description}
+          </p>
+          {subParts.length > 0 && (
+            <p className="text-[11px] text-onbrand/55 truncate">{subParts.join(" · ")}</p>
+          )}
+        </span>
+        {/* Indicadores (parcela, meta, confiança baixa) — antes viviam numa
+            coluna própria chamada "Tag", que confundia mais do que ajudava
+            (pedido do Thiago, 02/10/2026: "ficou estranho essa questão da
+            tag... pode remover"). Agora ficam coladinhos na descrição, sem
+            coluna reservada pra eles. */}
+        {((transaction.installmentTotal && transaction.installmentTotal > 1) ||
+          transaction.goalTitle ||
+          lowConfidence) && (
+          <span className="flex items-center gap-1 shrink-0">
+            {transaction.installmentTotal && transaction.installmentTotal > 1 && (
+              <Badge tone="neutral" className={COMPACT_BADGE}>
+                {transaction.installmentNumber}/{transaction.installmentTotal}
+              </Badge>
+            )}
+            {transaction.goalTitle && (
+              <Badge tone="gold" className={COMPACT_BADGE} title={`→ ${transaction.goalTitle}`}>
+                →
+              </Badge>
+            )}
+            {lowConfidence && (
+              <Badge tone="warn" className={COMPACT_BADGE} title="Categoria sugerida com baixa confiança, confira">
+                <Sparkles className="h-2.5 w-2.5" />
+              </Badge>
+            )}
+          </span>
         )}
       </span>
 

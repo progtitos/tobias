@@ -6,7 +6,10 @@ import { categories } from "./schema";
 type Kind = "INCOME" | "EXPENSE" | "INVESTMENT";
 
 const CATEGORY_TREE: { name: string; type: Kind; icon: string; children?: string[] }[] = [
-  { name: "Moradia", type: "EXPENSE", icon: "home", children: ["Aluguel", "Condomínio", "Financiamento", "Manutenção"] },
+  // "Água", "Luz", "Internet" e "Gás" adicionadas a pedido do Thiago
+  // (02/10/2026): contas de consumo recorrentes da casa não cabiam em
+  // nenhuma subcategoria existente de Moradia.
+  { name: "Moradia", type: "EXPENSE", icon: "home", children: ["Aluguel", "Condomínio", "Financiamento", "Manutenção", "Água", "Luz", "Internet", "Gás"] },
   { name: "Alimentação", type: "EXPENSE", icon: "utensils", children: ["Supermercado", "Restaurante", "Delivery"] },
   { name: "Transporte", type: "EXPENSE", icon: "car", children: ["Combustível", "Transporte por app", "Transporte público", "Manutenção do veículo"] },
   { name: "Saúde", type: "EXPENSE", icon: "heart-pulse", children: ["Plano de saúde", "Farmácia", "Consultas"] },
