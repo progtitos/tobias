@@ -45,3 +45,8 @@ next-env.d.ts
 # claude/cowork delivery artifacts — nunca devem entrar no repo
 *.patch
 /claude-patches/
+
+/src/generated/prisma
+/.agents
+/.claude
+/.windsurf
