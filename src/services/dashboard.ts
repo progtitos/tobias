@@ -105,7 +105,9 @@ export async function getDashboardData(userId: string) {
     financialProfile?.savingsCapacityPerMonth ?? Math.max(0, income - expenses);
 
   const retirementPreview = retirementPlan
-    ? simulateRetirementCurve(buildRetirementInputs(retirementPlan, retirementPlan.currentNetWorth))
+    ? simulateRetirementCurve(
+        buildRetirementInputs(retirementPlan, retirementPlan.currentNetWorth, retirementPlan.currentInvestedNetWorth)
+      )
     : null;
 
   return {

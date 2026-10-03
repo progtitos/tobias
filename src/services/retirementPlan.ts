@@ -50,13 +50,15 @@ export async function getRetirementPlan(userId: string) {
  */
 export function buildRetirementInputs(
   plan: RetirementPlanRow & Pick<RetirementInputs, "currentAge" | "desiredMonthlyIncome" | "monthlyContribution" | "expectedReturnConservative" | "expectedReturnBase" | "expectedReturnAggressive" | "expectedInflation">,
-  currentNetWorth: number
+  currentNetWorth: number,
+  currentInvestedNetWorth: number
 ): RetirementInputs {
   const { guaranteedMonthlyIncome } = computeGuaranteedMonthlyIncome(plan);
   return {
     currentAge: plan.currentAge,
     targetRetirementAge: plan.targetRetirementAge,
     currentNetWorth,
+    currentInvestedNetWorth,
     monthlyContribution: plan.monthlyContribution,
     desiredMonthlyIncome: plan.desiredMonthlyIncome,
     expectedReturnConservative: plan.expectedReturnConservative,
@@ -85,6 +87,7 @@ export async function upsertRetirementPlan(userId: string, input: RetirementPlan
     ...input,
     contributionYearsAsOfDate: input.contributionYearsToDate != null ? now : null,
     currentNetWorth: netWorth.netWorth,
+    currentInvestedNetWorth: netWorth.investedAssets,
   };
 
   if (existing) {
@@ -120,7 +123,7 @@ export async function refreshRetirementPlanNetWorth(userId: string) {
   const netWorth = await computeNetWorth(userId);
   await db
     .update(retirementPlans)
-    .set({ currentNetWorth: netWorth.netWorth, updatedAt: new Date() })
+    .set({ currentNetWorth: netWorth.netWorth, currentInvestedNetWorth: netWorth.investedAssets, updatedAt: new Date() })
     .where(eq(retirementPlans.userId, userId));
 
   return getRetirementPlan(userId);

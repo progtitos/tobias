@@ -205,6 +205,11 @@ async function finalizeOnboarding(userId: string) {
   const [existingPlan] = await db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).limit(1);
   if (!existingPlan && fp?.currentAge) {
     const currentNetWorth = fp.statedNetWorth ?? netWorth.netWorth;
+    // Sem equivalente a `statedNetWorth` pro recorte investido (a conversa de
+    // onboarding não pergunta isso separado) — usa sempre o valor real
+    // calculado das contas já conectadas nesse momento (normalmente 0, já
+    // que isso roda antes da pessoa cadastrar investimentos de verdade).
+    const currentInvestedNetWorth = netWorth.investedAssets;
     const monthlyContribution = fp.savingsCapacityPerMonth ?? 0;
     const desiredMonthlyIncome = fp.desiredRetirementIncome ?? (fp.statedMonthlyIncome ?? 3000) * 0.7;
 
@@ -228,6 +233,7 @@ async function finalizeOnboarding(userId: string) {
       targetRetirementAge,
       desiredMonthlyIncome,
       currentNetWorth,
+      currentInvestedNetWorth,
       monthlyContribution,
       // Os 4 dados de INSS coletados na conversa, copiados de financial_profiles
       // pra cá exatamente como já fazíamos com currentAge/desiredRetirementAge
@@ -261,7 +267,9 @@ async function finalizeOnboarding(userId: string) {
   const [finalProfileRow] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
   const [plan] = await db.select().from(retirementPlans).where(eq(retirementPlans.userId, userId)).limit(1);
   const behavioralProfile = (finalProfileRow?.behavioralProfile as BehavioralProfile | undefined) ?? "EMERGING_ORGANIZER";
-  const retirementPreview = plan ? simulateRetirementCurve(buildRetirementInputs(plan, plan.currentNetWorth)) : null;
+  const retirementPreview = plan
+    ? simulateRetirementCurve(buildRetirementInputs(plan, plan.currentNetWorth, plan.currentInvestedNetWorth))
+    : null;
 
   return {
     behavioralProfile: {

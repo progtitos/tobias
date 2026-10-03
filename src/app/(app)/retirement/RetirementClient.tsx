@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Save, Sparkles, Info, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -22,7 +23,7 @@ import {
 import { computeGuaranteedMonthlyIncome, computeAverageSalaryFromHistory, type Gender } from "@/services/inss";
 import { saveRetirementPlanAction, uploadCnisAction, clearSalaryHistoryAction, type UploadCnisState } from "./actions";
 
-type Defaults = Omit<RetirementInputs, "currentNetWorth" | "guaranteedMonthlyIncome"> & {
+type Defaults = Omit<RetirementInputs, "currentNetWorth" | "currentInvestedNetWorth" | "guaranteedMonthlyIncome"> & {
   birthDate: Date | null;
   gender: Gender | null;
   contributionYearsToDate: number | null;
@@ -45,14 +46,28 @@ export type GoalMarker = {
 export function RetirementClient({
   defaults,
   currentNetWorth,
+  currentInvestedNetWorth,
   hasPlan,
   goalMarkers,
+  goalsMissingData,
   salaryHistory,
 }: {
   defaults: Defaults;
   currentNetWorth: number;
+  /** Fatia de `currentNetWorth` de fato investida (ver RetirementInputs em
+   * services/retirement.ts) — só essa parte compõe à taxa de retorno
+   * esperado na curva; o resto (saldo em conta + outros bens) segue
+   * "parado" (decisão do Thiago, 03/10/2026). */
+  currentInvestedNetWorth: number;
   hasPlan: boolean;
   goalMarkers: GoalMarker[];
+  /** Títulos de objetivos que existem mas não entram na curva por faltar
+   * valor e/ou "Data para conquista" (ver retirement/page.tsx) — tipicamente
+   * Sonhos criados antes desses campos virarem obrigatórios, 02/10/2026.
+   * Mostrado como aviso em texto pra não "sumir" sem explicação (bug
+   * reportado pelo Thiago, 03/10/2026: "a curva não está pegando os
+   * objetivos"). */
+  goalsMissingData: string[];
   /** Histórico salarial real importado do Extrato do CNIS (ver retirement/page.tsx), vazio se a pessoa nunca importou. */
   salaryHistory: { competencia: string; salaryAmount: number }[];
 }) {
@@ -91,7 +106,7 @@ export function RetirementClient({
     ]
   );
 
-  const fullInputs: RetirementInputs = { ...inputs, currentNetWorth, guaranteedMonthlyIncome };
+  const fullInputs: RetirementInputs = { ...inputs, currentNetWorth, currentInvestedNetWorth, guaranteedMonthlyIncome };
 
   // Converte "daqui a quantos anos" (fixo, calculado no servidor) pra idade
   // no eixo X do gráfico, que é a unidade que o resto da curva usa — soma a
@@ -123,10 +138,18 @@ export function RetirementClient({
         inputs.currentAge,
         inputs.targetRetirementAge,
         currentNetWorth,
+        currentInvestedNetWorth,
         inputs.monthlyContribution,
         simulation.requiredNetWorth
       ),
-    [inputs.currentAge, inputs.targetRetirementAge, currentNetWorth, inputs.monthlyContribution, simulation.requiredNetWorth]
+    [
+      inputs.currentAge,
+      inputs.targetRetirementAge,
+      currentNetWorth,
+      currentInvestedNetWorth,
+      inputs.monthlyContribution,
+      simulation.requiredNetWorth,
+    ]
   );
   // Selo de status por objetivo com prazo e valor (redesenho aprovado,
   // 02/10/2026: "liga os pontos" — o patrimônio projetado, na idade do
@@ -253,6 +276,19 @@ export function RetirementClient({
                   <Sparkles className="h-3.5 w-3.5 shrink-0" />
                   Para chegar lá no cenário base, o aporte mensal precisaria ser de aproximadamente{" "}
                   <span className="font-medium">{formatBRL(suggestedContribution)}</span>.
+                </p>
+              )}
+              {goalsMissingData.length > 0 && (
+                <p className="text-onbrand/50 flex items-start gap-1.5">
+                  <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  {goalsMissingData.length === 1
+                    ? `"${goalsMissingData[0]}" não aparece na curva acima`
+                    : `${goalsMissingData.length} objetivos (${goalsMissingData.join(", ")}) não aparecem na curva acima`}{" "}
+                  por falta de valor e/ou data de conquista.{" "}
+                  <Link href="/patrimonio" className="text-gold-400 underline">
+                    Completar em Patrimônio
+                  </Link>
+                  .
                 </p>
               )}
             </div>

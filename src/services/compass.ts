@@ -199,7 +199,9 @@ export async function computeCompass(userId: string): Promise<CompassDimensionRe
   let retirementDiagnosis = "Você ainda não definiu um plano de aposentadoria com o Tobias.";
   let retirementAction = "Vamos conversar sobre quando você quer se aposentar e com que renda.";
   if (retirementPlan) {
-    const sim = simulateRetirementCurve(buildRetirementInputs(retirementPlan, retirementPlan.currentNetWorth));
+    const sim = simulateRetirementCurve(
+      buildRetirementInputs(retirementPlan, retirementPlan.currentNetWorth, retirementPlan.currentInvestedNetWorth)
+    );
     retirementScore = clamp((sim.base.finalValueAtTargetAge / sim.requiredNetWorth) * 100);
     retirementDiagnosis = sim.base.onTrack
       ? `No cenário base, você atinge o patrimônio necessário para se aposentar aos ${retirementPlan.targetRetirementAge} anos.`

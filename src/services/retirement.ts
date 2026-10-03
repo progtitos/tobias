@@ -14,7 +14,20 @@
 export type RetirementInputs = {
   currentAge: number;
   targetRetirementAge: number;
+  /** Patrimônio líquido total de hoje (contas + investido + outros bens −
+   * dívidas) — usado só para exibição ("patrimônio atual"); a simulação em
+   * si usa `currentInvestedNetWorth` como semente que compõe e trata o
+   * resto (`currentNetWorth - currentInvestedNetWorth`, tipicamente saldo
+   * em conta + outros bens) como uma base parada, que não rende sozinha
+   * (decisão do Thiago, 03/10/2026: "saldo em conta deveria ser levado como
+   * patrimônio [que rende]? se não é nada de concreto" — só o que está de
+   * fato investido compõe à taxa de retorno esperado; aportes novos também
+   * compõem, porque presume-se que viram investimento). */
   currentNetWorth: number;
+  /** Fatia de `currentNetWorth` que está de fato investida (`investments`)
+   * — é essa parte, e só essa, que compõe à taxa de retorno esperado em
+   * cada cenário. Nunca maior que `currentNetWorth`. */
+  currentInvestedNetWorth: number;
   monthlyContribution: number;
   desiredMonthlyIncome: number;
   expectedReturnConservative: number; // nominal annual, e.g. 0.04
@@ -77,7 +90,8 @@ function projectScenario(
   label: ScenarioResult["label"],
   currentAge: number,
   targetAge: number,
-  currentNetWorth: number,
+  investedSeed: number,
+  staticBase: number,
   monthlyContribution: number,
   annualReal: number,
   requiredNetWorth: number,
@@ -86,8 +100,12 @@ function projectScenario(
   const monthlyRate = Math.pow(1 + annualReal, 1 / 12) - 1;
   const monthsToTarget = Math.max(0, Math.round((targetAge - currentAge) * 12));
 
-  const series: ScenarioPoint[] = [{ age: currentAge, value: currentNetWorth }];
-  let value = currentNetWorth;
+  // `invested` é a única parte que compõe (juros + aporte); `staticBase`
+  // (saldo em conta + outros bens, tipicamente) é somada por fora em cada
+  // ponto, sem render nada sozinha — ver comentário de
+  // `currentInvestedNetWorth` em RetirementInputs.
+  const series: ScenarioPoint[] = [{ age: currentAge, value: investedSeed + staticBase }];
+  let invested = investedSeed;
   let yearsToTarget: number | null = null;
 
   // Two phases: before the target age, contributions accumulate; from the
@@ -99,7 +117,8 @@ function projectScenario(
   // showing "Requer ajuste".
   const maxMonths = MAX_PROJECTION_YEARS * 12;
   for (let m = 1; m <= maxMonths; m++) {
-    value = m <= monthsToTarget ? value * (1 + monthlyRate) + monthlyContribution : value * (1 + monthlyRate) - monthlyDrawdown;
+    invested = m <= monthsToTarget ? invested * (1 + monthlyRate) + monthlyContribution : invested * (1 + monthlyRate) - monthlyDrawdown;
+    const value = invested + staticBase;
     if (m % 12 === 0) {
       series.push({ age: currentAge + m / 12, value });
     }
@@ -113,7 +132,7 @@ function projectScenario(
   }
 
   const finalValueAtTargetAge =
-    series.find((p) => Math.abs(p.age - targetAge) < 0.01)?.value ?? currentNetWorth;
+    series.find((p) => Math.abs(p.age - targetAge) < 0.01)?.value ?? investedSeed + staticBase;
 
   return {
     label,
@@ -129,6 +148,11 @@ export function simulateRetirementCurve(inputs: RetirementInputs): RetirementSim
   const guaranteedMonthlyIncome = inputs.guaranteedMonthlyIncome ?? 0;
   const requiredNetWorth = computeRequiredNetWorth(inputs.desiredMonthlyIncome, guaranteedMonthlyIncome);
   const monthlyDrawdown = Math.max(0, inputs.desiredMonthlyIncome - guaranteedMonthlyIncome);
+  // Nunca negativo nem maior que o total — protege contra dado inconsistente
+  // (ex.: `currentInvestedNetWorth` desatualizado por um instante após uma
+  // venda de investimento, antes do patrimônio total refletir isso).
+  const investedSeed = Math.min(Math.max(0, inputs.currentInvestedNetWorth), Math.max(0, inputs.currentNetWorth));
+  const staticBase = inputs.currentNetWorth - investedSeed;
 
   const scenarios: [ScenarioResult["label"], number][] = [
     ["conservador", realReturn(inputs.expectedReturnConservative, inputs.expectedInflation)],
@@ -141,7 +165,8 @@ export function simulateRetirementCurve(inputs: RetirementInputs): RetirementSim
       label,
       inputs.currentAge,
       inputs.targetRetirementAge,
-      inputs.currentNetWorth,
+      investedSeed,
+      staticBase,
       inputs.monthlyContribution,
       annualReal,
       requiredNetWorth,
@@ -197,7 +222,9 @@ export function estimateTargetAge(
     RetirementInputs,
     "currentAge" | "currentNetWorth" | "monthlyContribution" | "desiredMonthlyIncome"
   > &
-    Partial<Pick<RetirementInputs, "expectedReturnBase" | "expectedInflation" | "guaranteedMonthlyIncome">>
+    Partial<
+      Pick<RetirementInputs, "expectedReturnBase" | "expectedInflation" | "guaranteedMonthlyIncome" | "currentInvestedNetWorth">
+    >
 ): number {
   const expectedReturnBase = inputs.expectedReturnBase ?? 0.06;
   const expectedInflation = inputs.expectedInflation ?? 0.04;
@@ -206,12 +233,19 @@ export function estimateTargetAge(
   const requiredNetWorth = computeRequiredNetWorth(inputs.desiredMonthlyIncome, guaranteedMonthlyIncome);
   const monthlyDrawdown = Math.max(0, inputs.desiredMonthlyIncome - guaranteedMonthlyIncome);
   const annualReal = realReturn(expectedReturnBase, expectedInflation);
+  // Na estimativa de onboarding não dá pra saber quanto do patrimônio
+  // declarado está investido (ainda não tem conta/investimento cadastrado
+  // de verdade) — sem essa info, assume tudo investido (comportamento de
+  // antes desta mudança), em vez de subestimar logo na primeira tela.
+  const investedSeed = inputs.currentInvestedNetWorth ?? inputs.currentNetWorth;
+  const staticBase = inputs.currentNetWorth - investedSeed;
 
   const projection = projectScenario(
     "base",
     inputs.currentAge,
     horizonAge,
-    inputs.currentNetWorth,
+    investedSeed,
+    staticBase,
     inputs.monthlyContribution,
     annualReal,
     requiredNetWorth,
@@ -226,12 +260,14 @@ export function estimateTargetAge(
 
 const REQUIRED_RATE_MAX = 0.5; // 50%/ano real — acima disso tratamos como inatingível só com retorno
 
-/** Future value of currentNetWorth + a monthly contribution annuity, compounding at annualRate for `months` months — mesma composição usada em `projectScenario`, isolada aqui pra dar pra resolver a taxa (abaixo) sem duplicar a conta de novo. */
-function futureValue(currentNetWorth: number, monthlyContribution: number, annualRate: number, months: number): number {
+/** Future value of investedSeed + a monthly contribution annuity, compounding at annualRate for `months` months, plus `staticBase` somado por fora sem render (mesma separação de `projectScenario`) — isolada aqui pra dar pra resolver a taxa (abaixo) sem duplicar a conta de novo. */
+function futureValue(investedSeed: number, staticBase: number, monthlyContribution: number, annualRate: number, months: number): number {
   const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
-  if (monthlyRate === 0) return currentNetWorth + monthlyContribution * months;
-  const growth = Math.pow(1 + monthlyRate, months);
-  return currentNetWorth * growth + monthlyContribution * ((growth - 1) / monthlyRate);
+  const investedFV =
+    monthlyRate === 0
+      ? investedSeed + monthlyContribution * months
+      : investedSeed * Math.pow(1 + monthlyRate, months) + monthlyContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+  return investedFV + staticBase;
 }
 
 /**
@@ -249,19 +285,20 @@ function futureValue(currentNetWorth: number, monthlyContribution: number, annua
  * em RetirementClient).
  */
 export function requiredAnnualReturnRate(
-  currentNetWorth: number,
+  investedSeed: number,
+  staticBase: number,
   monthlyContribution: number,
   requiredNetWorth: number,
   months: number
 ): number | null {
-  if (requiredNetWorth <= currentNetWorth || months <= 0) return null;
-  if (futureValue(currentNetWorth, monthlyContribution, REQUIRED_RATE_MAX, months) < requiredNetWorth) return null;
+  if (requiredNetWorth <= investedSeed + staticBase || months <= 0) return null;
+  if (futureValue(investedSeed, staticBase, monthlyContribution, REQUIRED_RATE_MAX, months) < requiredNetWorth) return null;
 
   let lo = 0;
   let hi = REQUIRED_RATE_MAX;
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2;
-    if (futureValue(currentNetWorth, monthlyContribution, mid, months) < requiredNetWorth) lo = mid;
+    if (futureValue(investedSeed, staticBase, monthlyContribution, mid, months) < requiredNetWorth) lo = mid;
     else hi = mid;
   }
   return hi;
@@ -283,20 +320,23 @@ export function buildMetaTrajectory(
   currentAge: number,
   targetAge: number,
   currentNetWorth: number,
+  currentInvestedNetWorth: number,
   monthlyContribution: number,
   requiredNetWorth: number
 ): MetaTrajectory | null {
+  const investedSeed = Math.min(Math.max(0, currentInvestedNetWorth), Math.max(0, currentNetWorth));
+  const staticBase = currentNetWorth - investedSeed;
   const months = Math.round((targetAge - currentAge) * 12);
-  const rate = requiredAnnualReturnRate(currentNetWorth, monthlyContribution, requiredNetWorth, months);
+  const rate = requiredAnnualReturnRate(investedSeed, staticBase, monthlyContribution, requiredNetWorth, months);
   if (rate === null) return null;
 
   const monthlyRate = Math.pow(1 + rate, 1 / 12) - 1;
-  const series: ScenarioPoint[] = [{ age: currentAge, value: currentNetWorth }];
-  let value = currentNetWorth;
+  const series: ScenarioPoint[] = [{ age: currentAge, value: investedSeed + staticBase }];
+  let invested = investedSeed;
   for (let m = 1; m <= months; m++) {
-    value = value * (1 + monthlyRate) + monthlyContribution;
+    invested = invested * (1 + monthlyRate) + monthlyContribution;
     if (m % 12 === 0 || m === months) {
-      series.push({ age: currentAge + m / 12, value });
+      series.push({ age: currentAge + m / 12, value: invested + staticBase });
     }
   }
   return { rate, series };
@@ -314,12 +354,16 @@ export function requiredMonthlyContribution(inputs: RetirementInputs, scenario: 
   const monthlyRate = Math.pow(1 + annualReal, 1 / 12) - 1;
   const months = Math.max(1, Math.round((inputs.targetRetirementAge - inputs.currentAge) * 12));
   const requiredNetWorth = computeRequiredNetWorth(inputs.desiredMonthlyIncome, inputs.guaranteedMonthlyIncome ?? 0);
+  const investedSeed = Math.min(Math.max(0, inputs.currentInvestedNetWorth), Math.max(0, inputs.currentNetWorth));
+  const staticBase = inputs.currentNetWorth - investedSeed;
 
-  // Future value of a lump sum + an annuity of contribution C:
-  // FV = PV*(1+r)^n + C * (((1+r)^n - 1) / r)
+  // Future value of the invested seed + an annuity of contribution C,
+  // compondo; `staticBase` (saldo em conta/outros bens) entra por fora, sem
+  // render — mesma separação de `projectScenario`.
+  // FV = PV*(1+r)^n + C * (((1+r)^n - 1) / r) + staticBase
   // Solve for C given target FV = requiredNetWorth.
   const growth = Math.pow(1 + monthlyRate, months);
   const annuityFactor = monthlyRate === 0 ? months : (growth - 1) / monthlyRate;
-  const neededFromContributions = requiredNetWorth - inputs.currentNetWorth * growth;
+  const neededFromContributions = requiredNetWorth - staticBase - investedSeed * growth;
   return Math.max(0, neededFromContributions / annuityFactor);
 }

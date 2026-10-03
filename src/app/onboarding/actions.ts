@@ -30,6 +30,8 @@ export async function refreshOnboardingRetirementPreviewAction() {
 
   await saveCompassSnapshot(user.id);
 
-  const retirementPreview = simulateRetirementCurve(buildRetirementInputs(plan, plan.currentNetWorth));
+  const retirementPreview = simulateRetirementCurve(
+    buildRetirementInputs(plan, plan.currentNetWorth, plan.currentInvestedNetWorth)
+  );
   return { retirementPreview, retirementTargetAge: plan.targetRetirementAge };
 }

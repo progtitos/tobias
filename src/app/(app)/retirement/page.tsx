@@ -41,8 +41,9 @@ export default async function RetirementPage() {
   // "dois conceitos de aposentadoria coexistindo hoje") — plotar os dois na
   // mesma curva confundiria mais do que ajudaria até essa decisão ser
   // tomada, então só os Sonhos "de verdade" (não-Aposentadoria) entram aqui.
-  const goalMarkers = goals
-    .filter((g) => g.type !== "RETIREMENT" && g.status !== "ABANDONED" && g.targetDate)
+  const eligibleGoals = goals.filter((g) => g.type !== "RETIREMENT" && g.status !== "ABANDONED");
+  const goalMarkers = eligibleGoals
+    .filter((g) => g.targetDate && (g.targetAmount ?? 0) > 0)
     .map((g) => ({
       id: g.id,
       title: g.title,
@@ -51,6 +52,16 @@ export default async function RetirementPage() {
       achieved: g.status === "ACHIEVED",
       yearsFromNow: computeYearsFromNow(new Date(g.targetDate!)),
     }));
+  // Objetivos que existem mas não aparecem na curva por faltar valor e/ou
+  // prazo (tipicamente Sonhos criados antes de "Data para conquista" virar
+  // obrigatória, 02/10/2026) — sem aviso nenhum, o objetivo some da tela
+  // sem explicação (bug reportado pelo Thiago, 03/10/2026: "a curva não
+  // está pegando os objetivos"). Mesmo princípio do aviso já existente em
+  // PatrimonioClient para o mini-gráfico do card: avisar em texto em vez de
+  // deixar sumir silenciosamente.
+  const goalsMissingData = eligibleGoals
+    .filter((g) => !g.targetDate || !((g.targetAmount ?? 0) > 0))
+    .map((g) => g.title);
 
   const defaults = {
     currentAge: plan?.currentAge ?? financialProfile?.currentAge ?? 30,
@@ -76,8 +87,10 @@ export default async function RetirementPage() {
     <RetirementClient
       defaults={defaults}
       currentNetWorth={netWorth.netWorth}
+      currentInvestedNetWorth={netWorth.investedAssets}
       hasPlan={Boolean(plan)}
       goalMarkers={goalMarkers}
+      goalsMissingData={goalsMissingData}
       salaryHistory={salaryHistory.map((r) => ({ competencia: r.competencia.toISOString(), salaryAmount: r.salaryAmount }))}
     />
   );

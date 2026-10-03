@@ -1023,6 +1023,17 @@ export const retirementPlans = pgTable("retirement_plans", {
   targetRetirementAge: integer("target_retirement_age").notNull(),
   desiredMonthlyIncome: money("desired_monthly_income").notNull(),
   currentNetWorth: money("current_net_worth").notNull().default(0),
+  // Fatia de `currentNetWorth` que está de fato investida (`investments`),
+  // separada do saldo em conta + outros bens — só esta parte compõe à taxa
+  // de retorno esperado na curva; o resto segue "parado" (pedido do
+  // Thiago, 03/10/2026: "saldo em conta deveria ser levado como
+  // patrimônio [que rende]? se não é nada de concreto"). Default 0 por
+  // segurança em planos existentes antes desta migração — eles voltam a
+  // ficar certos no próximo save do plano ou no próximo refresh de
+  // patrimônio (upsertRetirementPlan/refreshRetirementPlanNetWorth, ambos
+  // atualizados junto com `currentNetWorth`), igual sempre funcionou pra
+  // esse campo.
+  currentInvestedNetWorth: money("current_invested_net_worth").notNull().default(0),
   monthlyContribution: money("monthly_contribution").notNull().default(0),
   expectedReturnConservative: numeric("expected_return_conservative", { precision: 6, scale: 3, mode: "number" }).notNull().default(0.04),
   expectedReturnBase: numeric("expected_return_base", { precision: 6, scale: 3, mode: "number" }).notNull().default(0.06),

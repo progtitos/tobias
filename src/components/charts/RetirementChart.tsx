@@ -282,7 +282,22 @@ export function RetirementChart({
   return (
     <div>
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+      <ComposedChart
+        data={data}
+        margin={
+          // Na "hero" os marcadores (ícone de objetivo, bandeira da
+          // aposentadoria) são círculos de até 13px de raio desenhados em
+          // cima dos dados — sem uma margem que caiba esse raio, um objetivo
+          // com prazo bem perto da idade atual (ou bem no fim do horizonte)
+          // cai perto do x=0/x=max do SVG e tem metade do círculo cortada
+          // fora da área visível (bug reportado pelo Thiago, 03/10/2026:
+          // ícone do objetivo "casa" aparecendo pela metade, cortado à
+          // esquerda do gráfico). Fora da "hero" não há marcador nenhum, só
+          // as 3 linhas de cenário, então a margem apertada de sempre segue
+          // valendo.
+          isHero ? { top: 20, right: 18, bottom: 4, left: 18 } : { top: 8, right: 12, bottom: 0, left: 0 }
+        }
+      >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={palette.base} stopOpacity={isHero ? 0.32 : 0.28} />

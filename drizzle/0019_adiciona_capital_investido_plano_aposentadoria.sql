@@ -1,0 +1,1 @@
+ALTER TABLE "retirement_plans" ADD COLUMN "current_invested_net_worth" numeric(14, 2) DEFAULT 0 NOT NULL;

@@ -134,6 +134,13 @@
       "when": 1790976525766,
       "tag": "0018_adiciona_categorias_contas_moradia",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790991128200,
+      "tag": "0019_adiciona_capital_investido_plano_aposentadoria",
+      "breakpoints": true
     }
   ]
 }
