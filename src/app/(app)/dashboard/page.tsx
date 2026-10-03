@@ -133,7 +133,7 @@ export default async function DashboardPage() {
           <Card className={DARK_CARD}>
             <CardContent className="py-5">
               <div className="flex items-baseline gap-2.5 mb-1">
-                <h2 className="font-display font-semibold text-lg text-onbrand">Curva de aposentadoria</h2>
+                <h2 className="font-display font-semibold text-lg text-onbrand">Futuro</h2>
                 <Link href="/retirement" className="text-xs text-gold-400 hover:underline flex items-center gap-1">
                   Simular <ArrowRight className="h-3 w-3" />
                 </Link>

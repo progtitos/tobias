@@ -12,7 +12,13 @@ import { Badge } from "@/components/ui/Badge";
 import { RetirementChart } from "@/components/charts/RetirementChart";
 import { formatBRL } from "@/lib/utils/money";
 import { parseDateOnly } from "@/lib/utils/dates";
-import { simulateRetirementCurve, requiredMonthlyContribution, buildMetaTrajectory, type RetirementInputs } from "@/services/retirement";
+import {
+  simulateRetirementCurve,
+  requiredMonthlyContribution,
+  buildMetaTrajectory,
+  valueAtAge,
+  type RetirementInputs,
+} from "@/services/retirement";
 import { computeGuaranteedMonthlyIncome, computeAverageSalaryFromHistory, type Gender } from "@/services/inss";
 import { saveRetirementPlanAction, uploadCnisAction, clearSalaryHistoryAction, type UploadCnisState } from "./actions";
 
@@ -105,12 +111,12 @@ export function RetirementClient({
     () => requiredMonthlyContribution(fullInputs, "base"),
     [JSON.stringify(fullInputs)]
   );
-  // Curva Meta do card de destaque (redesenho aprovado, 02/10/2026): o ritmo
-  // de patrimônio necessário pra chegar em `simulation.requiredNetWorth`
-  // bem na idade-alvo, desenhada ao lado da projeção real. `null` quando a
-  // meta já está coberta pelo patrimônio de hoje, ou quando nem um retorno
-  // de 50%/ano chegaria lá — nos dois casos o card de destaque simplesmente
-  // não desenha a curva (ver RetirementChart variant="hero").
+  // Curva separada da Aposentadoria (correção 03/10/2026: "são duas curvas
+  // distintas... no gráfico parece uma só" — antes a mesma curva "base"
+  // simplesmente mudava de cor perto da ponta, em vez de haver uma segunda
+  // curva de verdade). `null` quando a meta já está coberta pelo patrimônio
+  // de hoje, ou quando nem 50%/ano de retorno chegaria lá a tempo — nos dois
+  // casos o marcador fixo da Aposentadoria no gráfico já mostra o destino.
   const metaTrajectory = useMemo(
     () =>
       buildMetaTrajectory(
@@ -122,6 +128,20 @@ export function RetirementClient({
       ),
     [inputs.currentAge, inputs.targetRetirementAge, currentNetWorth, inputs.monthlyContribution, simulation.requiredNetWorth]
   );
+  // Selo de status por objetivo com prazo e valor (redesenho aprovado,
+  // 02/10/2026: "liga os pontos" — o patrimônio projetado, na idade do
+  // prazo, já alcança o valor do objetivo?). Mesma régua que o ícone de cada
+  // um usa no gráfico (ver RetirementChart, GoalMarkerShape) pra colorir o
+  // aro ok/alerta — calculada aqui de novo só pro texto, não passada pro
+  // gráfico, que já recebe o `chartGoalMarkers` cru e calcula por conta
+  // própria (evita os dois ficarem fora de sincronia se um mudar sozinho).
+  const goalStatuses = chartGoalMarkers
+    .filter((g) => (g.targetAmount ?? 0) > 0)
+    .map((g) => {
+      const curveValueThere = valueAtAge(simulation.base.series, g.age);
+      const onTrack = g.achieved || (curveValueThere != null && curveValueThere >= (g.targetAmount ?? 0));
+      return { id: g.id, title: g.title, achieved: g.achieved, onTrack };
+    });
 
   function set<K extends keyof Defaults>(key: K, value: Defaults[K]) {
     setSaved(false);
@@ -149,9 +169,11 @@ export function RetirementClient({
       <div className="max-w-4xl mx-auto w-full">
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
-          <h1 className="font-sans font-bold text-2xl text-onbrand">Curva de aposentadoria</h1>
+          <h1 className="font-sans font-bold text-2xl text-onbrand">Futuro</h1>
           <p className="text-sm text-onbrand/55 mt-1">
-            Simule 3 cenários de retorno sobre seu patrimônio total de hoje ({formatBRL(currentNetWorth)}: contas + investimentos). Não é uma recomendação de investimento nem sua alocação real.
+            Uma curva só com o seu patrimônio total de hoje ({formatBRL(currentNetWorth)}: contas + investimentos), que
+            precisa ligar os pontos — passar pelo valor de cada objetivo com prazo e terminar na aposentadoria. Não é
+            uma recomendação de investimento nem sua alocação real.
           </p>
         </div>
         <Button size="sm" loading={pending} onClick={save}>
@@ -182,30 +204,19 @@ export function RetirementClient({
               variant="hero"
               metaTrajectory={metaTrajectory}
             />
-            {/* Selo único (cenário base), em vez dos 3 anteriores — redesenho
-                aprovado, 02/10/2026: a curva agora só mostra a projeção base
-                + a curva Meta, então comparar os 3 cenários lado a lado por
-                selo deixou de fazer sentido visualmente; quem quiser ver o
-                cenário conservador/agressivo isolado ainda tem os números em
-                "Projeção no cenário base" + a sugestão de aporte abaixo. */}
+            {/* Um selo por compromisso — aposentadoria (sempre primeiro, é o
+                destino final) e um por objetivo com prazo e valor, mesmo
+                veredito que colore o aro do ícone no gráfico (redesenho
+                aprovado, 02/10/2026: "o cliente ir alterando valor até
+                fechar a curva dele com a linha da aposentadoria e dos
+                objetivos" — o selo é a confirmação em texto do que o
+                gráfico já mostra visualmente). */}
             <div className="flex flex-wrap gap-1.5 mt-3">
               <ScenarioBadge label="Aposentadoria" onTrack={simulation.base.onTrack} />
+              {goalStatuses.map((g) => (
+                <ScenarioBadge key={g.id} label={g.title} onTrack={g.achieved || g.onTrack} />
+              ))}
             </div>
-            {/* Explica o sumiço da curva Meta quando ela não aparece por já
-                estar coberta — sem isso, o gráfico simplesmente não desenha
-                nada diferente do "Projeção" e parece quebrado (bug reportado
-                pelo Thiago, 02/10/2026: "a curva de aposentadoria ficou bem
-                estranha", depois de ver o gráfico sem a curva tracejada no
-                caso dele, onde a renda garantida já cobre tudo). Quando é
-                inatingível mesmo a 50%/ano (metaTrajectory null por outro
-                motivo), a sugestão de aumentar o aporte logo abaixo já cobre
-                o caso — não precisa de outro aviso aqui. */}
-            {!metaTrajectory && simulation.requiredNetWorth <= currentNetWorth && (
-              <p className="text-xs text-onbrand/45 mt-2">
-                Sua renda garantida já cobre o patrimônio necessário — não existe uma meta extra de patrimônio pra
-                perseguir aqui, por isso não tem uma segunda curva no gráfico.
-              </p>
-            )}
             <div className="mt-4 space-y-1.5 text-sm">
               <p className="text-onbrand/70">
                 Patrimônio necessário para viver de renda: <span className="font-medium text-onbrand">{formatBRL(simulation.requiredNetWorth)}</span>

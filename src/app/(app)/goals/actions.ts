@@ -3,21 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { requireOnboardedUser } from "@/lib/auth/guards";
 import { createGoal, addGoalContribution, updateGoalStatus, updateGoalTarget, deleteGoal } from "@/services/goals";
+import { createGoalSchema } from "@/lib/validations/goal";
 
 export type GoalFormState = { error?: string } | undefined;
 
 export async function createGoalAction(_prev: GoalFormState, formData: FormData): Promise<GoalFormState> {
   const user = await requireOnboardedUser();
-  const title = String(formData.get("title") ?? "").trim();
-  if (!title) return { error: "Dê um nome para o seu objetivo." };
 
-  await createGoal(user.id, {
-    title,
-    type: (formData.get("type") as never) ?? "DREAM",
+  const parsed = createGoalSchema.safeParse({
+    title: String(formData.get("title") ?? "").trim(),
+    type: (formData.get("type") as string) || "DREAM",
     targetAmount: formData.get("targetAmount") ? Number(formData.get("targetAmount")) : undefined,
     targetDate: (formData.get("targetDate") as string) || undefined,
     monthlyContribution: formData.get("monthlyContribution") ? Number(formData.get("monthlyContribution")) : undefined,
   });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+
+  await createGoal(user.id, parsed.data);
 
   // Sonhos mora dentro de Patrimônio agora, não tem mais tela própria.
   revalidatePath("/patrimonio");

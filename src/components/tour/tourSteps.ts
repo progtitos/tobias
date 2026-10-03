@@ -92,8 +92,8 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     target: "retirement-curva",
-    title: "Sua curva de aposentadoria",
-    body: "Uma projeção do seu patrimônio total em 3 cenários de retorno, pra acompanhar se você está no caminho certo pra se aposentar como planejou. Não é uma recomendação de investimento, é o seu norte.",
+    title: "Futuro",
+    body: "Uma curva só com seu patrimônio, que precisa ligar os pontos: passar por cada objetivo com prazo e terminar na aposentadoria, destacada em vermelho. Não é uma recomendação de investimento, é o seu norte.",
     placement: "bottom",
     route: "/retirement",
   },

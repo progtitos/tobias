@@ -30,7 +30,7 @@ const NAV_ITEMS = [
   // mensal — ver services/incomeExpenseSources.ts.
   { href: "/renda-despesas", label: "Renda e Despesas", icon: PiggyBank },
   { href: "/patrimonio", label: "Patrimônio", icon: Landmark },
-  { href: "/retirement", label: "Aposentadoria", icon: TrendingUp },
+  { href: "/retirement", label: "Futuro", icon: TrendingUp },
   { href: "/investimentos", label: "Investimentos", icon: LineChart },
   { href: "/conta", label: "Conta", icon: Wallet },
   // "/compass" (Ponteiro) saiu do menu por decisão do Thiago (2026-09-20) —

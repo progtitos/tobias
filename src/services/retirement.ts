@@ -153,6 +153,31 @@ export function simulateRetirementCurve(inputs: RetirementInputs): RetirementSim
 }
 
 /**
+ * Interpola o valor da curva numa idade qualquer (não precisa cair exatamente
+ * num ponto anual da série). Usado pra responder "nessa idade, o patrimônio
+ * projetado já cobre esse objetivo?" — a mesma pergunta que o gráfico
+ * "Futuro" faz visualmente ao plotar o ícone do objetivo em cima ou embaixo
+ * da curva (ver RetirementChart, variant="hero", redesenho de 02/10/2026:
+ * "liga os pontos" em vez de uma linha separada por objetivo).
+ */
+export function valueAtAge(series: ScenarioPoint[], age: number): number | null {
+  if (series.length === 0) return null;
+  if (age <= series[0].age) return series[0].value;
+  if (age >= series[series.length - 1].age) return series[series.length - 1].value;
+  for (let i = 1; i < series.length; i++) {
+    if (series[i].age >= age) {
+      const prev = series[i - 1];
+      const next = series[i];
+      const span = next.age - prev.age;
+      if (span <= 0) return next.value;
+      const t = (age - prev.age) / span;
+      return prev.value + (next.value - prev.value) * t;
+    }
+  }
+  return series[series.length - 1].value;
+}
+
+/**
  * Estimates a target retirement/financial-independence age from the real
  * numbers, instead of relying on a stated or AI-guessed age. This is what
  * onboarding uses for a goal like "independência financeira" (which has no
