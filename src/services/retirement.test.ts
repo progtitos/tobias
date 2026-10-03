@@ -52,28 +52,37 @@ describe("findDepletionAge", () => {
 });
 
 describe("buildIdealTrajectory", () => {
+  // A partir de 03/10/2026 o 5º argumento é a TAXA real anual do cenário
+  // atual da pessoa (não mais o aporte, que agora é calculado por dentro) —
+  // ver comentário completo na função. Usamos a mesma taxa em todo o describe
+  // só por simplicidade dos testes estruturais; o valor em si não importa
+  // pra eles, exceto onde indicado.
+  const annualRate = 0.06;
   const base = {
     currentAge: 35,
     targetAge: 65,
     currentNetWorth: 10_000,
     currentInvestedNetWorth: 10_000,
-    monthlyContribution: 500,
     requiredNetWorth: 1_000_000,
   };
 
-  it("sem lifeExpectancyAge/monthlyDrawdown, para na idade-alvo (comportamento antigo)", () => {
+  it("sem lifeExpectancyAge/monthlyDrawdown, para na idade-alvo e bate a meta por construção", () => {
     const result = buildIdealTrajectory(
       base.currentAge,
       base.targetAge,
       base.currentNetWorth,
       base.currentInvestedNetWorth,
-      base.monthlyContribution,
+      annualRate,
       base.requiredNetWorth
     );
     expect(result).not.toBeNull();
+    expect(result!.annualRate).toBe(annualRate);
+    expect(result!.monthlyContribution).toBeGreaterThan(0);
     const lastAge = result!.series[result!.series.length - 1].age;
     expect(lastAge).toBe(base.targetAge);
-    // bate (aproximadamente) a meta exatamente na idade-alvo, por construção
+    // O aporte é resolvido justamente pra bater a meta exatamente na
+    // idade-alvo — ao contrário do comportamento antigo (resolver a taxa),
+    // isso nunca falha por "inatingível".
     expect(result!.series[result!.series.length - 1].value).toBeCloseTo(base.requiredNetWorth, 0);
   });
 
@@ -85,7 +94,7 @@ describe("buildIdealTrajectory", () => {
       base.targetAge,
       base.currentNetWorth,
       base.currentInvestedNetWorth,
-      base.monthlyContribution,
+      annualRate,
       base.requiredNetWorth,
       lifeExpectancyAge,
       monthlyDrawdown
@@ -103,7 +112,7 @@ describe("buildIdealTrajectory", () => {
       base.targetAge,
       base.currentNetWorth,
       base.currentInvestedNetWorth,
-      base.monthlyContribution,
+      annualRate,
       base.requiredNetWorth,
       110, // horizonte propositalmente exagerado pra forçar o esgotamento
       50_000 // saque mensal propositalmente alto
@@ -115,8 +124,41 @@ describe("buildIdealTrajectory", () => {
   });
 
   it("retorna null quando a meta já está coberta pelo patrimônio de hoje", () => {
-    const result = buildIdealTrajectory(35, 65, 2_000_000, 2_000_000, 500, 1_000_000);
+    const result = buildIdealTrajectory(35, 65, 2_000_000, 2_000_000, annualRate, 1_000_000);
     expect(result).toBeNull();
+  });
+
+  it("nunca retorna null por falta de aporte/patrimônio investido — bug relatado: 'quando deixo o aporte zerado a curva da aposentadoria some'", () => {
+    // Exatamente o cenário reportado: nada investido ainda, e o aporte não é
+    // mais um parâmetro de entrada (deixou de existir a noção de "taxa
+    // inatingível" que fazia a curva sumir nesse caso).
+    const result = buildIdealTrajectory(30, 60, 0, 0, 0.05, 500_000);
+    expect(result).not.toBeNull();
+    expect(result!.monthlyContribution).toBeGreaterThan(0);
+    const lastPoint = result!.series[result!.series.length - 1];
+    expect(lastPoint.age).toBe(60);
+    expect(lastPoint.value).toBeCloseTo(500_000, 0);
+  });
+
+  it("embute o custo de um objetivo com prazo antes da aposentadoria no aporte ideal, e desconta a curva na idade certa", () => {
+    // Taxa 0% real só pra deixar a aritmética exata e fácil de prever à mão
+    // (mesmo espírito dos testes de goalWithdrawals de simulateRetirementCurve
+    // abaixo) — o mecanismo em si não depende disso.
+    const result = buildIdealTrajectory(30, 60, 0, 0, 0, 120_000, undefined, undefined, [
+      { id: "carro", age: 40, amount: 12_000 },
+    ]);
+    expect(result).not.toBeNull();
+    // 360 meses até a meta, mais o custo do objetivo (12.000, sem juros a
+    // 0% real) embutido: aporte = (120.000 + 12.000) / 360.
+    expect(result!.monthlyContribution).toBeCloseTo(132_000 / 360, 5);
+    expect(result!.goalOutcomes).toHaveLength(1);
+    expect(result!.goalOutcomes[0].covered).toBe(true);
+    expect(result!.goalOutcomes[0].investedBefore).toBeCloseTo((132_000 / 360) * 120, 2);
+    // Batendo exatamente o custo embutido do objetivo, a curva volta a
+    // encontrar a meta original (sem o objetivo) na idade-alvo.
+    const lastPoint = result!.series[result!.series.length - 1];
+    expect(lastPoint.age).toBe(60);
+    expect(lastPoint.value).toBeCloseTo(120_000, 0);
   });
 });
 

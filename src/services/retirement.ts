@@ -382,109 +382,162 @@ export function estimateTargetAge(
   return inputs.currentAge + 25;
 }
 
-const REQUIRED_RATE_MAX = 0.5; // 50%/ano real — acima disso tratamos como inatingível só com retorno
-
-/** Future value of investedSeed + a monthly contribution annuity, compounding at annualRate for `months` months, plus `staticBase` somado por fora sem render (mesma separação de `projectScenario`) — isolada aqui pra dar pra resolver a taxa (abaixo) sem duplicar a conta de novo. */
-function futureValue(investedSeed: number, staticBase: number, monthlyContribution: number, annualRate: number, months: number): number {
-  const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
-  const investedFV =
-    monthlyRate === 0
-      ? investedSeed + monthlyContribution * months
-      : investedSeed * Math.pow(1 + monthlyRate, months) + monthlyContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
-  return investedFV + staticBase;
-}
-
 /**
- * Resolve a taxa de retorno real anual que, compondo mensalmente com o aporte
- * atual, levaria do patrimônio de hoje até `requiredNetWorth` bem em `months`
- * meses — é o "ritmo necessário" que a curva Meta desenha ao lado da
- * projeção real (pedido do Thiago, 02/10/2026: "uma curva simulada... pra
- * visualizar como fazer pra fechar nela"). `futureValue` é crescente em
- * annualRate (pra aporte >= 0), então busca binária converge.
- *
- * `null` quando não há nada a perseguir (a meta já está coberta pelo
- * patrimônio de hoje) ou quando nem um retorno de 50%/ano chegaria lá — nesse
- * caso a curva Meta simplesmente não aparece; a sugestão de aumentar o aporte
- * já existe em texto em outro lugar da tela (ver `!simulation.base.onTrack`
- * em RetirementClient).
+ * Resolve o aporte mensal necessário pra, compondo mensalmente a uma taxa
+ * fixa `annualRate`, levar do patrimônio de hoje até `requiredNetWorth` em
+ * exatamente `months` meses — álgebra de anuidade de forma fechada (extraída
+ * de dentro de `requiredMonthlyContribution` em 03/10/2026 pra também servir
+ * `buildIdealTrajectory`, abaixo). Ao contrário da antiga
+ * `requiredAnnualReturnRate` (busca binária de taxa, removida nessa mesma
+ * mudança), aqui sempre existe solução — o aporte pode ser arbitrariamente
+ * grande — então nunca há um caso "inatingível".
  */
-export function requiredAnnualReturnRate(
+function requiredMonthlyContributionForRate(
   investedSeed: number,
   staticBase: number,
-  monthlyContribution: number,
+  annualRate: number,
   requiredNetWorth: number,
   months: number
-): number | null {
-  if (requiredNetWorth <= investedSeed + staticBase || months <= 0) return null;
-  if (futureValue(investedSeed, staticBase, monthlyContribution, REQUIRED_RATE_MAX, months) < requiredNetWorth) return null;
-
-  let lo = 0;
-  let hi = REQUIRED_RATE_MAX;
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    if (futureValue(investedSeed, staticBase, monthlyContribution, mid, months) < requiredNetWorth) lo = mid;
-    else hi = mid;
-  }
-  return hi;
+): number {
+  const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+  // FV = PV*(1+r)^n + C * (((1+r)^n - 1) / r) + staticBase ; resolve C dado FV-alvo = requiredNetWorth.
+  const growth = Math.pow(1 + monthlyRate, months);
+  const annuityFactor = monthlyRate === 0 ? months : (growth - 1) / monthlyRate;
+  const neededFromContributions = requiredNetWorth - staticBase - investedSeed * growth;
+  return Math.max(0, neededFromContributions / annuityFactor);
 }
 
-export type IdealTrajectory = { rate: number; series: ScenarioPoint[] };
+export type IdealTrajectory = {
+  /** Taxa de retorno real anual usada pra desenhar a curva — o "cenário
+   * atual" da pessoa (ver `simulation.base.annualRealReturn` em
+   * RetirementClient), não mais uma taxa resolvida por busca binária
+   * (redesenho 03/10/2026, ver comentário completo abaixo). */
+  annualRate: number;
+  /** O aporte mensal que, nessa taxa (e já contando o custo dos objetivos
+   * que caem antes da aposentadoria), fecha a meta — mesmo número usado pra
+   * desenhar a curva E pro texto em amarelo "quanto seria o aporte ideal"
+   * (pedido do Thiago, 03/10/2026), eliminando a divergência que existia
+   * antes entre a curva (`buildIdealTrajectory`) e o texto
+   * (`requiredMonthlyContribution`, que resolvia outra coisa). */
+  monthlyContribution: number;
+  series: ScenarioPoint[];
+  /** Mesmo mecanismo de `ScenarioGoalOutcome` das 3 projeções reais, agora
+   * também aplicado à curva ideal (pedido do Thiago, 03/10/2026: "não
+   * esqueça dos ícones de sonhos e objetivos nessa curva") — permite colorir
+   * o aro do ícone de cada objetivo também contra o ritmo ideal, se um dia
+   * fizer sentido mostrar isso ao lado do veredito do cenário base. */
+  goalOutcomes: ScenarioGoalOutcome[];
+};
 
 /**
- * A curva "Aposentadoria Ideal" (antiga curva "Meta"): a série de pontos
- * (idade, patrimônio) que resulta de compor `requiredAnnualReturnRate` mês a
- * mês, do patrimônio de hoje até a idade-alvo — desenhada ao lado da projeção
- * real pra mostrar visualmente o ritmo necessário.
+ * A curva "Aposentadoria Ideal" (antiga curva "Meta"). Até 03/10/2026 ela
+ * resolvia a TAXA de retorno necessária mantendo o aporte atual fixo — o que
+ * fazia a curva simplesmente desaparecer sempre que aporte e patrimônio
+ * investido eram zero (nada pode compor a partir de nada, não importa a
+ * taxa; bug reportado pelo Thiago: "quando deixo o aporte zerado a curva da
+ * aposentadoria some, a curva da aposentadoria é fixa, com base naquele
+ * valor que aparece em amarelo"). Agora resolve o contrário: o APORTE
+ * necessário mantendo fixa a taxa do CENÁRIO ATUAL da pessoa
+ * (`annualRealReturn`, ver ponto de uso) — "a ideia é a curva 'Seu
+ * patrimonio' comparar com a curva da aposentadoria com o cenário atual
+ * dele... e aparecer nessa mensagem amarelo quanto seria o aporte ideal".
+ * Isso elimina o desaparecimento por construção (um aporte sempre existe,
+ * por maior que seja) e faz a curva e o texto em amarelo usarem o mesmo
+ * número — ver `IdealTrajectory.monthlyContribution`.
  *
- * Quando `lifeExpectancyAge`/`monthlyDrawdown` são informados (redesenho
- * aprovado "estilo 2", 03/10/2026: "não ta tendo a perspectiva de vida
- * também igual na amostra que mostrou" — a amostra desenhava essa curva até a
- * expectativa de vida, não só até a aposentadoria), a curva continua depois
- * da idade-alvo simulando a MESMA fase de retirada que `projectScenario` usa
- * pras 3 projeções de cenário: saca `monthlyDrawdown`/mês do saldo, que
- * continua compondo no mesmo ritmo necessário calculado para a fase de
- * acumulação (não um retorno diferente) — "se eu mantiver exatamente o ritmo
- * necessário, meu patrimônio-alvo também se sustenta até a expectativa de
- * vida?". Sem esses dois parâmetros, mantém o comportamento anterior (só até
- * a idade-alvo). `null` nos mesmos casos de `requiredAnnualReturnRate` (meta
- * já coberta, ou inatingível só com retorno).
+ * Sonhos/Objetivos com prazo (`goalWithdrawals`) também descontam dessa
+ * curva, igual às 3 projeções reais (`projectScenario`) — pedido do Thiago,
+ * 03/10/2026: "não esqueça dos ícones de sonhos e objetivos nessa curva". Um
+ * objetivo cujo prazo cai antes da aposentadoria é embutido no aporte ideal
+ * calculado (precisa ser guardado também); um objetivo na fase de retirada
+ * só desconta do saldo no mês certo, sem afetar o aporte — mesmo papel que
+ * `monthlyDrawdown` já tem ali.
+ *
+ * Quando `lifeExpectancyAge`/`monthlyDrawdown` são informados, a curva
+ * continua depois da idade-alvo simulando a mesma fase de retirada que as 3
+ * projeções usam (redesenho "estilo 2", 03/10/2026). `null` só quando a meta
+ * já está coberta pelo patrimônio de hoje (nada a perseguir) ou quando a
+ * idade-alvo não é depois da idade atual.
  */
 export function buildIdealTrajectory(
   currentAge: number,
   targetAge: number,
   currentNetWorth: number,
   currentInvestedNetWorth: number,
-  monthlyContribution: number,
+  annualRealReturn: number,
   requiredNetWorth: number,
   lifeExpectancyAge?: number,
-  monthlyDrawdown?: number
+  monthlyDrawdown?: number,
+  goalWithdrawals?: GoalWithdrawal[]
 ): IdealTrajectory | null {
   const investedSeed = Math.min(Math.max(0, currentInvestedNetWorth), Math.max(0, currentNetWorth));
   const staticBase = currentNetWorth - investedSeed;
   const monthsToTarget = Math.round((targetAge - currentAge) * 12);
-  const rate = requiredAnnualReturnRate(investedSeed, staticBase, monthlyContribution, requiredNetWorth, monthsToTarget);
-  if (rate === null) return null;
+  if (requiredNetWorth <= investedSeed + staticBase || monthsToTarget <= 0) return null;
 
-  const monthlyRate = Math.pow(1 + rate, 1 / 12) - 1;
+  const monthlyRate = Math.pow(1 + annualRealReturn, 1 / 12) - 1;
+
+  // Agrupa objetivos por mês (mesma lógica de `projectScenario`) e, só pros
+  // que caem ANTES da idade-alvo, soma quanto cada um "pesaria" já composto
+  // até lá — essa soma vira meta extra a bater, pra o aporte ideal sair já
+  // contando com eles (sem isso, o aporte "ideal" ignoraria objetivos e a
+  // curva ficaria sem fôlego pra pagá-los quando chegassem).
+  const goalsByMonth = new Map<number, GoalWithdrawal[]>();
+  let goalCostAtTarget = 0;
+  for (const goal of goalWithdrawals ?? []) {
+    if (goal.amount <= 0) continue;
+    const monthIndex = Math.round((goal.age - currentAge) * 12);
+    if (monthIndex <= 0) continue;
+    const bucket = goalsByMonth.get(monthIndex);
+    if (bucket) bucket.push(goal);
+    else goalsByMonth.set(monthIndex, [goal]);
+    if (monthIndex <= monthsToTarget) {
+      const growthRemaining = monthlyRate === 0 ? 1 : Math.pow(1 + monthlyRate, monthsToTarget - monthIndex);
+      goalCostAtTarget += goal.amount * growthRemaining;
+    }
+  }
+
+  const monthlyContribution = requiredMonthlyContributionForRate(
+    investedSeed,
+    staticBase,
+    annualRealReturn,
+    requiredNetWorth + goalCostAtTarget,
+    monthsToTarget
+  );
+
   const series: ScenarioPoint[] = [{ age: currentAge, value: investedSeed + staticBase }];
+  const goalOutcomes: ScenarioGoalOutcome[] = [];
   let invested = investedSeed;
   const totalMonths =
     lifeExpectancyAge != null && lifeExpectancyAge > targetAge
       ? Math.round((lifeExpectancyAge - currentAge) * 12)
       : monthsToTarget;
+
   for (let m = 1; m <= totalMonths; m++) {
     invested =
       m <= monthsToTarget
         ? invested * (1 + monthlyRate) + monthlyContribution
         : Math.max(0, invested * (1 + monthlyRate) - (monthlyDrawdown ?? 0));
+
+    const goalsThisMonth = goalsByMonth.get(m);
+    if (goalsThisMonth) {
+      for (const goal of goalsThisMonth) {
+        const investedBefore = invested;
+        const covered = investedBefore >= goal.amount;
+        if (covered) invested -= goal.amount;
+        goalOutcomes.push({ id: goal.id, age: goal.age, amount: goal.amount, investedBefore, covered });
+      }
+    }
+
     if (m % 12 === 0 || m === monthsToTarget || m === totalMonths) {
       series.push({ age: currentAge + m / 12, value: invested + staticBase });
     }
   }
-  return { rate, series };
+
+  return { annualRate: annualRealReturn, monthlyContribution, series, goalOutcomes };
 }
 
-/** How much the monthly contribution would need to change to reach the goal at the target age, holding everything else constant (binary search). */
+/** How much the monthly contribution would need to change to reach the goal at the target age, holding everything else constant — delega pra `requiredMonthlyContributionForRate` (extraída em 03/10/2026 pra também servir `buildIdealTrajectory`). */
 export function requiredMonthlyContribution(inputs: RetirementInputs, scenario: "conservative" | "base" | "aggressive" = "base"): number {
   const rate =
     scenario === "conservative"
@@ -493,19 +546,9 @@ export function requiredMonthlyContribution(inputs: RetirementInputs, scenario: 
         ? inputs.expectedReturnAggressive
         : inputs.expectedReturnBase;
   const annualReal = realReturn(rate, inputs.expectedInflation);
-  const monthlyRate = Math.pow(1 + annualReal, 1 / 12) - 1;
   const months = Math.max(1, Math.round((inputs.targetRetirementAge - inputs.currentAge) * 12));
   const requiredNetWorth = computeRequiredNetWorth(inputs.desiredMonthlyIncome, inputs.guaranteedMonthlyIncome ?? 0);
   const investedSeed = Math.min(Math.max(0, inputs.currentInvestedNetWorth), Math.max(0, inputs.currentNetWorth));
   const staticBase = inputs.currentNetWorth - investedSeed;
-
-  // Future value of the invested seed + an annuity of contribution C,
-  // compondo; `staticBase` (saldo em conta/outros bens) entra por fora, sem
-  // render — mesma separação de `projectScenario`.
-  // FV = PV*(1+r)^n + C * (((1+r)^n - 1) / r) + staticBase
-  // Solve for C given target FV = requiredNetWorth.
-  const growth = Math.pow(1 + monthlyRate, months);
-  const annuityFactor = monthlyRate === 0 ? months : (growth - 1) / monthlyRate;
-  const neededFromContributions = requiredNetWorth - staticBase - investedSeed * growth;
-  return Math.max(0, neededFromContributions / annuityFactor);
+  return requiredMonthlyContributionForRate(investedSeed, staticBase, annualReal, requiredNetWorth, months);
 }

@@ -277,7 +277,11 @@ function NetWorthSummary({ netWorth }: { netWorth: NetWorth }) {
             </p>
           </div>
           <div className="flex items-center gap-5 flex-wrap w-full border-t border-onbrand/[0.06] pt-3 sm:w-auto sm:flex-1 sm:justify-end sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
-            <SummaryFigure label="Em contas" value={netWorth.liquidAssets} />
+            {/* "Em contas" (netWorth.liquidAssets) tirado do resumo a pedido do
+                Thiago (03/10/2026: "não deveria ter o valor de saldo da conta,
+                pra mim não faz sentido") — continua somado no Patrimônio
+                líquido acima (computeNetWorth, services/aggregations.ts), só
+                não tem mais sua própria figura aqui. */}
             <SummaryFigure label="Investido" value={netWorth.investedAssets} />
             <SummaryFigure label="Outros bens" value={netWorth.otherAssets} />
             <SummaryFigure label="Dívidas" value={netWorth.totalDebt} negative />

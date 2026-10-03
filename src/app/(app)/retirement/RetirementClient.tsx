@@ -15,7 +15,6 @@ import { formatBRL } from "@/lib/utils/money";
 import { parseDateOnly } from "@/lib/utils/dates";
 import {
   simulateRetirementCurve,
-  requiredMonthlyContribution,
   buildIdealTrajectory,
   buildPrincipalSeries,
   findDepletionAge,
@@ -144,12 +143,16 @@ export function RetirementClient({
     guaranteedMonthlyIncome,
     goalWithdrawals,
   };
+  // `fullInputs`/`goalWithdrawals` são objetos/arrays recriados a cada
+  // render — comparar pelo conteúdo serializado (em vez da referência) nos
+  // useMemo abaixo evita recalcular a cada tecla digitada em campos que não
+  // mudam o resultado. ESLint exige uma expressão simples (um identificador)
+  // no array de dependências, daí extrair pra uma variável em vez de inlinar
+  // o `JSON.stringify(...)` ali.
+  const fullInputsKey = JSON.stringify(fullInputs);
+  const goalWithdrawalsKey = JSON.stringify(goalWithdrawals);
 
-  const simulation = useMemo(() => simulateRetirementCurve(fullInputs), [JSON.stringify(fullInputs)]);
-  const suggestedContribution = useMemo(
-    () => requiredMonthlyContribution(fullInputs, "base"),
-    [JSON.stringify(fullInputs)]
-  );
+  const simulation = useMemo(() => simulateRetirementCurve(fullInputs), [fullInputsKey]);
   // Horizonte visual da curva (pedido do Thiago, 03/10/2026: "não ta tendo a
   // perspectiva de vida também igual na amostra que mostrou") — tábua
   // aproximada de expectativa de vida (ver services/inss.ts), não uma conta
@@ -168,13 +171,18 @@ export function RetirementClient({
   // Curva separada da Aposentadoria (correção 03/10/2026: "são duas curvas
   // distintas... no gráfico parece uma só" — antes a mesma curva "base"
   // simplesmente mudava de cor perto da ponta, em vez de haver uma segunda
-  // curva de verdade). `null` quando a meta já está coberta pelo patrimônio
-  // de hoje, ou quando nem 50%/ano de retorno chegaria lá a tempo — nos dois
-  // casos o marcador fixo da Aposentadoria no gráfico já mostra o destino.
-  // Desde o redesenho "estilo 2" (03/10/2026) essa curva também continua além
-  // da idade-alvo, até `lifeExpectancyAge`, sacando `monthlyDrawdown`/mês no
-  // mesmo ritmo ideal — pra mostrar visualmente se bater exatamente a meta
-  // também sustenta a pessoa até o fim da vida.
+  // curva de verdade). Redesenho 03/10/2026 (bug "quando deixo o aporte
+  // zerado a curva da aposentadoria some"): em vez de resolver uma taxa
+  // mantendo o aporte atual fixo (podia não ter solução e sumir), agora
+  // resolve o APORTE ideal mantendo fixa a taxa do cenário BASE da pessoa —
+  // "a curva... comparar com a curva da aposentadoria com o cenário atual
+  // dele" — então sempre existe curva, exceto quando a meta já está coberta
+  // hoje. Também recebe `goalWithdrawals` (igual às 3 projeções reais) pra
+  // não esquecer os objetivos nessa curva. `null` só nesse caso de meta já
+  // coberta. Desde o redesenho "estilo 2" (03/10/2026) essa curva também
+  // continua além da idade-alvo, até `lifeExpectancyAge`, sacando
+  // `monthlyDrawdown`/mês no mesmo ritmo ideal — pra mostrar visualmente se
+  // bater exatamente a meta também sustenta a pessoa até o fim da vida.
   const idealTrajectory = useMemo(
     () =>
       buildIdealTrajectory(
@@ -182,20 +190,22 @@ export function RetirementClient({
         inputs.targetRetirementAge,
         currentNetWorth,
         currentInvestedNetWorth,
-        inputs.monthlyContribution,
+        simulation.base.annualRealReturn,
         simulation.requiredNetWorth,
         lifeExpectancyAge,
-        monthlyDrawdown
+        monthlyDrawdown,
+        goalWithdrawals
       ),
     [
       inputs.currentAge,
       inputs.targetRetirementAge,
       currentNetWorth,
       currentInvestedNetWorth,
-      inputs.monthlyContribution,
+      simulation.base.annualRealReturn,
       simulation.requiredNetWorth,
       lifeExpectancyAge,
       monthlyDrawdown,
+      goalWithdrawalsKey,
     ]
   );
   // Linha cinza "Principal investido" (estilo 2): quanto teria hoje + todo
@@ -352,11 +362,11 @@ export function RetirementClient({
                   Com esses dados, você ainda não teria direito ao INSS na idade-alvo escolhida. A renda garantida está zerada nesta simulação.
                 </p>
               )}
-              {!simulation.base.onTrack && (
+              {!simulation.base.onTrack && idealTrajectory && (
                 <p className="text-gold-400 flex items-center gap-1.5">
                   <Sparkles className="h-3.5 w-3.5 shrink-0" />
                   Para chegar lá no cenário base, o aporte mensal precisaria ser de aproximadamente{" "}
-                  <span className="font-medium">{formatBRL(suggestedContribution)}</span>.
+                  <span className="font-medium">{formatBRL(idealTrajectory.monthlyContribution)}</span>.
                 </p>
               )}
               {depletionAge != null && (
