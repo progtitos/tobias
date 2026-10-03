@@ -44,9 +44,47 @@ export type RetirementInputs = {
    * services/inss.ts + retirementPlan.ts, nunca estimada aqui.
    */
   guaranteedMonthlyIncome?: number;
+  /**
+   * Sonhos/Objetivos com valor e prazo — cada um vira um saque pontual de
+   * verdade na idade do prazo, em vez de só um ícone de referência que a
+   * curva ignorava (pedido do Thiago, 03/10/2026: "objetivos, sonhos não
+   * estão entrando no cálculo da curva"). Opcional e default `[]` (mantém o
+   * comportamento anterior: nenhum objetivo afeta a curva). Ver
+   * `ScenarioGoalOutcome` sobre a regra de "só desconta se der pra pagar".
+   */
+  goalWithdrawals?: GoalWithdrawal[];
 };
 
 export type ScenarioPoint = { age: number; value: number };
+
+/** Um Sonho/Objetivo com valor e prazo, já convertido pra idade — formato de
+ * entrada pro desconto na curva (ver `RetirementInputs.goalWithdrawals`). */
+export type GoalWithdrawal = { id: string; age: number; amount: number };
+
+/**
+ * O que aconteceu, num cenário específico, quando a curva chegou na idade de
+ * um objetivo com prazo — devolvido por `projectScenario` pra quem precisar
+ * saber se aquele objetivo específico "se pagou" nesse cenário (ex.: o selo
+ * "no caminho certo"/"requer ajuste" por objetivo em RetirementClient, e o
+ * aro do ícone no gráfico), sem ter que reconstruir a mesma conta por fora
+ * com `valueAtAge` (que já não bateria depois que a curva passou a descontar
+ * objetivos — ver `covered` abaixo).
+ */
+export type ScenarioGoalOutcome = {
+  id: string;
+  age: number;
+  amount: number;
+  /** Quanto havia no patrimônio INVESTIDO (não conta o saldo parado —
+   * mesma regra do saque de aposentadoria via `monthlyDrawdown`: só o que
+   * compõe é "gasto correntemente disponível") um instante antes deste saque. */
+  investedBefore: number;
+  /** Só desconta da curva quando dá pra pagar à vista nesse ritmo — se não
+   * dá, o objetivo simplesmente NÃO acontece nesse cenário (a curva não é
+   * forçada a zerar nem a ficar "no vermelho" por causa de um objetivo que,
+   * nesse ritmo, ainda não se pagou). `false` aqui é o que acende o selo
+   * "requer ajuste" daquele objetivo específico. */
+  covered: boolean;
+};
 
 export type ScenarioResult = {
   label: "conservador" | "base" | "agressivo";
@@ -55,6 +93,9 @@ export type ScenarioResult = {
   series: ScenarioPoint[];
   yearsToTarget: number | null; // years from now until the required nest egg is reached (may exceed the horizon)
   onTrack: boolean;
+  /** Um item por objetivo de `goalWithdrawals` que de fato caiu dentro do
+   * horizonte simulado (idade > currentAge) — ver `ScenarioGoalOutcome`. */
+  goalOutcomes: ScenarioGoalOutcome[];
 };
 
 export type RetirementSimulation = {
@@ -95,16 +136,33 @@ function projectScenario(
   monthlyContribution: number,
   annualReal: number,
   requiredNetWorth: number,
-  monthlyDrawdown: number
+  monthlyDrawdown: number,
+  goalWithdrawals?: GoalWithdrawal[]
 ): ScenarioResult {
   const monthlyRate = Math.pow(1 + annualReal, 1 / 12) - 1;
   const monthsToTarget = Math.max(0, Math.round((targetAge - currentAge) * 12));
+
+  // Agrupa cada objetivo no mês em que seu prazo cai (pode haver mais de um
+  // no mesmo mês) — pedido do Thiago, 03/10/2026: "objetivos, sonhos não
+  // estão entrando no cálculo da curva". Um objetivo cujo prazo já passou
+  // (ou é agora) não gera saque: não tem sentido simular um gasto retroativo
+  // nem dividir por um número de meses <= 0.
+  const goalsByMonth = new Map<number, GoalWithdrawal[]>();
+  for (const goal of goalWithdrawals ?? []) {
+    if (goal.amount <= 0) continue;
+    const monthIndex = Math.round((goal.age - currentAge) * 12);
+    if (monthIndex <= 0) continue;
+    const bucket = goalsByMonth.get(monthIndex);
+    if (bucket) bucket.push(goal);
+    else goalsByMonth.set(monthIndex, [goal]);
+  }
 
   // `invested` é a única parte que compõe (juros + aporte); `staticBase`
   // (saldo em conta + outros bens, tipicamente) é somada por fora em cada
   // ponto, sem render nada sozinha — ver comentário de
   // `currentInvestedNetWorth` em RetirementInputs.
   const series: ScenarioPoint[] = [{ age: currentAge, value: investedSeed + staticBase }];
+  const goalOutcomes: ScenarioGoalOutcome[] = [];
   let invested = investedSeed;
   let yearsToTarget: number | null = null;
 
@@ -126,6 +184,24 @@ function projectScenario(
         // mais negativo em vez de simplesmente zerado (correção parte da
         // curva completa até a expectativa de vida, 03/10/2026).
         : Math.max(0, invested * (1 + monthlyRate) - monthlyDrawdown);
+
+    // Saque pontual de cada objetivo cujo prazo é esse mês — compara contra
+    // `invested` sozinho (não `invested + staticBase`), mesma regra já usada
+    // pro `monthlyDrawdown`: só o que compõe é tratado como "disponível pra
+    // gastar" nesta simulação, o saldo parado nunca é tocado. Só desconta
+    // quando dá pra pagar à vista nesse ritmo — senão o objetivo não
+    // acontece nesse cenário (não força a curva a zerar por causa de um
+    // objetivo que ainda não se pagou; o selo "requer ajuste" já avisa isso).
+    const goalsThisMonth = goalsByMonth.get(m);
+    if (goalsThisMonth) {
+      for (const goal of goalsThisMonth) {
+        const investedBefore = invested;
+        const covered = investedBefore >= goal.amount;
+        if (covered) invested -= goal.amount;
+        goalOutcomes.push({ id: goal.id, age: goal.age, amount: goal.amount, investedBefore, covered });
+      }
+    }
+
     const value = invested + staticBase;
     if (m % 12 === 0) {
       series.push({ age: currentAge + m / 12, value });
@@ -149,6 +225,7 @@ function projectScenario(
     series: series.sort((a, b) => a.age - b.age),
     yearsToTarget,
     onTrack: finalValueAtTargetAge >= requiredNetWorth,
+    goalOutcomes,
   };
 }
 
@@ -178,7 +255,8 @@ export function simulateRetirementCurve(inputs: RetirementInputs): RetirementSim
       inputs.monthlyContribution,
       annualReal,
       requiredNetWorth,
-      monthlyDrawdown
+      monthlyDrawdown,
+      inputs.goalWithdrawals
     )
   );
 

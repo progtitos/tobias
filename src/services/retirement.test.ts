@@ -120,6 +120,91 @@ describe("buildIdealTrajectory", () => {
   });
 });
 
+describe("simulateRetirementCurve — goalWithdrawals (objetivos descontam da curva)", () => {
+  // Retorno real 0% (expectedReturnBase === expectedInflation) só pra deixar
+  // a aritmética exata e fácil de prever à mão nos testes abaixo — o
+  // mecanismo em si (projectScenario) não depende disso.
+  const zeroRealReturnInputs: Omit<RetirementInputs, "goalWithdrawals"> = {
+    currentAge: 30,
+    targetRetirementAge: 60,
+    currentNetWorth: 50_000,
+    currentInvestedNetWorth: 50_000,
+    monthlyContribution: 1000,
+    desiredMonthlyIncome: 0, // sem renda desejada: foco só no efeito dos objetivos, não da fase de retirada
+    expectedReturnConservative: 0.04,
+    expectedReturnBase: 0.04,
+    expectedReturnAggressive: 0.04,
+    expectedInflation: 0.04,
+  };
+
+  it("desconta o valor do objetivo da curva quando dá pra pagar à vista", () => {
+    // Aos 35 anos (60 meses): 50.000 + 1.000×60 = 110.000 acumulado — dá pra
+    // pagar um objetivo de 50.000 à vista.
+    const sim = simulateRetirementCurve({
+      ...zeroRealReturnInputs,
+      goalWithdrawals: [{ id: "carro", age: 35, amount: 50_000 }],
+    });
+
+    expect(sim.base.goalOutcomes).toEqual([
+      { id: "carro", age: 35, amount: 50_000, investedBefore: 110_000, covered: true },
+    ]);
+    const atGoalAge = sim.base.series.find((p) => p.age === 35)!;
+    expect(atGoalAge.value).toBeCloseTo(60_000, 5); // 110.000 − 50.000
+  });
+
+  it("não desconta (e marca covered: false) quando o patrimônio investido ainda não chega lá", () => {
+    // Aos 31 anos (12 meses): 50.000 + 1.000×12 = 62.000 — não cobre um
+    // objetivo de 200.000; o objetivo simplesmente não acontece nesse cenário.
+    const sim = simulateRetirementCurve({
+      ...zeroRealReturnInputs,
+      goalWithdrawals: [{ id: "casa", age: 31, amount: 200_000 }],
+    });
+
+    expect(sim.base.goalOutcomes).toEqual([
+      { id: "casa", age: 31, amount: 200_000, investedBefore: 62_000, covered: false },
+    ]);
+    const atGoalAge = sim.base.series.find((p) => p.age === 31)!;
+    expect(atGoalAge.value).toBeCloseTo(62_000, 5); // intocado, objetivo não "aconteceu"
+  });
+
+  it("aplica dois objetivos no mesmo mês em sequência, um podendo faltar depois do outro pagar", () => {
+    // Mesmo ponto de partida do primeiro teste: 110.000 aos 35 anos.
+    // Objetivo A (60.000) cabe; sobra 50.000; objetivo B (60.000) não cabe mais.
+    const sim = simulateRetirementCurve({
+      ...zeroRealReturnInputs,
+      goalWithdrawals: [
+        { id: "A", age: 35, amount: 60_000 },
+        { id: "B", age: 35, amount: 60_000 },
+      ],
+    });
+
+    expect(sim.base.goalOutcomes).toEqual([
+      { id: "A", age: 35, amount: 60_000, investedBefore: 110_000, covered: true },
+      { id: "B", age: 35, amount: 60_000, investedBefore: 50_000, covered: false },
+    ]);
+    const atGoalAge = sim.base.series.find((p) => p.age === 35)!;
+    expect(atGoalAge.value).toBeCloseTo(50_000, 5);
+  });
+
+  it("ignora objetivo com prazo já vencido (idade <= idade atual) e com valor zero/negativo", () => {
+    const sim = simulateRetirementCurve({
+      ...zeroRealReturnInputs,
+      goalWithdrawals: [
+        { id: "vencido", age: 30, amount: 10_000 }, // idade <= currentAge
+        { id: "zero", age: 40, amount: 0 },
+        { id: "negativo", age: 40, amount: -500 },
+      ],
+    });
+
+    expect(sim.base.goalOutcomes).toEqual([]);
+  });
+
+  it("sem goalWithdrawals, mantém o comportamento de antes (goalOutcomes vazio, curva intocada)", () => {
+    const sim = simulateRetirementCurve(zeroRealReturnInputs);
+    expect(sim.base.goalOutcomes).toEqual([]);
+  });
+});
+
 describe("simulateRetirementCurve — fase de retirada nunca fica negativa", () => {
   it("zera e permanece em zero depois de esgotar, em vez de ir abaixo de zero", () => {
     const inputs: RetirementInputs = {

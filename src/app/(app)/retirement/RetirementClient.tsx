@@ -113,8 +113,6 @@ export function RetirementClient({
     ]
   );
 
-  const fullInputs: RetirementInputs = { ...inputs, currentNetWorth, currentInvestedNetWorth, guaranteedMonthlyIncome };
-
   // Converte "daqui a quantos anos" (fixo, calculado no servidor) pra idade
   // no eixo X do gráfico, que é a unidade que o resto da curva usa — soma a
   // idade atual que a pessoa está digitando agora, então o marcador
@@ -127,6 +125,25 @@ export function RetirementClient({
     achieved: g.achieved,
     age: inputs.currentAge + g.yearsFromNow,
   }));
+  // Cada objetivo com valor e prazo vira um saque pontual de verdade na
+  // curva, não só um ícone de referência (pedido do Thiago, 03/10/2026:
+  // "objetivos, sonhos não estão entrando no cálculo da curva") — ver
+  // `goalWithdrawals`/`ScenarioGoalOutcome` em services/retirement.ts. Fora
+  // daqui: um objetivo já "achieved" (dinheiro já separado/gasto) não gera
+  // novo saque futuro, e um com prazo <= idade atual (vencido) também não
+  // entra — `projectScenario` já ignora esse caso, mas filtrar aqui evita
+  // mandar entradas sem sentido pro cálculo.
+  const goalWithdrawals = chartGoalMarkers
+    .filter((g) => !g.achieved && g.age > inputs.currentAge && (g.targetAmount ?? 0) > 0)
+    .map((g) => ({ id: g.id, age: g.age, amount: g.targetAmount as number }));
+
+  const fullInputs: RetirementInputs = {
+    ...inputs,
+    currentNetWorth,
+    currentInvestedNetWorth,
+    guaranteedMonthlyIncome,
+    goalWithdrawals,
+  };
 
   const simulation = useMemo(() => simulateRetirementCurve(fullInputs), [JSON.stringify(fullInputs)]);
   const suggestedContribution = useMemo(
@@ -204,17 +221,26 @@ export function RetirementClient({
     [simulation.base.series, inputs.targetRetirementAge]
   );
   // Selo de status por objetivo com prazo e valor (redesenho aprovado,
-  // 02/10/2026: "liga os pontos" — o patrimônio projetado, na idade do
-  // prazo, já alcança o valor do objetivo?). Mesma régua que o ícone de cada
-  // um usa no gráfico (ver RetirementChart, GoalMarkerShape) pra colorir o
-  // aro ok/alerta — calculada aqui de novo só pro texto, não passada pro
-  // gráfico, que já recebe o `chartGoalMarkers` cru e calcula por conta
-  // própria (evita os dois ficarem fora de sincronia se um mudar sozinho).
+  // 02/10/2026: "liga os pontos", estendido em 03/10/2026 pra usar o
+  // resultado de verdade do saque simulado — `goalOutcomes` — em vez de só
+  // checar se a curva, sem descontar nada, passava por cima do valor). Um
+  // objetivo achieved ou com prazo já vencido (idade <= atual) não gera
+  // `goalOutcome` nenhum (ver filtro de `goalWithdrawals` acima) — cai no
+  // fallback por `valueAtAge`, mesmo cálculo de antes dessa mudança. Mesma
+  // régua que o ícone de cada objetivo usa no gráfico (ver RetirementChart,
+  // GoalMarkerShape), que recebe `simulation.base.goalOutcomes` direto pra
+  // não ficar calculando por conta própria e saindo de sincronia.
   const goalStatuses = chartGoalMarkers
     .filter((g) => (g.targetAmount ?? 0) > 0)
     .map((g) => {
-      const curveValueThere = valueAtAge(simulation.base.series, g.age);
-      const onTrack = g.achieved || (curveValueThere != null && curveValueThere >= (g.targetAmount ?? 0));
+      if (g.achieved) return { id: g.id, title: g.title, achieved: true, onTrack: true };
+      const outcome = simulation.base.goalOutcomes.find((o) => o.id === g.id);
+      const onTrack =
+        outcome?.covered ??
+        (() => {
+          const curveValueThere = valueAtAge(simulation.base.series, g.age);
+          return curveValueThere != null && curveValueThere >= (g.targetAmount ?? 0);
+        })();
       return { id: g.id, title: g.title, achieved: g.achieved, onTrack };
     });
 
@@ -276,6 +302,7 @@ export function RetirementClient({
               height={300}
               dark
               goalMarkers={chartGoalMarkers}
+              goalOutcomes={simulation.base.goalOutcomes}
               showLegend
               variant="hero"
               idealTrajectory={idealTrajectory}

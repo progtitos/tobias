@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
-import type { RetirementSimulation, IdealTrajectory, ScenarioPoint } from "@/services/retirement";
+import type { RetirementSimulation, IdealTrajectory, ScenarioPoint, ScenarioGoalOutcome } from "@/services/retirement";
 import { valueAtAge } from "@/services/retirement";
 import { formatBRL } from "@/lib/utils/money";
 
@@ -166,6 +166,7 @@ export function RetirementChart({
   height = 260,
   dark = false,
   goalMarkers = [],
+  goalOutcomes = [],
   showLegend = false,
   variant = "scenarios",
   idealTrajectory = null,
@@ -182,6 +183,15 @@ export function RetirementChart({
   dark?: boolean;
   /** Sonhos/Objetivos com data-alvo, plotados como marcadores na timeline do patrimônio (ver ChartGoalMarker acima). */
   goalMarkers?: ChartGoalMarker[];
+  /** O que de fato aconteceu com cada objetivo no cenário base (ver
+   * `ScenarioGoalOutcome`/`goalWithdrawals` em services/retirement —
+   * pedido do Thiago, 03/10/2026: "objetivos, sonhos não estão entrando no
+   * cálculo da curva"). Usado pra colorir o aro do ícone (ok/alerta) com o
+   * MESMO veredito do saque simulado, em vez de recalcular por fora com
+   * `valueAtAge` (que não bate mais depois que a curva passou a descontar
+   * objetivos). Um objetivo sem outcome aqui (achieved, ou prazo já vencido)
+   * cai no fallback por `valueAtAge`, mesmo cálculo de antes dessa mudança. */
+  goalOutcomes?: ScenarioGoalOutcome[];
   /** Legenda abaixo do gráfico — 3 cenários em "scenarios", "Seu patrimônio"
    * + "Principal investido" + "Aposentadoria ideal" em "hero". */
   showLegend?: boolean;
@@ -453,13 +463,22 @@ export function RetirementChart({
         )}
         {/* Ícone de cada objetivo plotado em (idade do prazo, valor que
             custa) — não mais uma curva própria por objetivo (ver comentário
-            de GoalMarkerShape). A pergunta visual é só "nessa idade, meu
-            patrimônio projetado já cobre isso?": daí o aro ficar ok/alerta
-            conforme a curva, naquela idade, já alcança o valor ou não. */}
+            de GoalMarkerShape). O aro ok/alerta usa o MESMO veredito do saque
+            de verdade simulado em `goalOutcomes` (ver comentário da prop) —
+            objetivo achieved ou com prazo já vencido não tem outcome, cai no
+            fallback por `valueAtAge` (comportamento de antes do desconto por
+            objetivo entrar na curva, 03/10/2026). */}
         {isHero &&
           visibleGoalMarkers.map((marker) => {
-            const curveValueThere = valueAtAge(simulation.base.series, marker.age);
-            const onTrack = marker.achieved || (curveValueThere != null && curveValueThere >= marker.targetAmount);
+            const outcome = goalOutcomes.find((o) => o.id === marker.id);
+            const onTrack =
+              marker.achieved ||
+              outcome?.covered ||
+              (outcome == null &&
+                (() => {
+                  const curveValueThere = valueAtAge(simulation.base.series, marker.age);
+                  return curveValueThere != null && curveValueThere >= marker.targetAmount;
+                })());
             return (
               <ReferenceDot
                 key={marker.id}
