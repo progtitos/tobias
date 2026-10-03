@@ -141,6 +141,21 @@ const EXPECTATIVA_SOBREVIDA_APROX: Array<[idade: number, anos: number]> = [
   [75, 11.2],
   [80, 8.6],
 ];
+/**
+ * Idade aproximada até a qual a curva "Aposentadoria Ideal" (ver
+ * buildIdealTrajectory, services/retirement.ts) desenha a fase de "viver de
+ * renda" — pedido do Thiago, 03/10/2026: "não ta tendo a perspectiva de vida
+ * também igual na amostra que mostrou" (a amostra aprovada mostrava a curva
+ * até a expectativa de vida, não só até a idade de aposentadoria). Reaproveita
+ * a mesma tábua aproximada já usada no Pedágio 50% (ver aviso no topo do
+ * arquivo sobre ela não ser a tábua oficial do IBGE atualizada) — aqui o uso
+ * é só pra dar um horizonte visual sensato ao gráfico, não uma conta
+ * previdenciária, então a mesma aproximação já é suficiente.
+ */
+export function estimateLifeExpectancyAge(ageAtRetirement: number): number {
+  return Math.round(ageAtRetirement + expectativaSobrevidaAprox(ageAtRetirement));
+}
+
 function expectativaSobrevidaAprox(idade: number): number {
   const tabela = EXPECTATIVA_SOBREVIDA_APROX;
   if (idade <= tabela[0][0]) return tabela[0][1];

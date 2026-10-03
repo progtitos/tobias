@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
-import type { RetirementSimulation, MetaTrajectory } from "@/services/retirement";
+import type { RetirementSimulation, IdealTrajectory, ScenarioPoint } from "@/services/retirement";
 import { valueAtAge } from "@/services/retirement";
 import { formatBRL } from "@/lib/utils/money";
 
@@ -55,26 +55,38 @@ const GOAL_TYPE_LABEL: Record<string, string> = {
 // variável. O rótulo do tooltip deixa isso explícito (pedido do Thiago: os
 // nomes "agressivo"/"base"/"conservador" sozinhos passavam a impressão de que
 // eram opções de investimento, ou de que só dinheiro investido crescia assim).
-const SCENARIO_TOOLTIP_LABEL = {
+const SCENARIO_TOOLTIP_LABEL: Record<string, string> = {
   conservador: "Patrimônio · cenário conservador",
   base: "Patrimônio · cenário base",
   agressivo: "Patrimônio · cenário agressivo",
 };
 
+// Rótulos do tooltip na variante "hero" (estilo 2 aprovado, 03/10/2026):
+// patrimônio projetado, principal investido (sem rendimento) e a curva
+// "Aposentadoria Ideal" — três conceitos diferentes dos 3 cenários lado a
+// lado da variante "scenarios", por isso um mapa de rótulos à parte.
+const HERO_TOOLTIP_LABEL: Record<string, string> = {
+  base: "Patrimônio projetado",
+  principal: "Principal investido",
+  ideal: "Aposentadoria ideal",
+};
+
 // Tooltip em card (redesenho aprovado, 02/10/2026 — "legenda, eixo Y
-// visível, tooltip em card"): cabeçalho com a idade + uma linha por cenário
-// (bolinha colorida igual à linha do gráfico, nome e valor alinhados), em
-// vez do tooltip padrão do Recharts (DefaultTooltipContent, uma lista crua).
-// A <Area> usada só pra pintar o gradiente sob a linha "base" tem o mesmo
-// dataKey da <Line> "base" (mesmo dado, dois elementos gráficos) — sem essa
-// dedupe, o tooltip mostraria "Patrimônio · cenário base" duas vezes
-// seguidas.
-function ScenarioTooltipContent(
+// visível, tooltip em card"; estendido no redesenho "estilo 2", 03/10/2026,
+// pra também servir a variante "hero" com seus próprios rótulos): cabeçalho
+// com a idade + uma linha por série (bolinha colorida igual à linha do
+// gráfico, nome e valor alinhados), em vez do tooltip padrão do Recharts
+// (DefaultTooltipContent, uma lista crua). A <Area> usada só pra pintar o
+// gradiente sob a linha "base" tem o mesmo dataKey da <Line> "base" (mesmo
+// dado, dois elementos gráficos) — sem essa dedupe, o tooltip mostraria a
+// mesma linha duas vezes seguidas.
+function ChartTooltipContent(
   props: TooltipContentProps<ValueType, NameType> & {
     palette: { tooltipBg: string; tooltipBorder: string; tooltipText: string };
+    labels: Record<string, string>;
   }
 ) {
-  const { active, label, palette } = props;
+  const { active, label, palette, labels } = props;
   if (!active) return null;
 
   const seen = new Set<string>();
@@ -97,7 +109,7 @@ function ScenarioTooltipContent(
           <div key={String(p.dataKey)} className="flex items-center gap-4 justify-between">
             <span className="flex items-center gap-1.5 opacity-75">
               <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} aria-hidden />
-              {SCENARIO_TOOLTIP_LABEL[p.dataKey as keyof typeof SCENARIO_TOOLTIP_LABEL] ?? p.name}
+              {labels[p.dataKey as string] ?? p.name}
             </span>
             <span className="font-medium tabular-nums">{typeof p.value === "number" ? formatBRL(p.value) : p.value}</span>
           </div>
@@ -107,27 +119,14 @@ function ScenarioTooltipContent(
   );
 }
 
-/** Valor compacto só pro rótulo da curva Meta ("R$ 540 mil", "R$ 1,2 mi") —
- * formatBRL por extenso não cabe num rótulo curto dentro do gráfico. */
-function formatCompactBRL(value: number): string {
-  const abs = Math.abs(value);
-  const sign = value < 0 ? "-" : "";
-  if (abs >= 1_000_000) {
-    return `${sign}R$ ${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
-  }
-  if (abs >= 1_000) {
-    return `${sign}R$ ${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
-  }
-  return formatBRL(value);
-}
-
 function buildDataset(
   sim: RetirementSimulation,
   targetAge: number,
   maxAgeOverride?: number,
-  metaTrajectory?: MetaTrajectory | null
+  idealTrajectory?: IdealTrajectory | null,
+  principalSeries?: ScenarioPoint[] | null
 ) {
-  const byAge = (series: RetirementSimulation["base"]["series"]) => {
+  const byAge = (series: RetirementSimulation["base"]["series"] | ScenarioPoint[]) => {
     const map = new Map<number, number>();
     for (const p of series) map.set(Math.round(p.age), p.value);
     return map;
@@ -135,15 +134,18 @@ function buildDataset(
   const cons = byAge(sim.conservative.series);
   const base = byAge(sim.base.series);
   const agg = byAge(sim.aggressive.series);
-  const meta = metaTrajectory ? byAge(metaTrajectory.series) : null;
+  const ideal = idealTrajectory ? byAge(idealTrajectory.series) : null;
+  const principal = principalSeries ? byAge(principalSeries) : null;
 
   const minAge = Math.round(sim.conservative.series[0]?.age ?? 0);
   const lastAge = (series: RetirementSimulation["base"]["series"]) => Math.round(series.at(-1)?.age ?? minAge);
   const naturalMaxAge = Math.max(targetAge, lastAge(sim.conservative.series), lastAge(sim.base.series), lastAge(sim.aggressive.series));
-  // Na variante "hero" o gráfico não desenha a fase de "viver de renda"
-  // (ver abaixo) — ele para exatamente na idade-alvo, ou um pouco depois se
-  // algum objetivo vencer depois da aposentadoria planejada. Fora da "hero"
-  // mantém o horizonte completo de sempre (ex.: cards compactos).
+  // Na variante "hero" o gráfico desenha até a expectativa de vida (ver
+  // `lifeExpectancyAge` em RetirementChart — redesenho "estilo 2" aprovado,
+  // 03/10/2026, corrigindo a versão anterior que parava exatamente na
+  // aposentadoria: "não ta tendo a perspectiva de vida também igual na
+  // amostra que mostrou"). Fora da "hero" mantém o horizonte completo de
+  // sempre (ex.: cards compactos).
   const maxAge = maxAgeOverride != null ? Math.min(naturalMaxAge, maxAgeOverride) : naturalMaxAge;
   const ages = Array.from({ length: Math.max(0, maxAge - minAge + 1) }, (_, i) => minAge + i);
 
@@ -152,51 +154,54 @@ function buildDataset(
     conservador: cons.get(age) ?? null,
     base: base.get(age) ?? null,
     agressivo: agg.get(age) ?? null,
-    meta: meta?.get(age) ?? null,
+    ideal: ideal?.get(age) ?? null,
+    principal: principal?.get(age) ?? null,
   }));
 }
 
 export function RetirementChart({
   simulation,
   targetAge,
+  lifeExpectancyAge,
   height = 260,
   dark = false,
   goalMarkers = [],
   showLegend = false,
   variant = "scenarios",
-  metaTrajectory = null,
+  idealTrajectory = null,
+  principalSeries = null,
 }: {
   simulation: RetirementSimulation;
   targetAge: number;
+  /** Idade até onde a variante "hero" desenha a fase de "viver de renda" —
+   * ver `estimateLifeExpectancyAge` em services/inss.ts. Ignorado fora da
+   * "hero" (os cards compactos continuam parando no fim do cenário). */
+  lifeExpectancyAge?: number;
   height?: number;
   /** Use the light-on-dark-green palette for cards on the redesigned dashboard. */
   dark?: boolean;
-  /** Sonhos/Objetivos com data-alvo, plotados como marcadores na linha do tempo (ver ChartGoalMarker acima). */
+  /** Sonhos/Objetivos com data-alvo, plotados como marcadores na timeline do patrimônio (ver ChartGoalMarker acima). */
   goalMarkers?: ChartGoalMarker[];
-  /** Legenda abaixo do gráfico — 3 cenários em "scenarios", só "Seu
-   * patrimônio" em "hero" (os objetivos e a aposentadoria já se explicam
-   * pelo próprio ícone/rótulo no gráfico, sem precisar de uma entrada extra
-   * cada). O eixo Y com valores em R$ foi tentado no redesenho de
-   * 02/10/2026 mas revertido no mesmo dia: o print de referência do Thiago
-   * não tinha essa escala, e ela não ajudava — os cards compactos (Dashboard,
-   * reveal do onboarding) continuam sem legenda nem eixo de propósito: pouco
-   * espaço pra algo que ali só repetiria o que o texto ao lado já diz. */
+  /** Legenda abaixo do gráfico — 3 cenários em "scenarios", "Seu patrimônio"
+   * + "Principal investido" + "Aposentadoria ideal" em "hero". */
   showLegend?: boolean;
   /** "scenarios" (padrão): as 3 linhas de cenário lado a lado, como hoje nos
-   * cards compactos do Dashboard/onboarding. "hero": uma curva só (o
-   * patrimônio projetado no cenário base), que precisa "ligar os pontos" —
-   * sair de hoje, passar pelos ícones de cada objetivo (idade × valor) e
-   * terminar na aposentadoria, destacada em vermelho (redesenho aprovado,
-   * 02/10/2026: "tudo em curva, não umas linhas soltas pontilhadas" + "os
-   * objetivos podem ser substituídos por ícones"). Usada só pela tela
-   * /retirement ("Futuro"); os cards compactos continuam em "scenarios". */
+   * cards compactos do Dashboard/onboarding. "hero": o patrimônio projetado
+   * no cenário base ligando os objetivos até a aposentadoria e seguindo pela
+   * fase de retirada até a expectativa de vida, ao lado da curva tracejada
+   * "Aposentadoria Ideal" (redesenho "estilo 2" aprovado, 03/10/2026, sobre o
+   * visual de referência que o Thiago mandou). Usada só pela tela /retirement
+   * ("Futuro"); os cards compactos continuam em "scenarios". */
   variant?: "scenarios" | "hero";
-  /** Série da curva Meta (ver buildMetaTrajectory em services/retirement) —
-   * só usada quando variant="hero". `null` quando a meta já está coberta
-   * pelo patrimônio de hoje, ou quando nem um retorno de 50%/ano chegaria
-   * lá — nos dois casos a curva Meta simplesmente não aparece (o marcador
-   * fixo da Aposentadoria continua mostrando o destino de qualquer jeito). */
-  metaTrajectory?: MetaTrajectory | null;
+  /** Curva "Aposentadoria Ideal" (ver buildIdealTrajectory em
+   * services/retirement) — só usada quando variant="hero". `null` quando a
+   * meta já está coberta pelo patrimônio de hoje, ou quando nem um retorno de
+   * 50%/ano chegaria lá — nos dois casos a curva simplesmente não aparece (o
+   * marcador fixo da Aposentadoria continua mostrando o destino). */
+  idealTrajectory?: IdealTrajectory | null;
+  /** Curva "Principal Investido" (ver buildPrincipalSeries em
+   * services/retirement) — só usada quando variant="hero". */
+  principalSeries?: ScenarioPoint[] | null;
 }) {
   const isHero = variant === "hero";
   // Objetivos sem valor-alvo não têm onde ser plotados no eixo Y (que agora
@@ -204,8 +209,10 @@ export function RetirementChart({
   // a "Data para conquista" virando obrigatória na criação (02/10/2026),
   // isso só deve acontecer pra objetivos criados antes dessa mudança.
   const plottableGoals = goalMarkers.filter((g): g is ChartGoalMarker & { targetAmount: number } => (g.targetAmount ?? 0) > 0);
-  const heroMaxAge = isHero ? Math.max(targetAge, ...plottableGoals.map((g) => g.age)) : undefined;
-  const data = buildDataset(simulation, targetAge, heroMaxAge, isHero ? metaTrajectory : null);
+  const heroMaxAge = isHero
+    ? Math.max(lifeExpectancyAge ?? targetAge, targetAge, ...plottableGoals.map((g) => g.age))
+    : undefined;
+  const data = buildDataset(simulation, targetAge, heroMaxAge, isHero ? idealTrajectory : null, isHero ? principalSeries : null);
 
   // Normally 0 already sits at the bottom of the axis (it's the domain's
   // minimum whenever there's any positive net worth in the series). But for
@@ -216,19 +223,29 @@ export function RetirementChart({
   // like every other chart, while a normal (partly-positive) scenario keeps
   // its usual orientation.
   const curveValues = isHero
-    ? data.map((d) => d.base).filter((v): v is number => v !== null)
+    ? data.flatMap((d) => [d.base, d.principal]).filter((v): v is number => v !== null)
     : data.flatMap((d) => [d.conservador, d.base, d.agressivo]).filter((v): v is number => v !== null);
-  // Em "hero" o eixo também precisa caber o valor de cada objetivo e o
-  // patrimônio necessário pra aposentadoria — senão um ícone fica pendurado
-  // acima do topo do gráfico sempre que a meta é mais alta que a curva
+  // Em "hero" o eixo também precisa caber o valor de cada objetivo, o
+  // patrimônio necessário pra aposentadoria e a curva "Aposentadoria Ideal"
+  // inteira — senão um ícone ou a própria curva tracejada fica pendurado
+  // acima do topo do gráfico sempre que a meta é mais alta que a curva real
   // chegou a ficar (exatamente o caso que esse gráfico existe pra mostrar).
-  const heroTargets = isHero ? [simulation.requiredNetWorth, ...plottableGoals.map((g) => g.targetAmount)] : [];
+  const idealValues = idealTrajectory ? idealTrajectory.series.map((p) => p.value) : [];
+  const heroTargets = isHero ? [simulation.requiredNetWorth, ...plottableGoals.map((g) => g.targetAmount), ...idealValues] : [];
   const allValues = [...curveValues, ...heroTargets];
   const rawMax = allValues.length > 0 ? Math.max(...allValues) : 0;
   const rawMin = allValues.length > 0 ? Math.min(...allValues) : 0;
-  const yDomainMax = Math.max(0, rawMax);
+  const yDomainMaxRaw = Math.max(0, rawMax);
   const yDomainMin = Math.min(0, rawMin);
-  const yReversed = yDomainMax === 0;
+  const yReversed = yDomainMaxRaw === 0;
+  // Dá uma folga de 12% acima do maior valor plotado só na "hero" (não
+  // revertida) — sem isso, sempre que a Aposentadoria (ou um objetivo, ou a
+  // própria curva "Aposentadoria Ideal") é o MAIOR valor do gráfico — o caso
+  // mais comum, já que o patrimônio normalmente ainda não alcançou a meta —
+  // o marcador cai bem na borda superior do SVG e fica cortado pela margem
+  // (bug reportado pelo Thiago, 03/10/2026, print com "Aposentadoria" cortada
+  // no canto superior direito).
+  const yDomainMax = isHero && !yReversed && yDomainMaxRaw > 0 ? yDomainMaxRaw * 1.12 : yDomainMaxRaw;
 
   const palette = dark
     ? {
@@ -249,6 +266,10 @@ export function RetirementChart({
         // vermelho") — mais vívido que o danger-600 do design system porque
         // precisa saltar aos olhos sobre o fundo escuro.
         aposentadoria: "#e5584a",
+        // Cinza do "Principal Investido" (estilo 2 aprovado, 03/10/2026) —
+        // neutro o bastante pra nunca competir com o verde/vermelho, que são
+        // as duas curvas que realmente importam comparar.
+        principal: "#8a988f",
       }
     : {
         grid: "#ece5d3",
@@ -264,6 +285,7 @@ export function RetirementChart({
         ok: "#1f8f74",
         warn: "#a8791f",
         aposentadoria: "#c14a3a",
+        principal: "#7c8780",
       };
 
   const gradientId = dark ? "retirementBaseFillDark" : "retirementBaseFillLight";
@@ -285,16 +307,15 @@ export function RetirementChart({
       <ComposedChart
         data={data}
         margin={
-          // Na "hero" os marcadores (ícone de objetivo, bandeira da
-          // aposentadoria) são círculos de até 13px de raio desenhados em
-          // cima dos dados — sem uma margem que caiba esse raio, um objetivo
-          // com prazo bem perto da idade atual (ou bem no fim do horizonte)
-          // cai perto do x=0/x=max do SVG e tem metade do círculo cortada
-          // fora da área visível (bug reportado pelo Thiago, 03/10/2026:
-          // ícone do objetivo "casa" aparecendo pela metade, cortado à
-          // esquerda do gráfico). Fora da "hero" não há marcador nenhum, só
-          // as 3 linhas de cenário, então a margem apertada de sempre segue
-          // valendo.
+          // Na "hero" os marcadores (ícone de objetivo, ponto da
+          // aposentadoria) são círculos desenhados em cima dos dados — sem
+          // uma margem que caiba o raio deles, um objetivo com prazo bem
+          // perto da idade atual (ou bem no fim do horizonte) cai perto do
+          // x=0/x=max do SVG e tem metade do círculo cortada fora da área
+          // visível (bug reportado pelo Thiago, 03/10/2026: ícone do
+          // objetivo "casa" aparecendo pela metade, cortado à esquerda do
+          // gráfico). Fora da "hero" não há marcador nenhum, só as 3 linhas
+          // de cenário, então a margem apertada de sempre segue valendo.
           isHero ? { top: 20, right: 18, bottom: 4, left: 18 } : { top: 8, right: 12, bottom: 0, left: 0 }
         }
       >
@@ -321,13 +342,17 @@ export function RetirementChart({
           tickLine={false}
         />
         <YAxis tick={false} width={0} axisLine={false} tickLine={false} domain={[yDomainMin, yDomainMax]} reversed={yReversed} />
-        <Tooltip content={(props) => <ScenarioTooltipContent {...props} palette={palette} />} />
+        <Tooltip
+          content={(props) => (
+            <ChartTooltipContent {...props} palette={palette} labels={isHero ? HERO_TOOLTIP_LABEL : SCENARIO_TOOLTIP_LABEL} />
+          )}
+        />
         <ReferenceLine y={0} stroke={palette.tick} strokeOpacity={0.5} />
         {/* A linha horizontal "Necessário" e a vertical "Aposentadoria" só
             fazem sentido na variante "scenarios" (cards compactos do
             Dashboard/onboarding) — na "hero" (tela "Futuro") os dois viraram
-            o próprio traço da curva (que fica vermelho perto do fim) mais o
-            marcador de destino na ponta, abaixo. */}
+            a própria curva tracejada "Aposentadoria Ideal" mais o marcador de
+            destino na idade-alvo, abaixo. */}
         {!isHero && simulation.requiredNetWorth > 0 && (
           <ReferenceLine
             y={simulation.requiredNetWorth}
@@ -342,6 +367,13 @@ export function RetirementChart({
             strokeOpacity={0.5}
             label={{ value: "Aposentadoria", fontSize: 11, fill: palette.tick, position: "insideTop" }}
           />
+        )}
+        {/* Linha vertical sutil na idade de aposentadoria, separando
+            visualmente a fase de acumulação da fase de "viver de renda" —
+            só faz sentido na "hero", que agora desenha as duas fases
+            (redesenho "estilo 2", 03/10/2026). */}
+        {isHero && (
+          <ReferenceLine x={targetAge} stroke={palette.grid} strokeDasharray="2 4" />
         )}
         <Area
           type="monotone"
@@ -359,6 +391,22 @@ export function RetirementChart({
             strokeWidth={1.5}
             strokeLinecap="round"
             dot={false}
+          />
+        )}
+        {/* "Principal Investido" (estilo 2 aprovado, 03/10/2026): quanto
+            entrou de verdade (patrimônio de hoje + aportes), sem nenhum
+            rendimento — a distância dela até "Seu patrimônio" é o retorno
+            composto de fato. Desenhada ANTES da linha base pra ficar por
+            baixo visualmente quando as duas se cruzam perto do início. */}
+        {isHero && principalSeries && (
+          <Line
+            type="monotone"
+            dataKey="principal"
+            stroke={palette.principal}
+            strokeWidth={2}
+            strokeLinecap="round"
+            dot={false}
+            isAnimationActive={false}
           />
         )}
         <Line
@@ -380,25 +428,23 @@ export function RetirementChart({
             dot={false}
           />
         )}
-        {/* Curva da Aposentadoria: uma segunda curva de verdade, sólida (não
-            pontilhada) e vermelha, separada da curva "Seu patrimônio" —
-            mostra o ritmo necessário pra chegar na aposentadoria no prazo
-            (ver buildMetaTrajectory). Só existe até a idade-alvo (não
-            continua pra fase de "viver de renda", diferente da "base"), e só
-            aparece quando há mesmo uma meta a perseguir: `null` quando ela
-            já está coberta pelo patrimônio de hoje, ou quando nem um retorno
-            de 50%/ano chegaria lá — nos dois casos o marcador fixo da
-            Aposentadoria abaixo já mostra o destino de qualquer jeito
-            (correção pedida pelo Thiago, 03/10/2026: "são duas curvas
-            distintas... no gráfico parece uma só" — a versão anterior
-            pintava a MESMA curva com um gradiente de cor em vez de desenhar
-            duas curvas separadas). */}
-        {isHero && metaTrajectory && (
+        {/* Curva "Aposentadoria Ideal": o ritmo necessário pra chegar na
+            aposentadoria no prazo, continuando pela mesma fase de retirada
+            até a expectativa de vida (ver buildIdealTrajectory) — tracejada
+            pra se diferenciar como uma referência/meta, não uma projeção real
+            (redesenho "estilo 2" aprovado, 03/10/2026, sobre o visual que o
+            Thiago mandou). Só aparece quando há mesmo uma meta a perseguir:
+            `null` quando ela já está coberta pelo patrimônio de hoje, ou
+            quando nem um retorno de 50%/ano chegaria lá — nos dois casos o
+            marcador fixo da Aposentadoria abaixo já mostra o destino de
+            qualquer jeito. */}
+        {isHero && idealTrajectory && (
           <Line
             type="monotone"
-            dataKey="meta"
+            dataKey="ideal"
             stroke={palette.aposentadoria}
-            strokeWidth={3}
+            strokeWidth={2.5}
+            strokeDasharray="7 5"
             strokeLinecap="round"
             dot={false}
             isAnimationActive={false}
@@ -427,9 +473,13 @@ export function RetirementChart({
           })}
         {/* Destino final: a aposentadoria, sempre na mesma posição fixa
             (idade-alvo × patrimônio necessário, calculados a partir das
-            finanças da pessoa — não é algo que o traço "decide" sozinho) e
-            sempre em destaque vermelho, com brilho, esteja a curva
-            alcançando ou não (pedido do Thiago, 02/10/2026). */}
+            finanças da pessoa — não é algo que o traço "decide" sozinho),
+            marcada com um ponto simples sobre a curva tracejada (o nome e o
+            valor agora aparecem no tooltip ao passar o mouse, não mais num
+            rótulo flutuante fixo — redesenho "estilo 2", 03/10/2026, que de
+            quebra resolve o corte do rótulo no topo do gráfico reportado
+            pelo Thiago no mesmo dia: sem texto flutuando acima do marcador,
+            não tem mais o que cortar). */}
         {isHero && (
           <ReferenceDot
             x={targetAge}
@@ -441,7 +491,6 @@ export function RetirementChart({
                 requiredNetWorth={simulation.requiredNetWorth}
                 color={palette.aposentadoria}
                 ringColor={palette.tooltipBg}
-                glowFilterId={glowFilterId}
               />
             )}
           />
@@ -451,7 +500,8 @@ export function RetirementChart({
     {showLegend && isHero && (
       <div className="flex items-center justify-center gap-4 mt-2.5 flex-wrap">
         <ChartLegendEntry color={palette.base} label="Seu patrimônio" />
-        <ChartLegendEntry color={palette.aposentadoria} label="Aposentadoria" />
+        {principalSeries && <ChartLegendEntry color={palette.principal} label="Principal investido" />}
+        <ChartLegendEntry color={palette.aposentadoria} label="Aposentadoria ideal" dashed />
       </div>
     )}
     {showLegend && !isHero && (
@@ -467,7 +517,9 @@ export function RetirementChart({
 
 /** Bolinha colorida + nome do cenário — mesma cor da linha correspondente no
  * gráfico, pra quem olha a curva saber qual é qual sem depender só do
- * tooltip ao passar o mouse (pedido do Thiago, 02/10/2026: "legenda"). */
+ * tooltip ao passar o mouse (pedido do Thiago, 02/10/2026: "legenda").
+ * `dashed` desenha um traço tracejado em vez da bolinha, pra séries
+ * tracejadas no gráfico (ex.: "Aposentadoria ideal"). */
 function ChartLegendEntry({ color, label, dashed = false }: { color: string; label: string; dashed?: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-onbrand/70">
@@ -534,12 +586,12 @@ function GoalMarkerShape({
 }
 
 /**
- * O destino final da curva: aposentadoria, sempre destacada em vermelho e
- * com um brilho sutil (pedido do Thiago, 02/10/2026), numa posição fixa —
- * calculada a partir da renda desejada, da renda garantida (INSS) e da
- * idade-alvo que a pessoa preencheu, nunca de onde a curva "decidiu" parar.
- * Fica no mesmo lugar esteja a curva passando por cima (no caminho certo) ou
- * por baixo (precisa ajustar aporte/retorno) desse marcador.
+ * O destino final da curva: aposentadoria, numa posição fixa — calculada a
+ * partir da renda desejada, da renda garantida (INSS) e da idade-alvo que a
+ * pessoa preencheu, nunca de onde a curva "decidiu" parar. Um ponto simples
+ * sobre a curva tracejada "Aposentadoria Ideal" (ver comentário no ponto de
+ * uso, acima) — nome e valor aparecem no tooltip ao passar o mouse, não mais
+ * num rótulo flutuante fixo (redesenho "estilo 2", 03/10/2026).
  */
 function AposentadoriaMarkerShape({
   cx,
@@ -547,26 +599,18 @@ function AposentadoriaMarkerShape({
   requiredNetWorth,
   color,
   ringColor,
-  glowFilterId,
 }: {
   cx?: number;
   cy?: number;
   requiredNetWorth: number;
   color: string;
   ringColor: string;
-  glowFilterId: string;
 }) {
   if (cx == null || cy == null) return null;
   return (
-    <g filter={`url(#${glowFilterId})`}>
+    <g>
       <title>{`Aposentadoria · ${formatBRL(requiredNetWorth)}`}</title>
-      <circle cx={cx} cy={cy} r={13} fill={color} stroke={ringColor} strokeWidth={2} />
-      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={12}>
-        🏁
-      </text>
-      <text x={cx - 18} y={cy - 16} textAnchor="end" fontSize={11.5} fontWeight={700} fill={color}>
-        {`Aposentadoria · ${formatCompactBRL(requiredNetWorth)}`}
-      </text>
+      <circle cx={cx} cy={cy} r={5.5} fill={color} stroke={ringColor} strokeWidth={2} />
     </g>
   );
 }

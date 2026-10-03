@@ -3,6 +3,7 @@ import {
   simulateInssBenefit,
   computeAverageSalaryFromHistory,
   computeGuaranteedMonthlyIncome,
+  estimateLifeExpectancyAge,
   TETO_INSS_2026,
   PISO_INSS_2026,
   type InssProfile,
@@ -193,5 +194,22 @@ describe("computeGuaranteedMonthlyIncome com histórico do CNIS", () => {
     });
     expect(soManual.averageSalarySource).toBe("manual");
     expect(comHistorico.guaranteedMonthlyIncome).toBeGreaterThan(soManual.guaranteedMonthlyIncome);
+  });
+});
+
+describe("estimateLifeExpectancyAge", () => {
+  it("soma a sobrevida aproximada da tábua à idade de aposentadoria (ex.: 65 + 17,5 ≈ 83)", () => {
+    expect(estimateLifeExpectancyAge(65)).toBe(83); // 65 + 17.5 = 82.5, arredonda pra 83
+  });
+
+  it("satura no último degrau da tábua pra idades de aposentadoria bem altas", () => {
+    // tábua termina em 80/8,6 anos — qualquer idade maior usa esse mesmo valor
+    expect(estimateLifeExpectancyAge(90)).toBe(estimateLifeExpectancyAge(80) + 10);
+  });
+
+  it("sempre retorna uma idade maior que a idade de aposentadoria informada", () => {
+    for (const age of [55, 60, 65, 70]) {
+      expect(estimateLifeExpectancyAge(age)).toBeGreaterThan(age);
+    }
   });
 });

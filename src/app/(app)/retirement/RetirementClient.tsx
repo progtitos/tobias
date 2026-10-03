@@ -16,11 +16,18 @@ import { parseDateOnly } from "@/lib/utils/dates";
 import {
   simulateRetirementCurve,
   requiredMonthlyContribution,
-  buildMetaTrajectory,
+  buildIdealTrajectory,
+  buildPrincipalSeries,
+  findDepletionAge,
   valueAtAge,
   type RetirementInputs,
 } from "@/services/retirement";
-import { computeGuaranteedMonthlyIncome, computeAverageSalaryFromHistory, type Gender } from "@/services/inss";
+import {
+  computeGuaranteedMonthlyIncome,
+  computeAverageSalaryFromHistory,
+  estimateLifeExpectancyAge,
+  type Gender,
+} from "@/services/inss";
 import { saveRetirementPlanAction, uploadCnisAction, clearSalaryHistoryAction, type UploadCnisState } from "./actions";
 
 type Defaults = Omit<RetirementInputs, "currentNetWorth" | "currentInvestedNetWorth" | "guaranteedMonthlyIncome"> & {
@@ -126,21 +133,42 @@ export function RetirementClient({
     () => requiredMonthlyContribution(fullInputs, "base"),
     [JSON.stringify(fullInputs)]
   );
+  // Horizonte visual da curva (pedido do Thiago, 03/10/2026: "não ta tendo a
+  // perspectiva de vida também igual na amostra que mostrou") — tábua
+  // aproximada de expectativa de vida (ver services/inss.ts), não uma conta
+  // previdenciária exata.
+  const lifeExpectancyAge = useMemo(
+    () => estimateLifeExpectancyAge(inputs.targetRetirementAge),
+    [inputs.targetRetirementAge]
+  );
+  // Mesmo "gap essencial" que simulateRetirementCurve usa internamente pra
+  // sacar da curva base na fase de aposentadoria (services/retirement.ts) —
+  // repetido aqui pra também sacar da curva "Aposentadoria Ideal", senão ela
+  // ficaria achatada/crescendo pra sempre depois da idade-alvo em vez de
+  // mostrar se o próprio ritmo ideal se sustenta até o fim da expectativa de
+  // vida.
+  const monthlyDrawdown = Math.max(0, inputs.desiredMonthlyIncome - guaranteedMonthlyIncome);
   // Curva separada da Aposentadoria (correção 03/10/2026: "são duas curvas
   // distintas... no gráfico parece uma só" — antes a mesma curva "base"
   // simplesmente mudava de cor perto da ponta, em vez de haver uma segunda
   // curva de verdade). `null` quando a meta já está coberta pelo patrimônio
   // de hoje, ou quando nem 50%/ano de retorno chegaria lá a tempo — nos dois
   // casos o marcador fixo da Aposentadoria no gráfico já mostra o destino.
-  const metaTrajectory = useMemo(
+  // Desde o redesenho "estilo 2" (03/10/2026) essa curva também continua além
+  // da idade-alvo, até `lifeExpectancyAge`, sacando `monthlyDrawdown`/mês no
+  // mesmo ritmo ideal — pra mostrar visualmente se bater exatamente a meta
+  // também sustenta a pessoa até o fim da vida.
+  const idealTrajectory = useMemo(
     () =>
-      buildMetaTrajectory(
+      buildIdealTrajectory(
         inputs.currentAge,
         inputs.targetRetirementAge,
         currentNetWorth,
         currentInvestedNetWorth,
         inputs.monthlyContribution,
-        simulation.requiredNetWorth
+        simulation.requiredNetWorth,
+        lifeExpectancyAge,
+        monthlyDrawdown
       ),
     [
       inputs.currentAge,
@@ -149,7 +177,31 @@ export function RetirementClient({
       currentInvestedNetWorth,
       inputs.monthlyContribution,
       simulation.requiredNetWorth,
+      lifeExpectancyAge,
+      monthlyDrawdown,
     ]
+  );
+  // Linha cinza "Principal investido" (estilo 2): quanto teria hoje + todo
+  // aporte futuro, sem nenhum rendimento — a régua visual de "quanto é só
+  // dinheiro seu, sem ganho nenhum", ao lado da curva verde que já compõe.
+  const principalSeries = useMemo(
+    () =>
+      buildPrincipalSeries(
+        inputs.currentAge,
+        inputs.targetRetirementAge,
+        lifeExpectancyAge,
+        currentNetWorth,
+        inputs.monthlyContribution
+      ),
+    [inputs.currentAge, inputs.targetRetirementAge, lifeExpectancyAge, currentNetWorth, inputs.monthlyContribution]
+  );
+  // Nota de sustentabilidade: no cenário base, o patrimônio projetado se
+  // esgota antes da expectativa de vida? Compara contra `lifeExpectancyAge`
+  // pra virar um aviso em texto (mesmo espírito do selo "requer ajuste" que
+  // já existe por objetivo, agora olhando pro fim da curva).
+  const depletionAge = useMemo(
+    () => findDepletionAge(simulation.base.series, inputs.targetRetirementAge),
+    [simulation.base.series, inputs.targetRetirementAge]
   );
   // Selo de status por objetivo com prazo e valor (redesenho aprovado,
   // 02/10/2026: "liga os pontos" — o patrimônio projetado, na idade do
@@ -220,12 +272,14 @@ export function RetirementClient({
             <RetirementChart
               simulation={simulation}
               targetAge={inputs.targetRetirementAge}
+              lifeExpectancyAge={lifeExpectancyAge}
               height={300}
               dark
               goalMarkers={chartGoalMarkers}
               showLegend
               variant="hero"
-              metaTrajectory={metaTrajectory}
+              idealTrajectory={idealTrajectory}
+              principalSeries={principalSeries}
             />
             {/* Um selo por compromisso — aposentadoria (sempre primeiro, é o
                 destino final) e um por objetivo com prazo e valor, mesmo
@@ -276,6 +330,13 @@ export function RetirementClient({
                   <Sparkles className="h-3.5 w-3.5 shrink-0" />
                   Para chegar lá no cenário base, o aporte mensal precisaria ser de aproximadamente{" "}
                   <span className="font-medium">{formatBRL(suggestedContribution)}</span>.
+                </p>
+              )}
+              {depletionAge != null && (
+                <p className="text-gold-400 flex items-start gap-1.5">
+                  <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  No cenário base, o patrimônio se esgotaria por volta dos {depletionAge} anos — antes da expectativa
+                  de vida estimada de {lifeExpectancyAge} anos usada no gráfico.
                 </p>
               )}
               {goalsMissingData.length > 0 && (

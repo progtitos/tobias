@@ -117,7 +117,15 @@ function projectScenario(
   // showing "Requer ajuste".
   const maxMonths = MAX_PROJECTION_YEARS * 12;
   for (let m = 1; m <= maxMonths; m++) {
-    invested = m <= monthsToTarget ? invested * (1 + monthlyRate) + monthlyContribution : invested * (1 + monthlyRate) - monthlyDrawdown;
+    invested =
+      m <= monthsToTarget
+        ? invested * (1 + monthlyRate) + monthlyContribution
+        // Na fase de retirada o saldo investido não pode ficar negativo (não
+        // modelamos dívida aqui) — sem isso, uma vez esgotado o patrimônio
+        // continuaria "descontando" pra sempre, mostrando um valor cada vez
+        // mais negativo em vez de simplesmente zerado (correção parte da
+        // curva completa até a expectativa de vida, 03/10/2026).
+        : Math.max(0, invested * (1 + monthlyRate) - monthlyDrawdown);
     const value = invested + staticBase;
     if (m % 12 === 0) {
       series.push({ age: currentAge + m / 12, value });
@@ -200,6 +208,44 @@ export function valueAtAge(series: ScenarioPoint[], age: number): number | null 
     }
   }
   return series[series.length - 1].value;
+}
+
+/**
+ * Curva "Principal Investido" (cinza, redesenho "estilo 2" aprovado,
+ * 03/10/2026) — quanto do patrimônio é dinheiro que de fato entrou (o
+ * patrimônio de hoje + a soma dos aportes mensais), sem nenhum rendimento
+ * composto, pra servir de referência visual de "quanto é retorno de verdade"
+ * (a distância entre essa linha e "Seu patrimônio"). Para de crescer na
+ * idade-alvo (não modelamos "aportar depois de aposentado") e fica parada daí
+ * em diante — propositalmente NÃO cai na fase de retirada, porque "principal
+ * investido" é sobre quanto entrou, não o saldo atual.
+ */
+export function buildPrincipalSeries(
+  currentAge: number,
+  targetAge: number,
+  horizonAge: number,
+  currentNetWorth: number,
+  monthlyContribution: number
+): ScenarioPoint[] {
+  const ages: number[] = [];
+  for (let age = currentAge; age <= horizonAge; age++) ages.push(age);
+  if (ages.length === 0 || ages[ages.length - 1] !== horizonAge) ages.push(horizonAge);
+  return ages.map((age) => ({
+    age,
+    value: currentNetWorth + monthlyContribution * 12 * (Math.min(age, targetAge) - currentAge),
+  }));
+}
+
+/**
+ * Primeira idade, depois de `afterAge`, em que a série bate (ou fica abaixo
+ * de) zero — usado pra escrever a nota de sustentabilidade embaixo do
+ * gráfico ("seu patrimônio sustenta até os X anos" vs. "acaba aos X anos").
+ * `null` quando a série nunca esgota dentro do horizonte calculado (sustenta
+ * por toda a fase de retirada simulada).
+ */
+export function findDepletionAge(series: ScenarioPoint[], afterAge: number): number | null {
+  const depleted = series.find((p) => p.age > afterAge && p.value <= 0.5);
+  return depleted ? depleted.age : null;
 }
 
 /**
@@ -304,38 +350,56 @@ export function requiredAnnualReturnRate(
   return hi;
 }
 
-export type MetaTrajectory = { rate: number; series: ScenarioPoint[] };
+export type IdealTrajectory = { rate: number; series: ScenarioPoint[] };
 
 /**
- * A curva Meta em si: a série de pontos (idade, patrimônio) que resulta de
- * compor `requiredAnnualReturnRate` mês a mês, do patrimônio de hoje até a
- * idade-alvo — desenhada ao lado da projeção real pra mostrar visualmente o
- * ritmo necessário. Só existe até a idade-alvo (depois disso a pergunta "que
- * ritmo preciso manter" deixa de fazer sentido); as 3 projeções de cenário
- * continuam além dela, na fase de "viver da renda". `null` nos mesmos casos
- * de `requiredAnnualReturnRate` (meta já coberta, ou inatingível só com
- * retorno).
+ * A curva "Aposentadoria Ideal" (antiga curva "Meta"): a série de pontos
+ * (idade, patrimônio) que resulta de compor `requiredAnnualReturnRate` mês a
+ * mês, do patrimônio de hoje até a idade-alvo — desenhada ao lado da projeção
+ * real pra mostrar visualmente o ritmo necessário.
+ *
+ * Quando `lifeExpectancyAge`/`monthlyDrawdown` são informados (redesenho
+ * aprovado "estilo 2", 03/10/2026: "não ta tendo a perspectiva de vida
+ * também igual na amostra que mostrou" — a amostra desenhava essa curva até a
+ * expectativa de vida, não só até a aposentadoria), a curva continua depois
+ * da idade-alvo simulando a MESMA fase de retirada que `projectScenario` usa
+ * pras 3 projeções de cenário: saca `monthlyDrawdown`/mês do saldo, que
+ * continua compondo no mesmo ritmo necessário calculado para a fase de
+ * acumulação (não um retorno diferente) — "se eu mantiver exatamente o ritmo
+ * necessário, meu patrimônio-alvo também se sustenta até a expectativa de
+ * vida?". Sem esses dois parâmetros, mantém o comportamento anterior (só até
+ * a idade-alvo). `null` nos mesmos casos de `requiredAnnualReturnRate` (meta
+ * já coberta, ou inatingível só com retorno).
  */
-export function buildMetaTrajectory(
+export function buildIdealTrajectory(
   currentAge: number,
   targetAge: number,
   currentNetWorth: number,
   currentInvestedNetWorth: number,
   monthlyContribution: number,
-  requiredNetWorth: number
-): MetaTrajectory | null {
+  requiredNetWorth: number,
+  lifeExpectancyAge?: number,
+  monthlyDrawdown?: number
+): IdealTrajectory | null {
   const investedSeed = Math.min(Math.max(0, currentInvestedNetWorth), Math.max(0, currentNetWorth));
   const staticBase = currentNetWorth - investedSeed;
-  const months = Math.round((targetAge - currentAge) * 12);
-  const rate = requiredAnnualReturnRate(investedSeed, staticBase, monthlyContribution, requiredNetWorth, months);
+  const monthsToTarget = Math.round((targetAge - currentAge) * 12);
+  const rate = requiredAnnualReturnRate(investedSeed, staticBase, monthlyContribution, requiredNetWorth, monthsToTarget);
   if (rate === null) return null;
 
   const monthlyRate = Math.pow(1 + rate, 1 / 12) - 1;
   const series: ScenarioPoint[] = [{ age: currentAge, value: investedSeed + staticBase }];
   let invested = investedSeed;
-  for (let m = 1; m <= months; m++) {
-    invested = invested * (1 + monthlyRate) + monthlyContribution;
-    if (m % 12 === 0 || m === months) {
+  const totalMonths =
+    lifeExpectancyAge != null && lifeExpectancyAge > targetAge
+      ? Math.round((lifeExpectancyAge - currentAge) * 12)
+      : monthsToTarget;
+  for (let m = 1; m <= totalMonths; m++) {
+    invested =
+      m <= monthsToTarget
+        ? invested * (1 + monthlyRate) + monthlyContribution
+        : Math.max(0, invested * (1 + monthlyRate) - (monthlyDrawdown ?? 0));
+    if (m % 12 === 0 || m === monthsToTarget || m === totalMonths) {
       series.push({ age: currentAge + m / 12, value: invested + staticBase });
     }
   }
