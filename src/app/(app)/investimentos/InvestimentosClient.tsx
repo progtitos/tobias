@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
-import { Plus, Trash2, Pencil, Check, X, PlusCircle, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, PlusCircle, ArrowRight, PiggyBank } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/IconButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { InvestmentsPieCharts } from "./InvestmentsPieCharts";
@@ -200,10 +201,14 @@ function InvestmentsSection({
       )}
 
       {investments.length === 0 ? (
-        <p className="text-sm text-onbrand/55 py-12 text-center">
-          Você ainda não cadastrou investimentos. Adicione os seus para o patrimônio, a curva de aposentadoria e o
-          Ponteiro considerarem o que você já tem guardado.
-        </p>
+        !showForm && (
+          <EmptyState
+            icon={PiggyBank}
+            title="Nenhum investimento ainda"
+            description="Adicione os seus para o patrimônio, a curva de aposentadoria e o Ponteiro considerarem o que você já tem guardado."
+            action={{ label: "Adicionar investimento", onClick: () => setShowForm(true) }}
+          />
+        )
       ) : (
         <div className="space-y-2">
           {investments.map((inv) => (

@@ -49,8 +49,9 @@ const GOAL_TYPE_LABEL: Record<string, string> = {
   CUSTOM: "Outro",
 };
 
-// As três linhas projetam o PATRIMÔNIO TOTAL (contas + investimentos, não só
-// o que está investido) sob taxas de retorno hipotéticas diferentes — não são
+// As três linhas projetam o PATRIMÔNIO TOTAL (investido + outros bens, não
+// mais soma o saldo em conta desde 03/10/2026 — ver computeNetWorth em
+// services/aggregations.ts) sob taxas de retorno hipotéticas diferentes — não são
 // uma alocação real nem uma recomendação de quanto investir em renda
 // variável. O rótulo do tooltip deixa isso explícito (pedido do Thiago: os
 // nomes "agressivo"/"base"/"conservador" sozinhos passavam a impressão de que
@@ -467,7 +468,26 @@ export function RetirementChart({
             de verdade simulado em `goalOutcomes` (ver comentário da prop) —
             objetivo achieved ou com prazo já vencido não tem outcome, cai no
             fallback por `valueAtAge` (comportamento de antes do desconto por
-            objetivo entrar na curva, 03/10/2026). */}
+            objetivo entrar na curva, 03/10/2026).
+
+            `x` usa a idade ARREDONDADA, não `marker.age` cru — bug reportado
+            pelo Thiago, 03/10/2026 ("os ícones dos projeto ainda não aparece
+            na curva"): o eixo X é categórico (`XAxis dataKey="age"`, sem
+            `type="number"`), com uma categoria por ano inteiro (ver `ages` em
+            `buildDataset`, que só gera inteiros). Um objetivo real quase
+            nunca cai bem num aniversário (a idade vem de "hoje até a
+            data-alvo", um número fracionário), então o Recharts não achava a
+            categoria exata e o `ReferenceDot` (que só mapeia valores que
+            batem com uma categoria) resolvia pra x=0 — o ícone ia parar
+            espremido contra a borda esquerda do gráfico, atrás da margem,
+            em vez de na idade certa (mesma causa-raiz do bug anterior do
+            ícone "cortado à esquerda", só que pior: agora ficava fora da
+            área visível de vez). O marcador fixo da Aposentadoria nunca teve
+            esse problema por pura coincidência — `targetAge` já é um número
+            inteiro (campo "Idade para se aposentar"). Arredondar aqui casa
+            exatamente com a categoria mais próxima que a curva desenha,
+            mesmo truque que o tooltip de cada marcador já usa pra exibir a
+            idade ("previsto aos {Math.round(marker.age)} anos", abaixo). */}
         {isHero &&
           visibleGoalMarkers.map((marker) => {
             const outcome = goalOutcomes.find((o) => o.id === marker.id);
@@ -482,7 +502,7 @@ export function RetirementChart({
             return (
               <ReferenceDot
                 key={marker.id}
-                x={marker.age}
+                x={Math.round(marker.age)}
                 y={marker.targetAmount}
                 shape={(props: { cx?: number; cy?: number }) => (
                   <GoalMarkerShape cx={props.cx} cy={props.cy} marker={marker} onTrack={onTrack} palette={palette} />
@@ -501,7 +521,7 @@ export function RetirementChart({
             não tem mais o que cortar). */}
         {isHero && (
           <ReferenceDot
-            x={targetAge}
+            x={Math.round(targetAge)}
             y={simulation.requiredNetWorth}
             shape={(props: { cx?: number; cy?: number }) => (
               <AposentadoriaMarkerShape

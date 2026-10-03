@@ -25,6 +25,7 @@ import { BankBadge } from "@/components/ui/BankBadge";
 import { IconButton } from "@/components/ui/IconButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Modal } from "@/components/ui/Modal";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { BANKS, OTHER_BANK_ID, findBank } from "@/lib/utils/banks";
@@ -183,9 +184,12 @@ export function ContaClient({
               </div>
 
               {accounts.length === 0 ? (
-                <p className="text-sm text-onbrand/55 py-8 text-center">
-                  Nenhuma conta cadastrada ainda. Adicione pra o patrimônio refletir a realidade.
-                </p>
+                <EmptyState
+                  icon={Wallet}
+                  title="Nenhuma conta cadastrada ainda"
+                  description="Adicione pra o patrimônio refletir a realidade."
+                  action={{ label: "Adicionar conta", onClick: () => setFormTab("account") }}
+                />
               ) : (
                 <div className="divide-y divide-onbrand/[0.04]">
                   {active.map((a) => (
@@ -237,11 +241,17 @@ export function ContaClient({
               </div>
 
               {creditCards.length === 0 ? (
-                <p className="text-sm text-onbrand/55 py-8 text-center">
-                  {accounts.length === 0
-                    ? "Adicione uma conta primeiro: todo cartão fica ligado à conta que paga a fatura."
-                    : "Nenhum cartão cadastrado ainda."}
-                </p>
+                accounts.length === 0 ? (
+                  <p className="text-sm text-onbrand/55 py-8 text-center">
+                    Adicione uma conta primeiro: todo cartão fica ligado à conta que paga a fatura.
+                  </p>
+                ) : (
+                  <EmptyState
+                    icon={CreditCardIcon}
+                    title="Nenhum cartão cadastrado ainda"
+                    action={{ label: "Adicionar cartão", onClick: () => setFormTab("card") }}
+                  />
+                )
               ) : (
                 <div className="divide-y divide-onbrand/[0.04]">
                   {creditCards.map((c) => (

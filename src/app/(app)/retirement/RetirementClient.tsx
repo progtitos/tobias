@@ -282,9 +282,9 @@ export function RetirementClient({
         <div>
           <h1 className="font-sans font-bold text-2xl text-onbrand">Futuro</h1>
           <p className="text-sm text-onbrand/55 mt-1">
-            Uma curva só com o seu patrimônio total de hoje ({formatBRL(currentNetWorth)}: contas + investimentos), que
-            precisa ligar os pontos — passar pelo valor de cada objetivo com prazo e terminar na aposentadoria. Não é
-            uma recomendação de investimento nem sua alocação real.
+            Uma curva só com o seu patrimônio líquido de hoje ({formatBRL(currentNetWorth)}: investido + outros bens −
+            dívidas), que precisa ligar os pontos — passar pelo valor de cada objetivo com prazo e terminar na
+            aposentadoria. Não é uma recomendação de investimento nem sua alocação real.
           </p>
         </div>
         <Button size="sm" loading={pending} onClick={save}>

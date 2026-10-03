@@ -107,7 +107,18 @@ export async function expensesByCategory(userId: string, start: Date, end: Date)
   }));
 }
 
-/** Net worth = bank balances + investments (current value) + assets - debts (remaining). */
+/**
+ * Net worth = investments (current value) + assets - debts (remaining).
+ *
+ * Saldo em conta (`liquidAssets`) NÃO entra mais nessa soma — pedido do
+ * Thiago, 03/10/2026: "na tela patrimonio não deveria ter o valor de saldo
+ * da conta, pra mim não faz sentido" / "tirar conta do total também" (ele
+ * confirmou explicitamente que isso muda o número no Patrimônio, no
+ * Dashboard e na curva de Aposentadoria, que usa esse total como ponto de
+ * partida — ver `currentNetWorth` em services/retirementPlan.ts). `liquidAssets`
+ * continua calculado e exposto normalmente (o chat/IA ainda reporta o saldo
+ * em conta separadamente, ver financialContext.ts), só não soma mais aqui.
+ */
 export async function computeNetWorth(userId: string) {
   const [accountsSum, investmentsSum, assetsSum, debtsSum] = await Promise.all([
     db
@@ -138,7 +149,7 @@ export async function computeNetWorth(userId: string) {
     investedAssets,
     otherAssets,
     totalDebt,
-    netWorth: liquidAssets + investedAssets + otherAssets - totalDebt,
+    netWorth: investedAssets + otherAssets - totalDebt,
   };
 }
 

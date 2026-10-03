@@ -17,6 +17,7 @@ import {
   Pencil,
   Check,
   X,
+  PartyPopper,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -27,6 +28,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/IconButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatBRL } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { EmergencyFundTank } from "./EmergencyFundTank";
@@ -371,7 +373,14 @@ function AssetsSection({ assets }: { assets: Asset[] }) {
       )}
 
       {assets.length === 0 ? (
-        <p className="text-sm text-onbrand/55 py-6 text-center">Nenhum bem cadastrado ainda.</p>
+        !showForm && (
+          <EmptyState
+            icon={Car}
+            title="Nenhum bem cadastrado ainda"
+            description="Carro, imóvel quitado, joias: tudo que tem valor real mas não é dinheiro em conta nem investimento."
+            action={{ label: "Adicionar bem", onClick: () => setShowForm(true) }}
+          />
+        )
       ) : (
         <div className="space-y-2">
           {assets.map((a) => (
@@ -531,7 +540,10 @@ function DebtsSection({ debts }: { debts: Debt[] }) {
       )}
 
       {debts.length === 0 ? (
-        <p className="text-sm text-onbrand/55 py-6 text-center">Nenhuma dívida em aberto. 🎉</p>
+        // Diferente das outras "capas": aqui o vazio é uma notícia boa, não
+        // uma lacuna a preencher — sem ação primária (não faz sentido
+        // convidar a "adicionar uma dívida").
+        <EmptyState icon={PartyPopper} title="Nenhuma dívida em aberto" />
       ) : (
         <div className="space-y-2">
           {debts.map((d) => (
@@ -743,9 +755,14 @@ function GoalsSection({
       )}
 
       {goals.length === 0 ? (
-        <p className="text-sm text-onbrand/55 py-12 text-center">
-          Você ainda não tem objetivos. Conte um sonho seu pro Tobias no chat, ou crie um aqui.
-        </p>
+        !showForm && (
+          <EmptyState
+            icon={Sparkles}
+            title="Você ainda não tem objetivos"
+            description="Conte um sonho seu pro Tobias no chat, ou crie um aqui."
+            action={{ label: "Criar objetivo", onClick: () => setShowForm(true) }}
+          />
+        )
       ) : (
         <div className="space-y-3">
           {/* Redesenho aprovado: objetivos ativos lado a lado em telas largas
